@@ -1,16 +1,14 @@
 ## Pok3rTool CMakeLists.txt
-CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
+cmake_minimum_required(VERSION 3.0)
 
-PROJECT(Pok3rTool)
+project(Pok3rTool)
 
-ADD_SUBDIRECTORY(libchaos)
-ADD_SUBDIRECTORY(rawhid)
+add_subdirectory(libchaos)
+add_subdirectory(rawhid)
 
 ### =================== SOURCES =================== ###
 
-SET(POK3RTOOL_SOURCES
-    main.cpp
-
+set(POK3RLIB_SOURCES
     proto_pok3r.h
     proto_pok3r.cpp
     proto_cykb.h
@@ -22,7 +20,11 @@ SET(POK3RTOOL_SOURCES
     updatepackage.cpp
 )
 
-SET(FILES
+set(POK3RTOOL_SOURCES
+    main.cpp
+)
+
+set(FILES
     README.md
     99-pok3r.rules
     test.sh
@@ -30,19 +32,34 @@ SET(FILES
 
 ### =================== BUILD =================== ###
 
-ADD_CUSTOM_TARGET(pok3rtool-dummy SOURCES ${FILES})
+add_custom_target(pok3rtool-dummy SOURCES ${FILES})
 
-ADD_EXECUTABLE(pok3rtool ${POK3RTOOL_SOURCES})
+# Pok3rLib
+add_library(pok3rlib SHARED ${POK3RLIB_SOURCES})
+set_property(TARGET pok3rlib PROPERTY CXX_STANDARD 11)
+target_include_directories(pok3rlib PRIVATE ${LIBUSB_1_INCLUDE_DIRECTORIES})
+target_compile_definitions(pok3rlib PRIVATE ${LIBUSB_1_DEFINITIONS})
+target_link_libraries(pok3rlib chaos rawhid ${LIBUSB_1_LIBRARIES})
 
-SET_PROPERTY(TARGET pok3rtool PROPERTY CXX_STANDARD 11)
+# Pok3rTool
+add_executable(pok3rtool ${POK3RTOOL_SOURCES})
+set_property(TARGET pok3rtool PROPERTY CXX_STANDARD 11)
+target_link_libraries(pok3rtool chaos pok3rlib)
 
-TARGET_INCLUDE_DIRECTORIES(pok3rtool PRIVATE ${LIBUSB_1_INCLUDE_DIRECTORIES})
-TARGET_COMPILE_DEFINITIONS(pok3rtool PRIVATE ${LIBUSB_1_DEFINITIONS})
-
-TARGET_LINK_LIBRARIES(pok3rtool chaos rawhid ${LIBUSB_1_LIBRARIES})
-
-ADD_CUSTOM_COMMAND(TARGET pok3rtool POST_BUILD
+add_custom_command(TARGET pok3rtool POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:chaos>
         $<TARGET_FILE_DIR:pok3rtool>
 )
+
+if(MINGW)
+    # Apparently Qt's mingw doesn't come with some static libraries
+    get_filename_component(MINGW_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
+    add_custom_command(TARGET pok3rtool POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+            ${MINGW_DIR}/../i686-w64-mingw32/lib/libgcc_s_dw2-1.dll
+            ${MINGW_DIR}/../i686-w64-mingw32/lib/libstdc++-6.dll
+            ${MINGW_DIR}/../i686-w64-mingw32/lib/libwinpthread-1.dll
+            $<TARGET_FILE_DIR:pok3rtool>
+    )
+endif()
