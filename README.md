@@ -1,0 +1,16 @@
+# pok3rtool Vortex Keyboard Dev Tool/Library
+
+*Disclaimer: This project comes with no warranty, and may be used for free at your own risk.*
+
+The `pok3rtool` CLI application runs on Linux, Windows, and Mac OS X. Along with some development
+tools, `pok3rtool` implements the firmware update protocol over USB for the POK3R, POK3R RGB,
+Vortex Core, RACE3, ViBE, and some others.
+
+The `pok3rtool` executable is built with CMake. You will need the LibChaos submodule cloned to
+build it.
+
+**WARNING: THIS TOOL CAN VERY EASILY BRICK YOUR KEYBOARD IF USED INCORRECTLY, MAKING IT
+UNUSABLE WITHOUT EXPENSIVE DEVELOPMENT TOOLS. READ THE DOCUMENTATION, POSSIBLY READ THE
+CODE, AND PROCEED AT YOUR OWN RISK.**
+
+[See the wiki for pok3rtool usage, warnings, etc.](https://github.com/Vortex-Firmware/pok3rtool/wiki)

@@ -23,6 +23,7 @@ SET(POK3RTOOL_SOURCES
 )
 
 SET(FILES
+    README.md
     99-pok3r.rules
     test.sh
 )
