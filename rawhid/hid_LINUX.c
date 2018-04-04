@@ -35,6 +35,28 @@
 
 #include "hid.h"
 
+#define INTERFACE_SUBCLASS_NONE 0
+#define INTERFACE_PROTOCOL_NONE 0
+
+#define REQUEST_OUT         0x00
+#define REQUEST_IN          0x80
+
+#define REQUEST_STANDARD    0x00
+
+#define REQUEST_DEVICE      0x00
+#define REQUEST_INTERFACE   0x01
+#define REQUEST_ENDPOINT    0x02
+#define REQUEST_OTHER       0x03
+
+#define GET_DESCRIPTOR      6
+
+#define DESCRIPTOR_HID      0x2100
+#define DESCRIPTOR_REPORT   0x2200
+#define DESCRIPTOR_PHYSICAL 0x2300
+
+#define TAG_USAGE_PAGE      0x4
+#define TAG_USAGE           0x8
+
 // On Linux there are several options to access HID devices.
 //
 // libusb 0.1 - the only way that works well on all distributions
@@ -147,7 +169,7 @@ hid_t *rawhid_open(int vid, int pid, int usage_page, int usage)
     struct usb_interface *iface;
     struct usb_interface_descriptor *desc;
     struct usb_endpoint_descriptor *ep;
-    usb_dev_handle *u;
+    usb_dev_handle *handle;
     uint8_t buf[1024], *p;
     int i, n, len, tag, ep_in, ep_out, claimed;
     uint32_t val=0, parsed_usage, parsed_usage_page;
@@ -157,29 +179,36 @@ hid_t *rawhid_open(int vid, int pid, int usage_page, int usage)
     usb_init();
     usb_find_busses();
     usb_find_devices();
+    // loop over buses
     for (bus = usb_get_busses(); bus; bus = bus->next) {
+        // loop over devices
         for (dev = bus->devices; dev; dev = dev->next) {
             if (vid > 0 && dev->descriptor.idVendor != vid) continue;
             if (pid > 0 && dev->descriptor.idProduct != pid) continue;
             if (!dev->config) continue;
             if (dev->config->bNumInterfaces < 1) continue;
             printf("device: vid=%04X, pic=%04X, with %d iface\n",
-                dev->descriptor.idVendor,
-                dev->descriptor.idProduct,
-                dev->config->bNumInterfaces);
+                   dev->descriptor.idVendor,
+                   dev->descriptor.idProduct,
+                   dev->config->bNumInterfaces);
             iface = dev->config->interface;
-            u = NULL;
+            handle = NULL;
             claimed = 0;
+            // loop over interfaces
             for (i=0; i<dev->config->bNumInterfaces && iface; i++, iface++) {
                 desc = iface->altsetting;
                 if (!desc) continue;
-                printf("  type %d, %d, %d\n", desc->bInterfaceClass,
-                    desc->bInterfaceSubClass, desc->bInterfaceProtocol);
-                if (desc->bInterfaceClass != 3) continue;
-                if (desc->bInterfaceSubClass != 0) continue;
-                if (desc->bInterfaceProtocol != 0) continue;
+                printf("  iface: type %d, %d, %d\n", desc->bInterfaceClass,
+                       desc->bInterfaceSubClass, desc->bInterfaceProtocol);
+                // check for hid interface
+                if (desc->bInterfaceClass != USB_CLASS_HID ||
+                        desc->bInterfaceSubClass != INTERFACE_SUBCLASS_NONE ||
+                        desc->bInterfaceProtocol != INTERFACE_PROTOCOL_NONE)
+                    continue;
+
                 ep = desc->endpoint;
                 ep_in = ep_out = 0;
+                // loop over endpoints
                 for (n = 0; n < desc->bNumEndpoints; n++, ep++) {
                     if (ep->bEndpointAddress & 0x80) {
                         if (!ep_in) ep_in = ep->bEndpointAddress & 0x7F;
@@ -189,44 +218,48 @@ hid_t *rawhid_open(int vid, int pid, int usage_page, int usage)
                         printf("    OUT endpoint %d\n", ep_out);
                     }
                 }
-                if (!ep_in) continue;
-                if (!u) {
-                    u = usb_open(dev);
-                    if (!u) {
+//                if (!ep_in) continue;
+//                printf("    hid interface (generic)\n");
+
+                // open device
+                if (!handle) {
+                    handle = usb_open(dev);
+                    if (!handle) {
                         printf("  unable to open device\n");
                         break;
                     }
                 }
-                printf("  hid interface (generic)\n");
-                if (usb_get_driver_np(u, i, (char *)buf, sizeof(buf)) >= 0) {
+
+                if (usb_get_driver_np(handle, i, (char *)buf, sizeof(buf)) >= 0) {
                     printf("  in use by driver \"%s\"\n", buf);
-                    if (usb_detach_kernel_driver_np(u, i) < 0) {
+                    if (usb_detach_kernel_driver_np(handle, i) < 0) {
                         printf("  unable to detach from kernel\n");
                         continue;
                     }
                 }
-                if (usb_claim_interface(u, i) < 0) {
-                    printf("  unable claim interface %d\n", i);
+                if (usb_claim_interface(handle, i) < 0) {
+                    printf("  unable to claim interface %d\n", i);
                     continue;
                 }
-                len = usb_control_msg(u, 0x81, 6, 0x2200, i, (char *)buf, sizeof(buf), 250);
-                    printf("  descriptor, len=%d\n", len);
+                len = usb_control_msg(handle, 0x81, 6, 0x2200, i, (char *)buf, sizeof(buf), 250);
+                printf("    descriptor, len=%d\n", len);
                 if (len < 2) {
-                    usb_release_interface(u, i);
+                    usb_release_interface(handle, i);
                     continue;
                 }
                 p = buf;
                 parsed_usage_page = parsed_usage = 0;
+                // parse report descriptors
                 while ((tag = hid_parse_item(&val, &p, buf + len)) >= 0) {
-                    printf("  tag: %X, val %X\n", tag, val);
+                    printf("    tag: %X, val %X\n", tag, val);
                     if (tag == 4) parsed_usage_page = val;
                     if (tag == 8) parsed_usage = val;
                     if (parsed_usage_page && parsed_usage) break;
                 }
                 if ((!parsed_usage_page) || (!parsed_usage) ||
-                  (usage_page > 0 && parsed_usage_page != usage_page) ||
-                  (usage > 0 && parsed_usage != usage)) {
-                    usb_release_interface(u, i);
+                        (usage_page > 0 && parsed_usage_page != usage_page) ||
+                        (usage > 0 && parsed_usage != usage)) {
+                    usb_release_interface(handle, i);
                     continue;
                 }
 
@@ -237,47 +270,24 @@ hid_t *rawhid_open(int vid, int pid, int usage_page, int usage)
 
                 hid = (struct hid_struct *)malloc(sizeof(struct hid_struct));
                 if (!hid) {
-                    usb_release_interface(u, i);
+                    usb_release_interface(handle, i);
                     continue;
                 }
-                hid->usb = u;
+                hid->usb = handle;
                 hid->iface = i;
                 hid->ep_in = ep_in;
                 hid->ep_out = ep_out;
+                printf("ep_in: %d, ep_out: %d\n", hid->ep_in, hid->ep_out);
                 hid->open = 1;
                 claimed++;
                 count++;
                 return hid;
-            }
-            if (u && !claimed) usb_close(u);
-        }
-    }
+            } // end interface
+            if (handle && !claimed)
+                usb_close(handle);
+        } // end device
+    } // end bus
     return hid;
-}
-
-//  rawhid_close - close a device
-//
-//    Inputs:
-//	num = device to close
-//    Output
-//	(nothing)
-//
-void rawhid_close(hid_t *hid)
-{
-    if (!hid || !hid->open) return;
-    hid_close(hid);
-    free(hid);
-}
-
-static void hid_close(hid_t *hid)
-{
-    hid_t *p;
-
-    usb_release_interface(hid->usb, hid->iface);
-    count--;
-    if(count == 0)
-        usb_close(hid->usb);
-    hid->usb = NULL;
 }
 
 int rawhid_openall(hid_t **hids, int max, int vid, int pid, int usage_page, int usage){
@@ -393,6 +403,176 @@ int rawhid_openall(hid_t **hids, int max, int vid, int pid, int usage_page, int 
         }
     }
     return opencount;
+}
+
+int rawhid_openall_filter(rawhid_filter_cb cb, void *user){
+    int opencount = 0;
+    uint8_t buf[1024];
+    struct rawhid_detail detail;
+
+    printf("rawhid_open_filter\n");
+    usb_init();
+    usb_find_busses();
+    usb_find_devices();
+    // loop over buses
+    for (struct usb_bus *bus = usb_get_busses(); bus; bus = bus->next) {
+        // loop over devices
+        for (struct usb_device *dev = bus->devices; dev; dev = dev->next) {
+
+            // call user callback with device info
+            detail.step = RAWHID_STEP_DEV;
+            detail.bus = bus->location;
+            detail.device = dev->devnum;
+            detail.vid = dev->descriptor.idVendor;
+            detail.pid = dev->descriptor.idProduct;
+            if (!cb(user, &detail)) {
+                // if false, do not open/inspect device
+                continue;
+            }
+
+            if (!dev->config) continue;
+            if (dev->config->bNumInterfaces < 1) continue;
+            printf("device: vid=%04X, pic=%04X, with %d iface\n", dev->descriptor.idVendor, dev->descriptor.idProduct, dev->config->bNumInterfaces);
+            struct usb_interface *iface = dev->config->interface;
+            usb_dev_handle *hand = NULL;
+            int claimed = 0;
+            // loop over interfaces
+            for (int i = 0; i < dev->config->bNumInterfaces && iface; i++, iface++) {
+                struct usb_interface_descriptor *desc = iface->altsetting;
+                if (!desc) continue;
+                printf("  iface type %d, %d, %d\n", desc->bInterfaceClass, desc->bInterfaceSubClass, desc->bInterfaceProtocol);
+
+                // call user callback with interface info
+                detail.step = RAWHID_STEP_IFACE;
+                detail.interface = desc->bInterfaceNumber;
+                detail.ifclass = desc->bInterfaceClass;
+                detail.subclass = desc->bInterfaceSubClass;
+                detail.protocol = desc->bInterfaceProtocol;
+                if (!cb(user, &detail)) {
+                    continue;
+                }
+
+                struct usb_endpoint_descriptor *ep = desc->endpoint;
+                int ep_in = 0, ep_out = 0;
+                // loop over endpoints
+                for (int n = 0; n < desc->bNumEndpoints; n++, ep++) {
+                    if (ep->bEndpointAddress & 0x80) {
+                        if (!ep_in)
+                            ep_in = ep->bEndpointAddress & 0x7F;
+                        printf("    IN endpoint %d\n", ep_in);
+                    } else {
+                        if (!ep_out)
+                            ep_out = ep->bEndpointAddress;
+                        printf("    OUT endpoint %d\n", ep_out);
+                    }
+                }
+
+                if (!ep_in) continue;
+                if (!hand) {
+                    hand = usb_open(dev);
+                    if (!hand) {
+                        printf("  unable to open device\n");
+                        break;
+                    }
+                }
+                printf("  hid interface (generic)\n");
+                if (usb_get_driver_np(hand, i, (char *)buf, sizeof(buf)) >= 0) {
+                    printf("  in use by driver \"%s\"\n", buf);
+                    if (usb_detach_kernel_driver_np(hand, i) < 0) {
+                        printf("  unable to detach from kernel\n");
+                        continue;
+                    }
+                }
+                if (usb_claim_interface(hand, i) < 0) {
+                    printf("  unable claim interface %d\n", i);
+                    continue;
+                }
+                // hid report descriptor request
+                int len = usb_control_msg(hand, REQUEST_IN | REQUEST_INTERFACE, GET_DESCRIPTOR, DESCRIPTOR_REPORT, i, (char *)buf, sizeof(buf), 250);
+                printf("  descriptor, len=%d\n", len);
+                if (len < 2) {
+                    usb_release_interface(hand, i);
+                    continue;
+                }
+                uint8_t *p = buf;
+                uint32_t val = 0, parsed_usage_page = 0, parsed_usage = 0;
+                int tag;
+                while ((tag = hid_parse_item(&val, &p, buf + len)) >= 0) {
+                    printf("  tag: %X, val %X\n", tag, val);
+                    if (tag == TAG_USAGE_PAGE) parsed_usage_page = val;
+                    if (tag == TAG_USAGE) parsed_usage = val;
+                    if (parsed_usage_page && parsed_usage) break;
+                }
+                if ((!parsed_usage_page) || (!parsed_usage)) {
+                    usb_release_interface(hand, i);
+                    continue;
+                }
+
+                // call user callback with hid info
+                detail.step = RAWHID_STEP_REPORT;
+                detail.report_desc = buf;
+                detail.rdesc_len = len;
+                detail.usage_page = parsed_usage_page;
+                detail.usage = parsed_usage;
+                if (!cb(user, &detail)) {
+                    usb_release_interface(hand, i);
+                    continue;
+                }
+
+                hid_t *hid = (struct hid_struct *)malloc(sizeof(struct hid_struct));
+                if (!hid) {
+                    usb_release_interface(hand, i);
+                    continue;
+                }
+
+                // call user callback with open hid_t
+                hid->usb = hand;
+                hid->iface = i;
+                hid->ep_in = ep_in;
+                hid->ep_out = ep_out;
+                hid->open = 1;
+
+                detail.step = RAWHID_STEP_OPEN;
+                detail.hid = hid;
+                if (!cb(user, &detail)) {
+                    rawhid_close(hid);
+                    continue;
+                }
+
+                opencount++;
+                claimed++;
+                count++;
+            }
+            if (hand && !claimed)
+                usb_close(hand);
+        }
+    }
+    return opencount;
+}
+
+//  rawhid_close - close a device
+//
+//    Inputs:
+//	num = device to close
+//    Output
+//	(nothing)
+//
+void rawhid_close(hid_t *hid)
+{
+    if (!hid || !hid->open) return;
+    hid_close(hid);
+    free(hid);
+}
+
+static void hid_close(hid_t *hid)
+{
+    hid_t *p;
+
+    usb_release_interface(hid->usb, hid->iface);
+    count--;
+    if(count == 0)
+        usb_close(hid->usb);
+    hid->usb = NULL;
 }
 
 // Chuck Robey wrote a real HID report parser

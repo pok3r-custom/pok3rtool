@@ -9,6 +9,9 @@ add_subdirectory(rawhid)
 ### =================== SOURCES =================== ###
 
 set(POK3RLIB_SOURCES
+    kbscan.h
+    kbscan.cpp
+
     proto_pok3r.h
     proto_pok3r.cpp
     proto_cykb.h
@@ -41,12 +44,8 @@ target_include_directories(pok3rlib PRIVATE ${LIBUSB_1_INCLUDE_DIRECTORIES})
 target_compile_definitions(pok3rlib PRIVATE ${LIBUSB_1_DEFINITIONS})
 target_link_libraries(pok3rlib chaos-shared rawhid ${LIBUSB_1_LIBRARIES})
 
-if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    set(POK3RTOOL_ALL EXCLUDE_FROM_ALL)
-endif()
-
 # Pok3rTool
-add_executable(pok3rtool ${POK3RTOOL_ALL} ${POK3RTOOL_SOURCES})
+add_executable(pok3rtool ${POK3RTOOL_SOURCES})
 set_property(TARGET pok3rtool PROPERTY CXX_STANDARD 11)
 target_link_libraries(pok3rtool chaos-shared pok3rlib)
 

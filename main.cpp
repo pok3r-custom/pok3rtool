@@ -43,7 +43,7 @@ enum DevType {
 // Types
 // ////////////////////////////////
 
-struct VortexDevice {
+struct DeviceInfo {
     ZString name;
     zu16 vid;
     zu16 pid;
@@ -58,7 +58,7 @@ struct Param {
 };
 
 struct ListDevice {
-    VortexDevice dev;
+    DeviceInfo dev;
     ZPointer<HIDDevice> hid;
     bool boot;
 };
@@ -104,7 +104,7 @@ const ZMap<ZString, Device> devnames = {
 
 };
 
-const ZMap<Device, VortexDevice> devices = {
+const ZMap<Device, DeviceInfo> known_devices = {
     { POK3R,            { "POK3R",          HOLTEK_VID, POK3R_PID,          POK3R_BOOT_PID,         PROTO_POK3R } },
     { POK3R_RGB,        { "POK3R RGB",      HOLTEK_VID, POK3R_RGB_PID,      POK3R_RGB_BOOT_PID,     PROTO_CYKB } },
     { VORTEX_CORE,      { "Vortex Core",    HOLTEK_VID, VORTEX_CORE_PID,    VORTEX_CORE_BOOT_PID,   PROTO_CYKB } },
@@ -121,8 +121,8 @@ const ZMap<Device, VortexDevice> devices = {
 
 ZPointer<UpdateInterface> openDevice(Device dev){
     ZPointer<UpdateInterface> kb;
-    if(devices.contains(dev)){
-        VortexDevice device = devices[dev];
+    if(known_devices.contains(dev)){
+        DeviceInfo device = known_devices[dev];
         // Select protocol
         if(device.type == PROTO_POK3R){
             kb = new ProtoPOK3R(device.vid, device.pid, device.boot_pid);
@@ -172,8 +172,8 @@ int cmd_list(Param *param){
     ZArray<ListDevice> devs;
 
     // Get all connected devices from list
-    for(auto it = devices.begin(); it.more(); ++it){
-        VortexDevice dev = devices[it.get()];
+    for(auto it = known_devices.begin(); it.more(); ++it){
+        DeviceInfo dev = known_devices[it.get()];
 
         auto hdev = HIDDevice::openAll(dev.vid, dev.pid, UPDATE_USAGE_PAGE, UPDATE_USAGE);
         for(zu64 j = 0; j < hdev.size(); ++j)

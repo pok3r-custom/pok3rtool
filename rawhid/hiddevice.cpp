@@ -21,7 +21,7 @@ HIDDevice::HIDDevice() : vid(0), pid(0), usage_page(0), usage(0){
     device->hid = NULL;
 }
 
-HIDDevice::HIDDevice(zu16 vid_, zu16 pid_, zu16 usage_page_, zu16 usage_, void *hidt) :
+HIDDevice::HIDDevice(void *hidt, zu16 vid_, zu16 pid_, zu16 usage_page_, zu16 usage_) :
         vid(vid_), pid(pid_), usage_page(usage_page_), usage(usage_){
     device = new HIDDeviceData;
     device->hid = (hid_t *)hidt;
@@ -109,8 +109,21 @@ ZArray<ZPointer<HIDDevice> > HIDDevice::openAll(zu16 vid, zu16 pid, zu16 usage_p
     int count = rawhid_openall(hid, 128, vid, pid, usage_page, usage);
 
     for(int i = 0; i < count; ++i){
-        devs.push(new HIDDevice(vid, pid, usage_page, usage, hid[i]));
+        devs.push(new HIDDevice(hid[i], vid, pid, usage_page, usage));
     }
 #endif
     return devs;
+}
+
+int open_cb(void *user, const rawhid_detail *detail){
+    auto *func = (std::function<bool(const rawhid_detail *)> *)user;
+    return (*func)(detail);
+}
+
+zu32 HIDDevice::openFilter(std::function<bool(const rawhid_detail *)> func){
+    zu32 count = 0;
+#if LIBCHAOS_PLATFORM == _PLATFORM_LINUX
+    count = rawhid_openall_filter(open_cb, (void *)&func);
+#endif
+    return count;
 }
