@@ -21,7 +21,7 @@ ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
 
 }
 
-ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, HIDDevice *dev_) :
+ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPointer<HIDDevice> dev_) :
     builtin(builtin_), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_),
     dev(dev_){
@@ -29,7 +29,7 @@ ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, HIDDev
 }
 
 ProtoCYKB::~ProtoCYKB(){
-    delete dev;
+
 }
 
 bool ProtoCYKB::open(){
