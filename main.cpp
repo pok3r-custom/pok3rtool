@@ -1,13 +1,10 @@
-#include "rawhid/hiddevice.h"
+#include "kbscan.h"
 #include "proto_pok3r.h"
 #include "proto_cykb.h"
 #include "updatepackage.h"
 
-#include "rawhid/hid.h"
-
 #include "zlog.h"
 #include "zfile.h"
-#include "zhash.h"
 #include "zpointer.h"
 #include "zmap.h"
 #include "zoptions.h"
@@ -18,38 +15,8 @@ using namespace LibChaos;
 
 #include <iostream>
 
-// Enums
-// ////////////////////////////////
-
-enum Device {
-    DEV_NONE = 0,
-    POK3R,          //!< Vortex POK3R
-    POK3R_RGB,      //!< Vortex POK3R RGB
-    VORTEX_CORE,    //!< Vortex Core
-    VORTEX_RACE3,   //!< Vortex Race 3
-    VORTEX_TESTER,  //!< Vortex 22-Key Switch Tester
-    VORTEX_VIBE,    //!< Vortex ViBE
-    KBP_V60,        //!< KBParadise v60 Mini
-    KBP_V80,        //!< KBParadise v80
-    TEX_YODA_II,    //!< Tex Yoda II
-};
-
-enum DevType {
-    PROTO_POK3R,    //!< Used exclusively in the POK3R.
-    PROTO_CYKB,     //!< Used in new Vortex keyboards, marked with CYKB on the PCB.
-                    //!< POK3R RGB, Vortex CORE, Vortex 22-Key Switch Tester.
-};
-
 // Types
 // ////////////////////////////////
-
-struct DeviceInfo {
-    ZString name;
-    zu16 vid;
-    zu16 pid;
-    zu16 boot_pid;
-    DevType type;
-};
 
 struct Param {
     bool ok;
@@ -57,94 +24,66 @@ struct Param {
     Device device;
 };
 
-struct ListDevice {
-    DeviceInfo dev;
-    ZPointer<HIDDevice> hid;
-    bool boot;
-};
-
 // Constants
 // ////////////////////////////////
 
 const ZMap<ZString, Device> devnames = {
-    { "pok3r",          POK3R },
+    { "pok3r",          DEV_POK3R },
 
-    { "pok3r-rgb",      POK3R_RGB },
-    { "pok3r_rgb",      POK3R_RGB },
+    { "pok3r-rgb",      DEV_POK3R_RGB },
+    { "pok3r_rgb",      DEV_POK3R_RGB },
 
-    { "core",           VORTEX_CORE },
-    { "vortex-core",    VORTEX_CORE },
-    { "vortex_core",    VORTEX_CORE },
+    { "core",           DEV_VORTEX_CORE },
+    { "vortex-core",    DEV_VORTEX_CORE },
+    { "vortex_core",    DEV_VORTEX_CORE },
     
-    { "race3",          VORTEX_RACE3 },
-    { "vortex-race3",   VORTEX_RACE3 },
-    { "vortex_race3",   VORTEX_RACE3 },
+    { "race3",          DEV_VORTEX_RACE3 },
+    { "vortex-race3",   DEV_VORTEX_RACE3 },
+    { "vortex_race3",   DEV_VORTEX_RACE3 },
 
-    { "tester",         VORTEX_TESTER },
-    { "vortex-tester",  VORTEX_TESTER },
-    { "vortex_tester",  VORTEX_TESTER },
+    { "tester",         DEV_VORTEX_TESTER },
+    { "vortex-tester",  DEV_VORTEX_TESTER },
+    { "vortex_tester",  DEV_VORTEX_TESTER },
 
-    { "vibe",           VORTEX_VIBE },
-    { "vortex-vibe",    VORTEX_VIBE },
-    { "vortex_vibe",    VORTEX_VIBE },
+    { "vibe",           DEV_VORTEX_VIBE },
+    { "vortex-vibe",    DEV_VORTEX_VIBE },
+    { "vortex_vibe",    DEV_VORTEX_VIBE },
 
-    { "kbpv60",         KBP_V60 },
-    { "kbp-v60",        KBP_V60 },
-    { "kbp_v60",        KBP_V60 },
+    { "kbpv60",         DEV_KBP_V60 },
+    { "kbp-v60",        DEV_KBP_V60 },
+    { "kbp_v60",        DEV_KBP_V60 },
 
-    { "kbpv80",         KBP_V80 },
-    { "kbp-v80",        KBP_V80 },
-    { "kbp_v80",        KBP_V80 },
+    { "kbpv80",         DEV_KBP_V80 },
+    { "kbp-v80",        DEV_KBP_V80 },
+    { "kbp_v80",        DEV_KBP_V80 },
 
-    { "yoda2",          TEX_YODA_II },
-    { "tex-yoda-2",     TEX_YODA_II },
-    { "tex_yoda_2",     TEX_YODA_II },
-    { "tex-yoda-ii",    TEX_YODA_II },
-    { "tex_yoda_ii",    TEX_YODA_II },
-
-};
-
-const ZMap<Device, DeviceInfo> known_devices = {
-    { POK3R,            { "POK3R",          HOLTEK_VID, POK3R_PID,          POK3R_BOOT_PID,         PROTO_POK3R } },
-    { POK3R_RGB,        { "POK3R RGB",      HOLTEK_VID, POK3R_RGB_PID,      POK3R_RGB_BOOT_PID,     PROTO_CYKB } },
-    { VORTEX_CORE,      { "Vortex Core",    HOLTEK_VID, VORTEX_CORE_PID,    VORTEX_CORE_BOOT_PID,   PROTO_CYKB } },
-    { VORTEX_TESTER,    { "Vortex Tester",  HOLTEK_VID, VORTEX_TESTER_PID,  VORTEX_TESTER_BOOT_PID, PROTO_CYKB } },
-    { VORTEX_RACE3,     { "Vortex Race 3",  HOLTEK_VID, VORTEX_RACE3_PID,   VORTEX_RACE3_BOOT_PID,  PROTO_CYKB } },
-    { VORTEX_VIBE,      { "Vortex ViBE",    HOLTEK_VID, VORTEX_VIBE_PID,    VORTEX_VIBE_BOOT_PID,   PROTO_CYKB } },
-    { KBP_V60,          { "KBP V60",        HOLTEK_VID, KBP_V60_PID,        KBP_V60_BOOT_PID,       PROTO_POK3R } },
-    { KBP_V80,          { "KBP V80",        HOLTEK_VID, KBP_V80_PID,        KBP_V80_BOOT_PID,       PROTO_POK3R } },
-    { TEX_YODA_II,      { "Tex Yoda II",    HOLTEK_VID, TEX_YODA_II_PID,    TEX_YODA_II_BOOT_PID,   PROTO_CYKB } },
+    { "yoda2",          DEV_TEX_YODA_II },
+    { "tex-yoda-2",     DEV_TEX_YODA_II },
+    { "tex_yoda_2",     DEV_TEX_YODA_II },
+    { "tex-yoda-ii",    DEV_TEX_YODA_II },
+    { "tex_yoda_ii",    DEV_TEX_YODA_II },
 };
 
 // Functions
 // ////////////////////////////////
 
 ZPointer<UpdateInterface> openDevice(Device dev){
-    ZPointer<UpdateInterface> kb;
-    if(known_devices.contains(dev)){
-        DeviceInfo device = known_devices[dev];
-        // Select protocol
-        if(device.type == PROTO_POK3R){
-            kb = new ProtoPOK3R(device.vid, device.pid, device.boot_pid);
-        } else if(device.type == PROTO_CYKB){
-            kb = new ProtoCYKB(device.vid, device.pid, device.boot_pid);
-        } else {
-            return nullptr;
+    KBScan scanner;
+    if(!scanner.find(dev))
+        return nullptr;
+
+    auto devs = scanner.open();
+    for (auto it = devs.begin(); it.more(); ++it){
+        auto kb = it.get();
+        if(kb.iface->isOpen()){
+            if(kb.iface->isBuiltin()){
+                LOG("Opened " << kb.info.name << " (bootloader)");
+            } else {
+                LOG("Opened " << kb.info.name);
+            }
+            return kb.iface;
         }
-
-        // Try to open
-        if(kb->open()){
-            if(kb->isBuiltin())
-                LOG("Opened " << device.name << " (bootloader)");
-            else
-                LOG("Opened " << device.name);
-            return kb;
-        }
-
-        ELOG("Failed to Open Device: " << device.name);
-
-    } else {
-        ELOG("Unknown Device");
+        return nullptr;
     }
     return nullptr;
 }
@@ -169,41 +108,12 @@ void warning(){
 
 int cmd_list(Param *param){
     LOG("List Devices...");
-    ZArray<ListDevice> devs;
 
-    // Get all connected devices from list
-    for(auto it = known_devices.begin(); it.more(); ++it){
-        DeviceInfo dev = known_devices[it.get()];
-
-        auto hdev = HIDDevice::openAll(dev.vid, dev.pid, UPDATE_USAGE_PAGE, UPDATE_USAGE);
-        for(zu64 j = 0; j < hdev.size(); ++j)
-            devs.push({ dev, hdev[j], false });
-
-        auto hbdev = HIDDevice::openAll(dev.vid, dev.boot_pid, UPDATE_USAGE_PAGE, UPDATE_USAGE);
-        for(zu64 j = 0; j < hbdev.size(); ++j)
-            devs.push({ dev, hbdev[j], true });
-    }
-
-    DLOG("Devices: " << devs.size());
-
-    // Read version from each device
-    for(zu64 i = 0; i < devs.size(); ++i){
-        ListDevice ldev = devs[i];
-        // Check device
-        if(ldev.hid.get() && ldev.hid->isOpen()){
-            ZPointer<UpdateInterface> iface;
-            // Select protocol
-            if(ldev.dev.type == PROTO_POK3R){
-                iface = new ProtoPOK3R(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid.get());
-            } else if(ldev.dev.type == PROTO_CYKB){
-                iface = new ProtoCYKB(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid.get());
-            }
-
-            ldev.hid.divorce();
-            LOG(ldev.dev.name << ": " << iface->getVersion());
-        } else {
-            LOG(ldev.dev.name << " not open");
-        }
+    KBScan scanner;
+    scanner.scan();
+    auto devs = scanner.open();
+    for (auto it = devs.begin(); it.more(); ++it){
+        LOG(it.get().info.name << ": " << it.get().iface->getVersion());
     }
 
     return 0;
@@ -396,10 +306,11 @@ void printUsage(){
 
 #define TERM_RESET  "\x1b[m"
 #define TERM_RED    "\x1b[31m"
+#define TERM_PURPLE "\x1b[35m"
 
 int main(int argc, char **argv){
     ZLog::logLevelStdOut(ZLog::INFO, "[%clock%] N %log%");
-    //ZLog::logLevelStdOut(ZLog::DEBUG, "\x1b[35m[%clock%] D %log%\x1b[m");
+//    ZLog::logLevelStdOut(ZLog::DEBUG, TERM_PURPLE "[%clock%] D %log%" TERM_RESET);
     ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "[%clock%] E %log%" TERM_RESET);
     ZPath lgf = ZPath("logs") + ZLog::genLogFileName("pok3rtool_");
     ZLog::logLevelFile(ZLog::INFO, lgf, "[%clock%] N %log%");

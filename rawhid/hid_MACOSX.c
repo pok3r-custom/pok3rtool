@@ -299,6 +299,11 @@ hid_t *rawhid_open(int vid, int pid, int usage_page, int usage)
     return hid;
 }
 
+int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
+{
+    return 0;
+}
+
 //  rawhid_close - close a device
 //
 //    Inputs:

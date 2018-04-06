@@ -22,9 +22,8 @@ enum Device {
 };
 
 enum DevType {
-    PROTO_POK3R,    //!< Used exclusively in the POK3R.
-    PROTO_CYKB,     //!< Used in new Vortex keyboards, marked with CYKB on the PCB.
-                    //!< POK3R RGB, Vortex CORE, Vortex 22-Key Switch Tester.
+    PROTO_POK3R,    //!< Used in the POK3R and KBP keyboards.
+    PROTO_CYKB,     //!< Used in Vortex keyboards marked with CYKB.
 };
 
 struct DeviceInfo {
@@ -42,7 +41,7 @@ struct ListDevice {
 };
 
 struct KBDevice {
-    ZString name;
+    DeviceInfo info;
     ZPointer<UpdateInterface> iface;
 };
 
@@ -50,8 +49,10 @@ class KBScan {
 public:
     KBScan();
 
-    bool scan();
-    ZList<KBDevice> openAll();
+    zu32 find(Device dev);
+    zu32 scan();
+
+    ZList<KBDevice> open();
 
 private:
     ZList<ListDevice> devices;

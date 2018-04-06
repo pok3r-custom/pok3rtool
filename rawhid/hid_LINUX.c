@@ -104,9 +104,11 @@ struct hid_struct {
     int iface;
     int ep_in;
     int ep_out;
+    int ref_id;
 };
 
 static int count = 0;
+static int handle_refs[128];
 
 // private functions, not intended to be used from outside this file
 static void hid_close(hid_t *hid);
@@ -290,7 +292,8 @@ hid_t *rawhid_open(int vid, int pid, int usage_page, int usage)
     return hid;
 }
 
-int rawhid_openall(hid_t **hids, int max, int vid, int pid, int usage_page, int usage){
+int rawhid_openall(hid_t **hids, int max, int vid, int pid, int usage_page, int usage)
+{
     struct usb_bus *bus;
     struct usb_device *dev;
     struct usb_interface *iface;
@@ -405,7 +408,8 @@ int rawhid_openall(hid_t **hids, int max, int vid, int pid, int usage_page, int 
     return opencount;
 }
 
-int rawhid_openall_filter(rawhid_filter_cb cb, void *user){
+int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
+{
     int opencount = 0;
     uint8_t buf[1024];
     struct rawhid_detail detail;
@@ -436,6 +440,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user){
             struct usb_interface *iface = dev->config->interface;
             usb_dev_handle *hand = NULL;
             int claimed = 0;
+            int ref_id = -1;
             // loop over interfaces
             for (int i = 0; i < dev->config->bNumInterfaces && iface; i++, iface++) {
                 struct usb_interface_descriptor *desc = iface->altsetting;
@@ -468,7 +473,9 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user){
                 }
 
                 if (!ep_in) continue;
+                // open device if not already open
                 if (!hand) {
+                    printf("USB_OPEN\n");
                     hand = usb_open(dev);
                     if (!hand) {
                         printf("  unable to open device\n");
@@ -525,26 +532,36 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user){
                     continue;
                 }
 
+                if (ref_id < 0) {
+                    ref_id = count;
+                    handle_refs[ref_id] = 0;
+                }
+
                 // call user callback with open hid_t
                 hid->usb = hand;
                 hid->iface = i;
                 hid->ep_in = ep_in;
                 hid->ep_out = ep_out;
                 hid->open = 1;
+                hid->ref_id = ref_id;
 
                 detail.step = RAWHID_STEP_OPEN;
                 detail.hid = hid;
                 if (!cb(user, &detail)) {
-                    rawhid_close(hid);
+                    usb_release_interface(hand, i);
                     continue;
                 }
 
                 opencount++;
                 claimed++;
                 count++;
+                handle_refs[ref_id]++;
             }
-            if (hand && !claimed)
+            // close device if opened and not needed
+            if (hand && !claimed) {
+                printf("USB_CLOSE\n");
                 usb_close(hand);
+            }
         }
     }
     return opencount;
@@ -569,9 +586,16 @@ static void hid_close(hid_t *hid)
     hid_t *p;
 
     usb_release_interface(hid->usb, hid->iface);
+
+    if (hid->ref_id >= 0) {
+        handle_refs[hid->ref_id]--;
+        if (handle_refs[hid->ref_id] == 0) {
+            printf("USB_CLOSE\n");
+            usb_close(hid->usb);
+            hid->ref_id = -1;
+        }
+    }
     count--;
-    if(count == 0)
-        usb_close(hid->usb);
     hid->usb = NULL;
 }
 

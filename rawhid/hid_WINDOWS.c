@@ -49,7 +49,7 @@ static HANDLE tx_event = NULL;
 static CRITICAL_SECTION rx_mutex;
 static CRITICAL_SECTION tx_mutex;
 
-void print_win32_err(void)
+static void print_win32_err(void)
 {
     char str[1024];
     DWORD err = GetLastError();
@@ -328,6 +328,120 @@ int rawhid_openall(hid_t **hids, int max, int vid, int pid, int usage_page, int 
         hid->open = 1;
 
         if(opencount == max) return opencount;
+    }
+    return opencount;
+}
+
+int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
+{
+    GUID guid;
+    HDEVINFO info;
+    DWORD index=0, reqd_size;
+    SP_DEVICE_INTERFACE_DATA iface;
+    SP_DEVICE_INTERFACE_DETAIL_DATA *details;
+    HIDD_ATTRIBUTES attrib;
+    PHIDP_PREPARSED_DATA hid_data;
+    HIDP_CAPS capabilities;
+    HANDLE h;
+    BOOL ret;
+    int opencount = 0;
+
+    struct rawhid_detail detail;
+
+    if (!rx_event) {
+        rx_event = CreateEvent(NULL, TRUE, TRUE, NULL);
+        tx_event = CreateEvent(NULL, TRUE, TRUE, NULL);
+        InitializeCriticalSection(&rx_mutex);
+        InitializeCriticalSection(&tx_mutex);
+    }
+    HidD_GetHidGuid(&guid);
+    info = SetupDiGetClassDevs(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+    if(info == INVALID_HANDLE_VALUE)
+        return 0;
+    // loop over device interfaces
+    for(index = 0; 1; index++) {
+        iface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+        ret = SetupDiEnumDeviceInterfaces(info, NULL, &guid, index, &iface);
+        if (!ret)
+            return opencount;
+        SetupDiGetInterfaceDeviceDetail(info, &iface, NULL, 0, &reqd_size, NULL);
+        details = (SP_DEVICE_INTERFACE_DETAIL_DATA *)malloc(reqd_size);
+        if (details == NULL)
+            continue;
+
+        memset(details, 0, reqd_size);
+        details->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
+        ret = SetupDiGetDeviceInterfaceDetail(info, &iface, details,
+            reqd_size, NULL, NULL);
+        if (!ret) {
+            free(details);
+            continue;
+        }
+        h = CreateFile(details->DevicePath, GENERIC_READ|GENERIC_WRITE,
+            FILE_SHARE_READ|FILE_SHARE_WRITE, NULL,
+            OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+        free(details);
+        if (h == INVALID_HANDLE_VALUE)
+            continue;
+        attrib.Size = sizeof(HIDD_ATTRIBUTES);
+        ret = HidD_GetAttributes(h, &attrib);
+        //printf("vid: %4x\n", attrib.VendorID);
+        if (!ret) {
+            CloseHandle(h);
+            continue;
+        }
+
+        // call user callback with device info
+        detail.step = RAWHID_STEP_DEV;
+        detail.vid = attrib.VendorID;
+        detail.pid = attrib.ProductID;
+        if (!cb(user, &detail)) {
+            CloseHandle(h);
+            continue;
+        }
+
+        if (!HidD_GetPreparsedData(h, &hid_data)) {
+            CloseHandle(h);
+            continue;
+        }
+
+        if (!HidP_GetCaps(hid_data, &capabilities)) {
+            HidD_FreePreparsedData(hid_data);
+            CloseHandle(h);
+            continue;
+        }
+
+        // call user callback with hid info
+        detail.step = RAWHID_STEP_REPORT;
+        detail.usage_page = capabilities.UsagePage;
+        detail.usage = capabilities.Usage;
+        if (!cb(user, &detail)) {
+            HidD_FreePreparsedData(hid_data);
+            CloseHandle(h);
+            continue;
+        }
+
+        HidD_FreePreparsedData(hid_data);
+
+        hids[opencount] = (struct hid_struct *)malloc(sizeof(struct hid_struct));
+        hid_t *hid = hids[opencount];
+        if (!hid) {
+            CloseHandle(h);
+            continue;
+        }
+
+        hid->handle = h;
+        hid->open = 1;
+
+        // call user callback with open hid_t
+        detail.step = RAWHID_STEP_OPEN;
+        detail.hid = hid;
+        if (!cb(user, &detail)) {
+            CloseHandle(h);
+            continue;
+        }
+
+        opencount++;
     }
     return opencount;
 }

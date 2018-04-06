@@ -29,70 +29,97 @@ static const ZMap<Device, DeviceInfo> known_devices = {
     { DEV_TEX_YODA_II,      { "Tex Yoda II",    HOLTEK_VID, TEX_YODA_II_PID,    TEX_YODA_II_BOOT_PID,   PROTO_CYKB } },
 };
 
-static ZSet<zu16> known_pids;
+static ZMap<zu16, Device> known_pids;
 
 KBScan::KBScan(){
     if(!known_pids.size()){
         for(auto it = known_devices.begin(); it.more(); ++it){
             DeviceInfo info = known_devices[it.get()];
-            known_pids.add(info.pid);
-            known_pids.add(info.boot_pid);
+            known_pids.add(info.pid, it.get());
+            known_pids.add(info.boot_pid, it.get());
         }
     }
 }
 
-bool KBScan::scan(){
+zu32 KBScan::find(Device devtype){
+    if(!known_devices.contains(devtype)){
+        ELOG("Unknown device!");
+        return 0;
+    }
+    DeviceInfo dev = known_devices[devtype];
 
-    auto filter_func = [](const rawhid_detail *detail){
+    auto filter_func = [this,dev](const rawhid_detail *detail){
         switch(detail->step){
         case RAWHID_STEP_DEV:
-            LOG("DEV " << detail->bus << " " << detail->device << " " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
+            return (detail->vid == dev.vid && detail->pid == dev.pid);
+        case RAWHID_STEP_IFACE:
+            return (detail->ifclass == INTERFACE_CLASS_HID &&
+                    detail->subclass == INTERFACE_SUBCLASS_NONE &&
+                    detail->protocol == INTERFACE_PROTOCOL_NONE);
+        case RAWHID_STEP_REPORT:
+            return (detail->usage_page == VENDOR_USAGE_PAGE && detail->usage == VENDOR_USAGE);
+        case RAWHID_STEP_OPEN:
+            DLOG("OPEN " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
+            ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
+            devices.push({ dev, ptr, (detail->pid & 0x1000) });
+            // if hid pointer is taken, MUST return true here or it WILL double-free
+            return true;
+        }
+        return false;
+    };
+
+    zu32 devs = HIDDevice::openFilter(filter_func);
+    DLOG("Found " << devs << " devices");
+    return devs;
+}
+
+zu32 KBScan::scan(){
+
+    auto filter_func = [this](const rawhid_detail *detail){
+        switch(detail->step){
+        case RAWHID_STEP_DEV:
+//            LOG("DEV " << detail->bus << " " << detail->device << " " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
             return (detail->vid == HOLTEK_VID && known_pids.contains(detail->pid));
 
         case RAWHID_STEP_IFACE:
-            LOG("IFACE " << detail->interface << " " << detail->ifclass << " " << detail->subclass << " " << detail->protocol);
+//            LOG("IFACE " << detail->interface << " " << detail->ifclass << " " << detail->subclass << " " << detail->protocol);
             return (detail->ifclass == INTERFACE_CLASS_HID &&
                     detail->subclass == INTERFACE_SUBCLASS_NONE &&
                     detail->protocol == INTERFACE_PROTOCOL_NONE);
 
         case RAWHID_STEP_REPORT:
-            LOG("USAGE " << ZString::ItoS((zu64)detail->usage_page, 16, 4) << " " << ZString::ItoS((zu64)detail->usage, 16, 2));
+//            LOG("USAGE " << ZString::ItoS((zu64)detail->usage_page, 16, 4) << " " << ZString::ItoS((zu64)detail->usage, 16, 2));
             if(detail->usage_page == VENDOR_USAGE_PAGE && detail->usage == VENDOR_USAGE){
                 ZBinary rdesc(detail->report_desc, detail->rdesc_len);
-                LOG("REPORT " << rdesc.strBytes(1));
+//                LOG("REPORT " << rdesc.strBytes(1));
                 return true;
             }
             return false;
 
         case RAWHID_STEP_OPEN:
-            LOG("OPEN " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
-            ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid, 0, 0, 0, 0);
-            devices.push({ {} });
-            return false;
+            DLOG("OPEN " <<
+                ZString::ItoS((zu64)detail->vid, 16, 4) << " " <<
+                ZString::ItoS((zu64)detail->pid, 16, 4) << " " <<
+                detail->interface
+            );
+            ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
+            devices.push({
+                known_devices[known_pids[detail->pid]],
+                ptr,
+                (detail->pid & 0x1000)
+            });
+            // if hid pointer is taken, MUST return true here or it WILL double-free
+            return true;
         }
-
         return false;
     };
 
-    auto devs = HIDDevice::openFilter(filter_func);
-
-    return true;
-
-    // Get all connected devices from list
-    for(auto it = known_devices.begin(); it.more(); ++it){
-        DeviceInfo dev = known_devices[it.get()];
-
-        auto hdev = HIDDevice::openAll(dev.vid, dev.pid, UPDATE_USAGE_PAGE, UPDATE_USAGE);
-        for(zu64 j = 0; j < hdev.size(); ++j)
-            devices.push({ dev, hdev[j], false });
-
-        auto hbdev = HIDDevice::openAll(dev.vid, dev.boot_pid, UPDATE_USAGE_PAGE, UPDATE_USAGE);
-        for(zu64 j = 0; j < hbdev.size(); ++j)
-            devices.push({ dev, hbdev[j], true });
-    }
+    zu32 devs = HIDDevice::openFilter(filter_func);
+    DLOG("Found " << devs << " devices");
+    return devs;
 }
 
-ZList<KBDevice> KBScan::openAll(){
+ZList<KBDevice> KBScan::open(){
     ZList<KBDevice> devs;
 
     // Read version from each device
@@ -106,12 +133,17 @@ ZList<KBDevice> KBScan::openAll(){
                 iface = new ProtoPOK3R(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid.get());
             } else if(ldev.dev.type == PROTO_CYKB){
                 iface = new ProtoCYKB(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid.get());
+            } else {
+                ELOG("Unknown protocol");
+                continue;
             }
 
             ldev.hid.divorce();
+//            iface->getVersion();
             KBDevice kdev;
-            kdev.name = ldev.dev.name;
-            iface->getVersion();
+            kdev.info = ldev.dev;
+            kdev.iface = iface;
+            devs.push(kdev);
 
         } else {
             LOG(ldev.dev.name << " not open");

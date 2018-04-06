@@ -18,7 +18,7 @@ public:
     typedef bool (*filter_func_type)(zu16 vid, zu16 pid, zu16 upage, zu16 usage);
 public:
     HIDDevice();
-    HIDDevice(void *hidt, zu16 vid, zu16 pid, zu16 usage_page, zu16 usage);
+    HIDDevice(void *hidt);
 
     HIDDevice(const HIDDevice &other) = delete;
     ~HIDDevice();
@@ -33,12 +33,6 @@ public:
     static ZArray<ZPointer<HIDDevice>> openAll(zu16 vid, zu16 pid, zu16 usage_page, zu16 usage);
 
     static zu32 openFilter(std::function<bool(const rawhid_detail *)> func);
-
-private:
-    zu16 vid;
-    zu16 pid;
-    zu16 usage_page;
-    zu16 usage;
 
 private:
     HIDDeviceData *device;
