@@ -41,6 +41,10 @@ struct ListDevice {
 };
 
 struct KBDevice {
+    DevType type;
+    ZString name;
+    zu16 vid;
+    zu16 pid;
     DeviceInfo info;
     ZPointer<UpdateInterface> iface;
 };

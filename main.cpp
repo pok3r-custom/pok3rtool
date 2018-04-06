@@ -113,7 +113,7 @@ int cmd_list(Param *param){
     scanner.scan();
     auto devs = scanner.open();
     for (auto it = devs.begin(); it.more(); ++it){
-        LOG(it.get().info.name << ": " << it.get().iface->getVersion());
+        LOG(it.get().info.name << (it.get().iface->isBuiltin() ? " (bootloader)" : "") <<": " << it.get().iface->getVersion());
     }
 
     return 0;

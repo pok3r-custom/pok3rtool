@@ -51,7 +51,7 @@ zu32 KBScan::find(Device devtype){
     auto filter_func = [this,dev](const rawhid_detail *detail){
         switch(detail->step){
         case RAWHID_STEP_DEV:
-            return (detail->vid == dev.vid && detail->pid == dev.pid);
+            return (detail->vid == dev.vid && (detail->pid == dev.pid || detail->pid == dev.boot_pid));
         case RAWHID_STEP_IFACE:
             return (detail->ifclass == INTERFACE_CLASS_HID &&
                     detail->subclass == INTERFACE_SUBCLASS_NONE &&
