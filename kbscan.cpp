@@ -50,20 +50,20 @@ zu32 KBScan::find(Device devtype){
 
     auto filter_func = [this,dev](const rawhid_detail *detail){
         switch(detail->step){
-        case RAWHID_STEP_DEV:
-            return (detail->vid == dev.vid && (detail->pid == dev.pid || detail->pid == dev.boot_pid));
-        case RAWHID_STEP_IFACE:
-            return (detail->ifclass == INTERFACE_CLASS_HID &&
-                    detail->subclass == INTERFACE_SUBCLASS_NONE &&
-                    detail->protocol == INTERFACE_PROTOCOL_NONE);
-        case RAWHID_STEP_REPORT:
-            return (detail->usage_page == VENDOR_USAGE_PAGE && detail->usage == VENDOR_USAGE);
-        case RAWHID_STEP_OPEN:
-            DLOG("OPEN " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
-            ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
-            devices.push({ dev, ptr, (detail->pid & 0x1000) });
-            // if hid pointer is taken, MUST return true here or it WILL double-free
-            return true;
+            case RAWHID_STEP_DEV:
+                return (detail->vid == dev.vid && (detail->pid == dev.pid || detail->pid == dev.boot_pid));
+            case RAWHID_STEP_IFACE:
+                return (detail->ifclass == INTERFACE_CLASS_HID &&
+                        detail->subclass == INTERFACE_SUBCLASS_NONE &&
+                        detail->protocol == INTERFACE_PROTOCOL_NONE);
+            case RAWHID_STEP_REPORT:
+                return (detail->usage_page == VENDOR_USAGE_PAGE && detail->usage == VENDOR_USAGE);
+            case RAWHID_STEP_OPEN:
+                DLOG("OPEN " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
+                ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
+                devices.push({ dev, ptr, !!(detail->pid & 0x1000) });
+                // if hid pointer is taken, MUST return true here or it WILL double-free
+                return true;
         }
         return false;
     };
@@ -77,39 +77,46 @@ zu32 KBScan::scan(){
 
     auto filter_func = [this](const rawhid_detail *detail){
         switch(detail->step){
-        case RAWHID_STEP_DEV:
-//            LOG("DEV " << detail->bus << " " << detail->device << " " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
-            return (detail->vid == HOLTEK_VID && known_pids.contains(detail->pid));
+            case RAWHID_STEP_DEV:
+//                LOG("DEV " << detail->bus << " " << detail->device << " " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
+//                LOG("DEV " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
+//                return true;
+                return (detail->vid == HOLTEK_VID && known_pids.contains(detail->pid));
 
-        case RAWHID_STEP_IFACE:
-//            LOG("IFACE " << detail->interface << " " << detail->ifclass << " " << detail->subclass << " " << detail->protocol);
-            return (detail->ifclass == INTERFACE_CLASS_HID &&
-                    detail->subclass == INTERFACE_SUBCLASS_NONE &&
-                    detail->protocol == INTERFACE_PROTOCOL_NONE);
+            case RAWHID_STEP_IFACE:
+//                LOG("IFACE " << detail->interface << " " << detail->ifclass << " " << detail->subclass << " " << detail->protocol);
+                return (detail->ifclass == INTERFACE_CLASS_HID &&
+                        detail->subclass == INTERFACE_SUBCLASS_NONE &&
+                        detail->protocol == INTERFACE_PROTOCOL_NONE);
 
-        case RAWHID_STEP_REPORT:
-//            LOG("USAGE " << ZString::ItoS((zu64)detail->usage_page, 16, 4) << " " << ZString::ItoS((zu64)detail->usage, 16, 2));
-            if(detail->usage_page == VENDOR_USAGE_PAGE && detail->usage == VENDOR_USAGE){
-                ZBinary rdesc(detail->report_desc, detail->rdesc_len);
-//                LOG("REPORT " << rdesc.strBytes(1));
+            case RAWHID_STEP_REPORT: {
+//                LOG("USAGE " << ZString::ItoS((zu64)detail->usage_page, 16, 4) << " " << ZString::ItoS((zu64)detail->usage, 16, 2));
+//                ZBinary rdesc(detail->report_desc, detail->rdesc_len);
+//                LOG("REPORT " << detail->rdesc_len << ": " << rdesc.strBytes(1));
+                if(detail->usage_page == VENDOR_USAGE_PAGE && detail->usage == VENDOR_USAGE){
+                    return true;
+                }
+                return false;
+            }
+
+            case RAWHID_STEP_OPEN: {
+                DLOG("OPEN " <<
+                    ZString::ItoS((zu64)detail->vid, 16, 4) << " " <<
+                    ZString::ItoS((zu64)detail->pid, 16, 4) << " " <<
+                    detail->interface
+                );
+                if(!known_pids.contains(detail->pid))
+                    return false;
+                // make high-level wrapper object
+                ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
+                devices.push({
+                    known_devices[known_pids[detail->pid]],
+                    ptr,
+                    !!(detail->pid & 0x1000)
+                });
+                // if hid pointer is taken, MUST return true here or it WILL double-free
                 return true;
             }
-            return false;
-
-        case RAWHID_STEP_OPEN:
-            DLOG("OPEN " <<
-                ZString::ItoS((zu64)detail->vid, 16, 4) << " " <<
-                ZString::ItoS((zu64)detail->pid, 16, 4) << " " <<
-                detail->interface
-            );
-            ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
-            devices.push({
-                known_devices[known_pids[detail->pid]],
-                ptr,
-                (detail->pid & 0x1000)
-            });
-            // if hid pointer is taken, MUST return true here or it WILL double-free
-            return true;
         }
         return false;
     };
@@ -122,7 +129,7 @@ zu32 KBScan::scan(){
 ZList<KBDevice> KBScan::open(){
     ZList<KBDevice> devs;
 
-    // Read version from each device
+    // Make protocol interface object for each device
     for(auto it = devices.begin(); it.more(); ++it){
         ListDevice ldev = it.get();
         // Check device
@@ -130,16 +137,14 @@ ZList<KBDevice> KBScan::open(){
             ZPointer<UpdateInterface> iface;
             // Select protocol
             if(ldev.dev.type == PROTO_POK3R){
-                iface = new ProtoPOK3R(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid.get());
+                iface = new ProtoPOK3R(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid);
             } else if(ldev.dev.type == PROTO_CYKB){
-                iface = new ProtoCYKB(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid.get());
+                iface = new ProtoCYKB(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid);
             } else {
                 ELOG("Unknown protocol");
                 continue;
             }
 
-            ldev.hid.divorce();
-//            iface->getVersion();
             KBDevice kdev;
             kdev.info = ldev.dev;
             kdev.iface = iface;

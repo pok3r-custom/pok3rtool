@@ -52,7 +52,7 @@ public:
     //! Construct unopened device.
     ProtoPOK3R(zu16 vid, zu16 pid, zu16 boot_pid);
     //! Construct open device from open HIDDevice.
-    ProtoPOK3R(zu16 vid, zu16 pid, zu16 boot_pid, bool builtin, HIDDevice *dev);
+    ProtoPOK3R(zu16 vid, zu16 pid, zu16 boot_pid, bool builtin, ZPointer<HIDDevice> dev);
 
     ProtoPOK3R(const ProtoPOK3R &) = delete;
     ~ProtoPOK3R();
@@ -113,7 +113,7 @@ private:
     zu16 pid;
     zu16 boot_pid;
 
-    HIDDevice *dev;
+    ZPointer<HIDDevice> dev;
 };
 
 #endif // PROTO_POK3R_H

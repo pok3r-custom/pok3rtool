@@ -7,26 +7,33 @@ extern "C" {
 
 typedef struct hid_struct hid_t;
 
+// some steps are skipped on some platforms because
+// there is no meaningful distinction between them
+
+// for each device before interfaces are enumerated
 #define RAWHID_STEP_DEV     1
-#define RAWHID_STEP_IFACE   2
-#define RAWHID_STEP_REPORT  3
+// for each interface before interface is detached/claimed
+#define RAWHID_STEP_IFACE   2   // not on windows or macosx
+// for each HID report descriptor before hid_t is created
+#define RAWHID_STEP_REPORT  3   // not on windows
+// for each opened hid_t
 #define RAWHID_STEP_OPEN    4
 
 struct rawhid_detail {
     int step;
     // device
-    unsigned long bus;
-    unsigned long device;
+    unsigned long bus;          // not on windows or macosx
+    unsigned long device;       // not on windows or macosx
     unsigned short vid;
     unsigned short pid;
     // interface
-    unsigned char interface;
-    unsigned char ifclass;
-    unsigned char subclass;
-    unsigned char protocol;
+    unsigned char interface;    // not on windows or macosx
+    unsigned char ifclass;      // not on windows or macosx
+    unsigned char subclass;     // not on windows or macosx
+    unsigned char protocol;     // not on windows or macosx
     // report desc
-    const unsigned char *report_desc;
-    unsigned short rdesc_len;
+    const unsigned char *report_desc;   // not on windows
+    unsigned short rdesc_len;           // not on windows
     unsigned short usage_page;
     unsigned short usage;
     // open

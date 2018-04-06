@@ -115,9 +115,5 @@ int open_cb(void *user, const rawhid_detail *detail){
 }
 
 zu32 HIDDevice::openFilter(std::function<bool(const rawhid_detail *)> func){
-#if LIBCHAOS_PLATFORM == _PLATFORM_LINUX
     return rawhid_openall_filter(open_cb, (void *)&func);
-#else
-    return 0;
-#endif
 }
