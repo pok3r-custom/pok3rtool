@@ -13,4 +13,4 @@ build it.
 UNUSABLE WITHOUT EXPENSIVE DEVELOPMENT TOOLS. READ THE DOCUMENTATION, POSSIBLY READ THE
 CODE, AND PROCEED AT YOUR OWN RISK.**
 
-[See the wiki for pok3rtool usage, warnings, etc.](https://github.com/Vortex-Firmware/pok3rtool/wiki)
+[See the wiki for pok3rtool usage, warnings, etc.](https://github.com/pok3r-custom/pok3rtool/wiki)
