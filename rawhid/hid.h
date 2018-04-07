@@ -27,7 +27,7 @@ struct rawhid_detail {
     unsigned short vid;
     unsigned short pid;
     // interface
-    unsigned char interface;    // not on windows or macosx
+    unsigned char ifnum;        // not on windows or macosx
     unsigned char ifclass;      // not on windows or macosx
     unsigned char subclass;     // not on windows or macosx
     unsigned char protocol;     // not on windows or macosx

@@ -84,7 +84,7 @@ zu32 KBScan::scan(){
                 return (detail->vid == HOLTEK_VID && known_pids.contains(detail->pid));
 
             case RAWHID_STEP_IFACE:
-//                LOG("IFACE " << detail->interface << " " << detail->ifclass << " " << detail->subclass << " " << detail->protocol);
+//                LOG("IFACE " << detail->ifnum << " " << detail->ifclass << " " << detail->subclass << " " << detail->protocol);
                 return (detail->ifclass == INTERFACE_CLASS_HID &&
                         detail->subclass == INTERFACE_SUBCLASS_NONE &&
                         detail->protocol == INTERFACE_PROTOCOL_NONE);
@@ -103,7 +103,7 @@ zu32 KBScan::scan(){
                 DLOG("OPEN " <<
                     ZString::ItoS((zu64)detail->vid, 16, 4) << " " <<
                     ZString::ItoS((zu64)detail->pid, 16, 4) << " " <<
-                    detail->interface
+                    detail->ifnum
                 );
                 if(!known_pids.contains(detail->pid))
                     return false;

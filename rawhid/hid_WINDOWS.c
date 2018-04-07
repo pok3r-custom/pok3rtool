@@ -38,7 +38,7 @@
 
 #include "hid.h"
 
-typedef struct hid_struct hid_t;
+//typedef struct hid_struct hid_t;
 struct hid_struct {
     HANDLE handle;
     int open;
@@ -270,6 +270,7 @@ int rawhid_openall(hid_t **hids, int max, int vid, int pid, int usage_page, int 
         InitializeCriticalSection(&rx_mutex);
         InitializeCriticalSection(&tx_mutex);
     }
+
     HidD_GetHidGuid(&guid);
     info = SetupDiGetClassDevs(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
     if(info == INVALID_HANDLE_VALUE)
@@ -354,6 +355,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
         InitializeCriticalSection(&rx_mutex);
         InitializeCriticalSection(&tx_mutex);
     }
+
     HidD_GetHidGuid(&guid);
     info = SetupDiGetClassDevs(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
     if(info == INVALID_HANDLE_VALUE)
@@ -423,8 +425,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
 
         HidD_FreePreparsedData(hid_data);
 
-        hids[opencount] = (struct hid_struct *)malloc(sizeof(struct hid_struct));
-        hid_t *hid = hids[opencount];
+        hid_t *hid = (struct hid_struct *)malloc(sizeof(struct hid_struct));
         if (!hid) {
             CloseHandle(h);
             continue;
