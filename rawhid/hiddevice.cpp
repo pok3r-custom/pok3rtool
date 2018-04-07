@@ -111,7 +111,7 @@ ZArray<ZPointer<HIDDevice> > HIDDevice::openAll(zu16 vid, zu16 pid, zu16 usage_p
 
 int open_cb(void *user, const rawhid_detail *detail){
     auto *func = (std::function<bool(const rawhid_detail *)> *)user;
-    return (*func)(detail);
+    return (int)(*func)(detail);
 }
 
 zu32 HIDDevice::openFilter(std::function<bool(const rawhid_detail *)> func){
