@@ -449,7 +449,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
 
                 // call user callback with interface info
                 detail.step = RAWHID_STEP_IFACE;
-                detail.interface = desc->bInterfaceNumber;
+                detail.ifnum = desc->bInterfaceNumber;
                 detail.ifclass = desc->bInterfaceClass;
                 detail.subclass = desc->bInterfaceSubClass;
                 detail.protocol = desc->bInterfaceProtocol;
