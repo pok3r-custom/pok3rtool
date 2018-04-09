@@ -29,8 +29,8 @@ const ZMap<zu64, PackType> packages = {
     { 0xA28E5EFB3F796181,   MAAJONSN }, // V1.1.6
     { 0xEA55CB190C35505F,   MAAJONSN }, // V1.1.7
 
-    // Yoda II (163)
-    { 0xf5a3714fa9a3ca40,   MAAV102 },  // V1.01.01   v1.1.1
+    // TEX Yoda II (163)
+    { 0xF5A3714FA9A3CA40,   MAAV102 },  // V1.01.01   v1.1.1
 
     // POK3R RGB (167)
     { 0x882CB0E4ECE25454,   MAAV102 },  // V1.02.04   v1.2.4
@@ -45,11 +45,11 @@ const ZMap<zu64, PackType> packages = {
     // Vortex Tester (200)
     // none :(
 
-    // NEW 75 / RACE3 (192)
+    // Vortex RACE3 (New 75) (192)
     { 0xB542D0D86B9A85C3,   MAAV102 },  // V1.02.01   v1.2.1
     { 0xFBF40BEE5D0A3C70,   MAAV102 },  // V1.02.04   v1.2.4
 
-    // POK3R RGB 2? (207)
+    // POK3R RGB V2 (207)
     { 0x8AA1AEA217DA685B,   MAAV102 },  // V1.00.05   v1.0.5
 
     // Vortex ViBE (216)

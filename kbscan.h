@@ -19,6 +19,8 @@ enum Device {
     DEV_KBP_V60,        //!< KBParadise v60 Mini
     DEV_KBP_V80,        //!< KBParadise v80
     DEV_TEX_YODA_II,    //!< Tex Yoda II
+
+    DEV_POK3R_QMK,
 };
 
 enum DevType {

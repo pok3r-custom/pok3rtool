@@ -81,7 +81,12 @@ bool HIDDevice::recv(ZBinary &data){
         return false;
     if(data.size() == 0)
         return false;
-    int ret = rawhid_recv(device->hid, data.raw(), data.size(), RECV_TIMEOUT);
+
+    int ret;
+    do {
+        ret = rawhid_recv(device->hid, data.raw(), data.size(), RECV_TIMEOUT);
+    } while(ret == 0);
+
     if(ret < 0){
 #if LIBCHAOS_PLATFORM == _PLATFORM_LINUX
         ELOG("hid recv error: " << ret << ": " << usb_strerror());

@@ -65,9 +65,9 @@ public:
     bool isBuiltin() const;
 
     //! Reset and re-open device.
-    bool enterFirmware();
+    bool rebootFirmware(bool reopen = true);
     //! Reset to loader and re-open device.
-    bool enterBootloader();
+    bool rebootBootloader(bool reopen = true);
 
     bool getInfo();
 

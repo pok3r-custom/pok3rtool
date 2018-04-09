@@ -54,51 +54,55 @@ bool ProtoPOK3R::isBuiltin() const {
     return builtin;
 }
 
-bool ProtoPOK3R::enterFirmware(){
-    if(!builtin){
-//        LOG("In Firmware");
-        return true;
-    }
+bool ProtoPOK3R::rebootFirmware(bool reopen){
+//    if(!builtin){
+////        LOG("In Firmware");
+//        return true;
+//    }
 
     LOG("Reset to Firmware");
     if(!sendCmd(RESET_CMD, RESET_BOOT_SUBCMD, 0, 0))
         return false;
-
     close();
-    ZThread::sleep(WAIT_SLEEP);
 
-    // Find device with new vid and pid
-    if(!open()){
-        ELOG("open error");
-        return false;
+    if(reopen){
+        ZThread::sleep(WAIT_SLEEP);
+
+        // Find device with new vid and pid
+        if(!open()){
+            ELOG("open error");
+            return false;
+        }
+
+        if(builtin)
+            return false;
     }
-
-    if(builtin)
-        return false;
     return true;
 }
 
-bool ProtoPOK3R::enterBootloader(){
-    if(builtin){
-//        LOG("In Bootloader");
-        return true;
-    }
+bool ProtoPOK3R::rebootBootloader(bool reopen){
+//    if(builtin){
+////        LOG("In Bootloader");
+//        return true;
+//    }
 
     LOG("Reset to Bootloader");
     if(!sendCmd(RESET_CMD, RESET_BUILTIN_SUBCMD, 0, 0))
         return false;
-
     close();
-    ZThread::sleep(WAIT_SLEEP);
 
-    // Find device with new vid and pid
-    if(!open()){
-        ELOG("open error");
-        return false;
+    if(reopen){
+        ZThread::sleep(WAIT_SLEEP);
+
+        // Find device with new vid and pid
+        if(!open()){
+            ELOG("open error");
+            return false;
+        }
+
+        if(!builtin)
+            return false;
     }
-
-    if(!builtin)
-        return false;
     return true;
 }
 
@@ -150,7 +154,7 @@ ZString ProtoPOK3R::getVersion(){
 
 bool ProtoPOK3R::clearVersion(){
     DLOG("clearVersion");
-    if(!enterBootloader())
+    if(!rebootBootloader())
         return false;
 
     LOG("Clear Version");
@@ -273,7 +277,7 @@ bool ProtoPOK3R::writeFirmware(const ZBinary &fwbinin){
 
 bool ProtoPOK3R::update(ZString version, const ZBinary &fwbin){
     // Reset to bootloader
-    if(!enterBootloader())
+    if(!rebootBootloader())
         return false;
 
     LOG("Current Version: " << getVersion());
@@ -288,7 +292,7 @@ bool ProtoPOK3R::update(ZString version, const ZBinary &fwbin){
         return false;
 
     // Reset to firmware
-    if(!enterFirmware())
+    if(!rebootFirmware())
         return false;
     return true;
 }

@@ -21,9 +21,9 @@ public:
     virtual bool isBuiltin() const { return false; }
 
     //! Reset to firmware and re-open device if needed.
-    virtual bool enterFirmware() = 0;
+    virtual bool rebootFirmware(bool reopen = true) = 0;
     //! Reset to bootloader and re-open device if needed.
-    virtual bool enterBootloader() = 0;
+    virtual bool rebootBootloader(bool reopen = true) = 0;
 
     //! Read the firmware version from the device.
     virtual ZString getVersion() = 0;

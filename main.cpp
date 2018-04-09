@@ -62,6 +62,8 @@ const ZMap<ZString, Device> devnames = {
     { "tex_yoda_2",     DEV_TEX_YODA_II },
     { "tex-yoda-ii",    DEV_TEX_YODA_II },
     { "tex_yoda_ii",    DEV_TEX_YODA_II },
+
+    { "pok3r_qmk",      DEV_POK3R_QMK },
 };
 
 // Functions
@@ -139,7 +141,7 @@ int cmd_setversion(Param *param){
     if(kb.get()){
         LOG("Old Version: " << kb->getVersion());
         LOG(kb->setVersion(version));
-        LOG(kb->enterFirmware());
+        LOG(kb->rebootFirmware());
         return 0;
     }
     return -1;
@@ -162,7 +164,7 @@ int cmd_reboot(Param *param){
     // Reset to Firmware
     ZPointer<UpdateInterface> kb = openDevice(param->device);
     if(kb.get()){
-        LOG(kb->enterFirmware());
+        LOG(kb->rebootFirmware());
         // Read version
         LOG("Version: " << kb->getVersion());
         return 0;
@@ -174,7 +176,7 @@ int cmd_bootloader(Param *param){
     // Reset to Bootloader
     ZPointer<UpdateInterface> kb = openDevice(param->device);
     if(kb.get()){
-        LOG(kb->enterBootloader());
+        LOG(kb->rebootBootloader());
         // Read version
         LOG("Version: " << kb->getVersion());
         return 0;
@@ -270,11 +272,13 @@ int cmd_decode(Param *param){
 // ////////////////////////////////
 
 #define OPT_OK      "ok"
+#define OPT_VERBOSE "verbose"
 #define OPT_TYPE    "device"
 
 const ZArray<ZOptions::OptDef> optdef = {
-    { OPT_OK,   0,   ZOptions::NONE },
-    { OPT_TYPE, 't', ZOptions::STRING },
+    { OPT_OK,       0,   ZOptions::NONE },
+    { OPT_VERBOSE,  'v', ZOptions::NONE},
+    { OPT_TYPE,     't', ZOptions::STRING },
 };
 
 typedef int (*cmd_func)(Param *);
@@ -309,9 +313,7 @@ void printUsage(){
 #define TERM_PURPLE "\x1b[35m"
 
 int main(int argc, char **argv){
-    ZLog::logLevelStdOut(ZLog::INFO, "[%clock%] N %log%");
-//    ZLog::logLevelStdOut(ZLog::DEBUG, TERM_PURPLE "[%clock%] D %log%" TERM_RESET);
-    ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "[%clock%] E %log%" TERM_RESET);
+    // Log files
     ZPath lgf = ZPath("logs") + ZLog::genLogFileName("pok3rtool_");
     ZLog::logLevelFile(ZLog::INFO, lgf, "[%clock%] N %log%");
     ZLog::logLevelFile(ZLog::DEBUG, lgf, "[%clock%] %thread% D [%function%|%file%:%line%] %log%");
@@ -327,6 +329,13 @@ int main(int argc, char **argv){
     ZOptions options(optdef);
     if(!options.parse(argc, argv))
         return -2;
+
+    // Console log
+    ZLog::logLevelStdOut(ZLog::INFO, "[%clock%] N %log%");
+    ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "[%clock%] E %log%" TERM_RESET);
+    if(options.getOpts().contains(OPT_VERBOSE)){
+        ZLog::logLevelStdOut(ZLog::DEBUG, TERM_PURPLE "[%clock%] D %log%" TERM_RESET);
+    }
 
     Param param;
     param.device = DEV_NONE;

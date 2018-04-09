@@ -13,11 +13,14 @@
 #define INTERFACE_SUBCLASS_NONE 0
 #define INTERFACE_PROTOCOL_NONE 0
 
-#define VENDOR_USAGE_PAGE   0xff00
-#define VENDOR_USAGE        0x01
+#define VENDOR_USAGE_PAGE       0xff00
+#define VENDOR_USAGE            0x01
+
+#define QMK_VID                 0xfeed
 
 static const ZMap<Device, DeviceInfo> known_devices = {
     { DEV_POK3R,            { "POK3R",          HOLTEK_VID, POK3R_PID,          POK3R_BOOT_PID,         PROTO_POK3R } },
+    { DEV_POK3R_QMK,        { "POK3R [QMK]",    QMK_VID,    POK3R_PID,          POK3R_BOOT_PID,         PROTO_POK3R } },
     { DEV_POK3R_RGB,        { "POK3R RGB",      HOLTEK_VID, POK3R_RGB_PID,      POK3R_RGB_BOOT_PID,     PROTO_CYKB } },
     { DEV_VORTEX_CORE,      { "Vortex Core",    HOLTEK_VID, VORTEX_CORE_PID,    VORTEX_CORE_BOOT_PID,   PROTO_CYKB } },
     { DEV_VORTEX_TESTER,    { "Vortex Tester",  HOLTEK_VID, VORTEX_TESTER_PID,  VORTEX_TESTER_BOOT_PID, PROTO_CYKB } },
@@ -29,14 +32,14 @@ static const ZMap<Device, DeviceInfo> known_devices = {
     { DEV_TEX_YODA_II,      { "Tex Yoda II",    HOLTEK_VID, TEX_YODA_II_PID,    TEX_YODA_II_BOOT_PID,   PROTO_CYKB } },
 };
 
-static ZMap<zu16, Device> known_pids;
+static ZMap<zu32, Device> known_ids;
 
 KBScan::KBScan(){
-    if(!known_pids.size()){
+    if(!known_ids.size()){
         for(auto it = known_devices.begin(); it.more(); ++it){
             DeviceInfo info = known_devices[it.get()];
-            known_pids.add(info.pid, it.get());
-            known_pids.add(info.boot_pid, it.get());
+            known_ids.add(info.pid | (info.vid << 16), it.get());
+            known_ids.add(info.boot_pid | (info.vid << 16), it.get());
         }
     }
 }
@@ -55,7 +58,8 @@ zu32 KBScan::find(Device devtype){
             case RAWHID_STEP_IFACE:
                 return (detail->ifclass == INTERFACE_CLASS_HID &&
                         detail->subclass == INTERFACE_SUBCLASS_NONE &&
-                        detail->protocol == INTERFACE_PROTOCOL_NONE);
+                        detail->protocol == INTERFACE_PROTOCOL_NONE &&
+                        (detail->vid == QMK_VID ? detail->ifnum == 1 : 1));
             case RAWHID_STEP_REPORT:
                 return (detail->usage_page == VENDOR_USAGE_PAGE && detail->usage == VENDOR_USAGE);
             case RAWHID_STEP_OPEN:
@@ -76,24 +80,26 @@ zu32 KBScan::find(Device devtype){
 zu32 KBScan::scan(){
 
     auto filter_func = [this](const rawhid_detail *detail){
+        zu32 id = detail->pid | (detail->vid << 16);
         switch(detail->step){
             case RAWHID_STEP_DEV:
-//                LOG("DEV " << detail->bus << " " << detail->device << " " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
-//                LOG("DEV " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
+//                DLOG("DEV " << detail->bus << " " << detail->device << " " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
+                DLOG("DEV " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
 //                return true;
-                return (detail->vid == HOLTEK_VID && known_pids.contains(detail->pid));
+                return known_ids.contains(id);
 
             case RAWHID_STEP_IFACE:
-//                LOG("IFACE " << detail->ifnum << " " << detail->ifclass << " " << detail->subclass << " " << detail->protocol);
+                DLOG("IFACE " << detail->ifnum << " " << detail->ifclass << " " << detail->subclass << " " << detail->protocol);
                 return (detail->ifclass == INTERFACE_CLASS_HID &&
                         detail->subclass == INTERFACE_SUBCLASS_NONE &&
-                        detail->protocol == INTERFACE_PROTOCOL_NONE);
+                        detail->protocol == INTERFACE_PROTOCOL_NONE &&
+                        (detail->vid == QMK_VID ? detail->ifnum == 1 : 1));
 
             case RAWHID_STEP_REPORT: {
-//                LOG("USAGE " << ZString::ItoS((zu64)detail->usage_page, 16, 4) << " " << ZString::ItoS((zu64)detail->usage, 16, 2));
-//                ZBinary rdesc(detail->report_desc, detail->rdesc_len);
-//                LOG("REPORT " << detail->rdesc_len << ": " << rdesc.strBytes(1));
+                DLOG("USAGE " << ZString::ItoS((zu64)detail->usage_page, 16, 4) << " " << ZString::ItoS((zu64)detail->usage, 16, 2));
                 if(detail->usage_page == VENDOR_USAGE_PAGE && detail->usage == VENDOR_USAGE){
+                    ZBinary rdesc(detail->report_desc, detail->rdesc_len);
+                    DLOG("REPORT " << detail->rdesc_len << ": " << rdesc.strBytes(1));
                     return true;
                 }
                 return false;
@@ -105,12 +111,12 @@ zu32 KBScan::scan(){
                     ZString::ItoS((zu64)detail->pid, 16, 4) << " " <<
                     detail->ifnum
                 );
-                if(!known_pids.contains(detail->pid))
+                if(!known_ids.contains(id))
                     return false;
                 // make high-level wrapper object
                 ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
                 devices.push({
-                    known_devices[known_pids[detail->pid]],
+                    known_devices[known_ids[id]],
                     ptr,
                     !!(detail->pid & 0x1000)
                 });

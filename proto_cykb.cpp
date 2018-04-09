@@ -58,57 +58,62 @@ bool ProtoCYKB::isBuiltin() const {
     return builtin;
 }
 
-bool ProtoCYKB::enterFirmware(){
-    if(!builtin){
-//        LOG("In Firmware");
-        return true;
-    }
+bool ProtoCYKB::rebootFirmware(bool reopen){
+//    if(!builtin){
+////        LOG("In Firmware");
+//        return true;
+//    }
 
     LOG("Reset to Firmware");
     if(!sendCmd(RESET, RESET_FW))
         return false;
-
     close();
-    ZThread::sleep(WAIT_SLEEP);
 
-    if(!open()){
-        ELOG("open error");
-        return false;
+    if(reopen){
+        ZThread::sleep(WAIT_SLEEP);
+
+        if(!open()){
+            ELOG("open error");
+            return false;
+        }
+
+        if(builtin)
+            return false;
     }
-
-    if(builtin)
-        return false;
     return true;
 }
 
-bool ProtoCYKB::enterBootloader(){
-    if(builtin){
-//        LOG("In Bootloader");
-        return true;
-    }
+bool ProtoCYKB::rebootBootloader(bool reopen){
+//    if(builtin){
+////        LOG("In Bootloader");
+//        return true;
+//    }
 
     LOG("Reset to Bootloader");
     if(!sendCmd(RESET, RESET_BL))
         return false;
-
     close();
-    ZThread::sleep(WAIT_SLEEP);
 
-    if(!open()){
-        ELOG("open error");
-        return false;
+    if(reopen){
+        ZThread::sleep(WAIT_SLEEP);
+
+        if(!open()){
+            ELOG("open error");
+            return false;
+        }
+
+        if(!builtin)
+            return false;
     }
-
-    if(!builtin)
-        return false;
     return true;
 }
 
 bool ProtoCYKB::getInfo(){
+    ZBinary bin;
     ZBinary data;
 
     for(zu8 i = 0x20; i < 0x23; ++i){
-        ZBinary bin;
+        bin.clear();
         if(!sendRecvCmd(READ, i, bin))
             return false;
         data.write(bin.getSub(4, 60));
@@ -116,6 +121,19 @@ bool ProtoCYKB::getInfo(){
     RLOG(data.dumpBytes(4, 8, VER_ADDR));
 
     info_section(data);
+
+    LOG("READ_400");
+    bin.clear();
+    if(!sendRecvCmd(READ, READ_400, bin))
+        return false;
+    RLOG(bin.getSub(4, 52).dumpBytes(4, 8));
+
+    LOG("READ_3c00");
+    bin.clear();
+    if(!sendRecvCmd(READ, READ_3C00, bin))
+        return false;
+    RLOG(bin.getSub(4, 4).dumpBytes(4, 8));
+
     return true;
 }
 
@@ -151,7 +169,7 @@ ZString ProtoCYKB::getVersion(){
 
 bool ProtoCYKB::clearVersion(){
     DLOG("clearVersion");
-    if(!enterBootloader())
+    if(!rebootBootloader())
         return false;
 
     if(!eraseFlash(VER_ADDR, 0xB4))
@@ -185,10 +203,12 @@ bool ProtoCYKB::setVersion(ZString version){
 
     LOG("Write Version...");
 
+    // UTF-16 encoded version string
     zu16 str[256];
     zu64 len = version.readUTF16(str, 255);
     str[len++] = 0;
 
+    // Write version string
     ZBinary sdata;
     sdata.writeleu32(len * 2);
     for(zu64 i = 0; i < len; ++i)
@@ -280,7 +300,7 @@ bool ProtoCYKB::writeFirmware(const ZBinary &fwbinin){
 
 bool ProtoCYKB::update(ZString version, const ZBinary &fwbin){
     // Reset to bootloader
-    if(!enterBootloader())
+    if(!rebootBootloader())
         return false;
 
     LOG("Current Version: " << getVersion());
@@ -295,7 +315,7 @@ bool ProtoCYKB::update(ZString version, const ZBinary &fwbin){
         return false;
 
     // Reset to firmware
-    if(!enterFirmware())
+    if(!rebootFirmware())
         return false;
     return true;
 
@@ -303,7 +323,7 @@ bool ProtoCYKB::update(ZString version, const ZBinary &fwbin){
 
 bool ProtoCYKB::eraseAndCheck(){
     // Reset to bootloader
-    if(!enterBootloader())
+    if(!rebootBootloader())
         return false;
 
     zu32 crc_before = crcFlash(VER_ADDR, FLASH_LEN - VER_ADDR);
@@ -346,7 +366,7 @@ void ProtoCYKB::test(){
         return;
     RLOG(bin.getSub(4, 1).dumpBytes(4, 8));
 
-    if(!enterBootloader())
+    if(!rebootBootloader())
         return;
 
     LOG("READ_MODE");

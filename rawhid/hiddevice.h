@@ -7,8 +7,8 @@
 #include "zpointer.h"
 using namespace LibChaos;
 
-#define SEND_TIMEOUT    1000
-#define RECV_TIMEOUT    1000
+#define SEND_TIMEOUT    200
+#define RECV_TIMEOUT    200
 
 struct rawhid_detail;
 struct HIDDeviceData;
