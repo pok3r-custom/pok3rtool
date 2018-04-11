@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <usb.h>
 
 #include "hid.h"
@@ -227,6 +228,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
     int opencount = 0;
     uint8_t buf[1024];
     struct rawhid_detail detail;
+    memset(&detail, 0, sizeof(struct rawhid_detail));
 
     printf("rawhid_open_filter\n");
     usb_init();
@@ -262,31 +264,39 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
                 const int ifnum = desc->bInterfaceNumber;
                 printf("  iface %d type %d, %d, %d\n", ifnum, desc->bInterfaceClass, desc->bInterfaceSubClass, desc->bInterfaceProtocol);
 
+                printf("    endpoints: %d\n", desc->bNumEndpoints);
+                struct usb_endpoint_descriptor *ep = desc->endpoint;
+                int ep_in = 0, ep_out = 0, epin_size = 0, epout_size = 0;
+                // loop over endpoints
+                for (int n = 0; n < desc->bNumEndpoints; n++, ep++) {
+                    int epnum = ep->bEndpointAddress & 0x7F;
+                    if (ep->bEndpointAddress & 0x80) {
+                        printf("      IN endpoint %d (%d)\n", epnum, ep->wMaxPacketSize);
+                        if (!ep_in){
+                            ep_in = epnum;
+                            epin_size = ep->wMaxPacketSize;
+                        }
+                    } else {
+                        printf("      OUT endpoint %d (%d)\n", epnum, ep->wMaxPacketSize);
+                        if (!ep_out){
+                            ep_out = epnum;
+                            epout_size = ep->wMaxPacketSize;
+                        }
+                    }
+                }
+
                 // call user callback with interface info
                 detail.step = RAWHID_STEP_IFACE;
                 detail.ifnum = ifnum;
                 detail.ifclass = desc->bInterfaceClass;
                 detail.subclass = desc->bInterfaceSubClass;
                 detail.protocol = desc->bInterfaceProtocol;
+                detail.ep_in = ep_in;
+                detail.ep_out = ep_out;
+                detail.epin_size = epin_size;
+                detail.epout_size = epout_size;
                 if (!cb(user, &detail)) {
                     continue;
-                }
-
-                printf("    endpoints: %d\n", desc->bNumEndpoints);
-                struct usb_endpoint_descriptor *ep = desc->endpoint;
-                int ep_in = 0, ep_out = 0;
-                // loop over endpoints
-                for (int n = 0; n < desc->bNumEndpoints; n++, ep++) {
-                    int epnum = ep->bEndpointAddress & 0x7F;
-                    if (ep->bEndpointAddress & 0x80) {
-                        printf("      IN endpoint %d (%d)\n", epnum, ep->wMaxPacketSize);
-                        if (!ep_in)
-                            ep_in = epnum;
-                    } else {
-                        printf("      OUT endpoint %d (%d)\n", epnum, ep->wMaxPacketSize);
-                        if (!ep_out)
-                            ep_out = epnum;
-                    }
                 }
 
                 if (!ep_in) continue;
@@ -298,6 +308,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
                         break;
                     }
                 }
+                // unbind kernel drivers from interface
                 if (usb_get_driver_np(hand, ifnum, (char *)buf, sizeof(buf)) >= 0) {
                     printf("  in use by driver \"%s\"\n", buf);
                     if (usb_detach_kernel_driver_np(hand, ifnum) < 0) {

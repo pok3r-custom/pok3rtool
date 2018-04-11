@@ -31,6 +31,10 @@ struct rawhid_detail {
     unsigned char ifclass;      // not on windows or macosx
     unsigned char subclass;     // not on windows or macosx
     unsigned char protocol;     // not on windows or macosx
+    unsigned char ep_in;        // not on windows or macosx
+    unsigned char epin_size;    // not on windows or macosx
+    unsigned char ep_out;       // not on windows or macosx
+    unsigned char epout_size;   // not on windows or macosx
     // report desc
     const unsigned char *report_desc;   // not on windows
     unsigned short rdesc_len;           // not on windows

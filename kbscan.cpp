@@ -13,23 +13,42 @@
 #define INTERFACE_SUBCLASS_NONE 0
 #define INTERFACE_PROTOCOL_NONE 0
 
-#define VENDOR_USAGE_PAGE       0xff00
-#define VENDOR_USAGE            0x01
-
+#define HOLTEK_VID              0x04d9
 #define QMK_VID                 0xfeed
 
+#define BOOT_PID                0x1000
+#define QMK_PID                 0x8000
+
+#define POK3R_PID               0x0141
+#define POK3R_RGB_PID           0x0167
+#define POK3R_RGB2_PID          0x0207
+#define VORTEX_CORE_PID         0x0175
+#define VORTEX_TESTER_PID       0x0200
+#define VORTEX_RACE3_PID        0x0192
+#define VORTEX_VIBE_PID         0x0216
+#define KBP_V60_PID             0x0112
+#define KBP_V80_PID             0x0129
+#define TEX_YODA_II_PID         0x0163
+
+#define CONSOLE_USAGE_PAGE      0xff31
+#define CONSOLE_USAGE           0x0074
+
 static const ZMap<Device, DeviceInfo> known_devices = {
-    { DEV_POK3R,            { "POK3R",          HOLTEK_VID, POK3R_PID,          POK3R_BOOT_PID,         PROTO_POK3R } },
-    { DEV_POK3R_QMK,        { "POK3R [QMK]",    QMK_VID,    POK3R_PID,          POK3R_BOOT_PID,         PROTO_POK3R } },
-    { DEV_POK3R_RGB,        { "POK3R RGB",      HOLTEK_VID, POK3R_RGB_PID,      POK3R_RGB_BOOT_PID,     PROTO_CYKB } },
-    { DEV_VORTEX_CORE,      { "Vortex Core",    HOLTEK_VID, VORTEX_CORE_PID,    VORTEX_CORE_BOOT_PID,   PROTO_CYKB } },
-    { DEV_VORTEX_TESTER,    { "Vortex Tester",  HOLTEK_VID, VORTEX_TESTER_PID,  VORTEX_TESTER_BOOT_PID, PROTO_CYKB } },
-    { DEV_VORTEX_RACE3,     { "Vortex Race 3",  HOLTEK_VID, VORTEX_RACE3_PID,   VORTEX_RACE3_BOOT_PID,  PROTO_CYKB } },
-    { DEV_VORTEX_VIBE,      { "Vortex ViBE",    HOLTEK_VID, VORTEX_VIBE_PID,    VORTEX_VIBE_BOOT_PID,   PROTO_CYKB } },
-    { DEV_KBP_V60,          { "KBP V60",        HOLTEK_VID, KBP_V60_PID,        KBP_V60_BOOT_PID,       PROTO_POK3R } },
-    { DEV_KBP_V80,          { "KBP V80",        HOLTEK_VID, KBP_V80_PID,        KBP_V80_BOOT_PID,       PROTO_POK3R } },
-//    { DEV_KBP_V100,         { "KBP V100",       HOLTEK_VID, KBP_V100_PID,       KBP_V100_BOOT_PID,      PROTO_POK3R } },
-    { DEV_TEX_YODA_II,      { "Tex Yoda II",    HOLTEK_VID, TEX_YODA_II_PID,    TEX_YODA_II_BOOT_PID,   PROTO_CYKB } },
+    { DEV_POK3R,            { "POK3R",              HOLTEK_VID, POK3R_PID,                  BOOT_PID | POK3R_PID,           PROTO_POK3R } },
+    { DEV_POK3R_RGB,        { "POK3R RGB",          HOLTEK_VID, POK3R_RGB_PID,              BOOT_PID | POK3R_RGB_PID,       PROTO_CYKB } },
+    { DEV_POK3R_RGB2,       { "POK3R RGB",          HOLTEK_VID, POK3R_RGB2_PID,             BOOT_PID | POK3R_RGB2_PID,      PROTO_CYKB } },
+    { DEV_VORTEX_CORE,      { "Vortex Core",        HOLTEK_VID, VORTEX_CORE_PID,            BOOT_PID | VORTEX_CORE_PID,     PROTO_CYKB } },
+    { DEV_VORTEX_TESTER,    { "Vortex Tester",      HOLTEK_VID, VORTEX_TESTER_PID,          BOOT_PID | VORTEX_TESTER_PID,   PROTO_CYKB } },
+    { DEV_VORTEX_RACE3,     { "Vortex Race 3",      HOLTEK_VID, VORTEX_RACE3_PID,           BOOT_PID | VORTEX_RACE3_PID,    PROTO_CYKB } },
+    { DEV_VORTEX_VIBE,      { "Vortex ViBE",        HOLTEK_VID, VORTEX_VIBE_PID,            BOOT_PID | VORTEX_VIBE_PID,     PROTO_CYKB } },
+    { DEV_KBP_V60,          { "KBP V60",            HOLTEK_VID, KBP_V60_PID,                BOOT_PID | KBP_V60_PID,         PROTO_POK3R } },
+    { DEV_KBP_V80,          { "KBP V80",            HOLTEK_VID, KBP_V80_PID,                BOOT_PID | KBP_V80_PID,         PROTO_POK3R } },
+//    { DEV_KBP_V100,         { "KBP V100",           HOLTEK_VID, KBP_V100_PID,               BOOT_PID | KBP_V100_PID,        PROTO_POK3R } },
+    { DEV_TEX_YODA_II,      { "Tex Yoda II",        HOLTEK_VID, TEX_YODA_II_PID,            BOOT_PID | TEX_YODA_II_PID,     PROTO_CYKB } },
+
+//    { DEV_QMK_POK3R,        { "POK3R [QMK]",        HOLTEK_VID, QMK_PID | POK3R_PID,        BOOT_PID | POK3R_PID,           PROTO_POK3R } },
+//    { DEV_QMK_POK3R_RGB,    { "POK3R RGB [QMK]",    HOLTEK_VID, QMK_PID | POK3R_RGB_PID,    BOOT_PID | POK3R_RGB_PID,       PROTO_CYKB } },
+//    { DEV_QMK_VORTEX_CORE,  { "Vortex Core [QMK]",  HOLTEK_VID, QMK_PID | VORTEX_CORE_PID,  BOOT_PID | VORTEX_CORE_PID,     PROTO_CYKB } },
 };
 
 static ZMap<zu32, Device> known_ids;
@@ -38,8 +57,14 @@ KBScan::KBScan(){
     if(!known_ids.size()){
         for(auto it = known_devices.begin(); it.more(); ++it){
             DeviceInfo info = known_devices[it.get()];
-            known_ids.add(info.pid | (info.vid << 16), it.get());
-            known_ids.add(info.boot_pid | (info.vid << 16), it.get());
+            zu32 id = info.pid | (info.vid << 16);
+            zu32 bid = info.boot_pid | (info.vid << 16);
+            if(known_ids.contains(id))
+                LOG("Duplicate known id");
+            if(known_ids.contains(bid))
+                LOG("Duplicate known boot id");
+            known_ids.add(id, it.get());
+            known_ids.add(bid, it.get());
         }
     }
 }
@@ -59,9 +84,11 @@ zu32 KBScan::find(Device devtype){
                 return (detail->ifclass == INTERFACE_CLASS_HID &&
                         detail->subclass == INTERFACE_SUBCLASS_NONE &&
                         detail->protocol == INTERFACE_PROTOCOL_NONE &&
-                        (detail->vid == QMK_VID ? detail->ifnum == 1 : 1));
+                        (detail->vid == QMK_VID ? detail->ifnum == 1 : 1) &&
+                        (detail->epin_size == 0 || detail->epin_size == 64) &&
+                        (detail->epout_size == 0 || detail->epout_size == 64));
             case RAWHID_STEP_REPORT:
-                return (detail->usage_page == VENDOR_USAGE_PAGE && detail->usage == VENDOR_USAGE);
+                return (detail->usage_page == UPDATE_USAGE_PAGE && detail->usage == UPDATE_USAGE);
             case RAWHID_STEP_OPEN:
                 DLOG("OPEN " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
                 ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
@@ -93,11 +120,13 @@ zu32 KBScan::scan(){
                 return (detail->ifclass == INTERFACE_CLASS_HID &&
                         detail->subclass == INTERFACE_SUBCLASS_NONE &&
                         detail->protocol == INTERFACE_PROTOCOL_NONE &&
-                        (detail->vid == QMK_VID ? detail->ifnum == 1 : 1));
+                        (detail->vid == QMK_VID ? detail->ifnum == 1 : 1) &&
+                        (detail->epin_size == 0 || detail->epin_size == 64) &&
+                        (detail->epout_size == 0 || detail->epout_size == 64));
 
             case RAWHID_STEP_REPORT: {
                 DLOG("USAGE " << ZString::ItoS((zu64)detail->usage_page, 16, 4) << " " << ZString::ItoS((zu64)detail->usage, 16, 2));
-                if(detail->usage_page == VENDOR_USAGE_PAGE && detail->usage == VENDOR_USAGE){
+                if(detail->usage_page == UPDATE_USAGE_PAGE && detail->usage == UPDATE_USAGE){
                     ZBinary rdesc(detail->report_desc, detail->rdesc_len);
                     DLOG("REPORT " << detail->rdesc_len << ": " << rdesc.strBytes(1));
                     return true;
@@ -132,6 +161,50 @@ zu32 KBScan::scan(){
     return devs;
 }
 
+void KBScan::dbgScan(){
+
+    auto filter_func = [this](const rawhid_detail *detail){
+        zu32 id = detail->pid | (detail->vid << 16);
+        switch(detail->step){
+            case RAWHID_STEP_DEV:
+                if(known_ids.contains(id)){
+                    LOG("DEV " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
+                    return true;
+                }
+                return false;
+
+            case RAWHID_STEP_IFACE:
+                return (detail->ifclass == INTERFACE_CLASS_HID &&
+                        detail->subclass == INTERFACE_SUBCLASS_NONE &&
+                        detail->protocol == INTERFACE_PROTOCOL_NONE);
+
+            case RAWHID_STEP_REPORT: {
+                if(detail->usage_page == UPDATE_USAGE_PAGE && detail->usage == UPDATE_USAGE){
+                    LOG("  update");
+                } else if(detail->usage_page == CONSOLE_USAGE_PAGE && detail->usage == CONSOLE_USAGE){
+                    LOG("  console");
+                }
+                return false;
+            }
+
+            case RAWHID_STEP_OPEN: {
+                DLOG("OPEN " <<
+                    ZString::ItoS((zu64)detail->vid, 16, 4) << " " <<
+                    ZString::ItoS((zu64)detail->pid, 16, 4) << " " <<
+                    detail->ifnum
+                );
+                if(!known_ids.contains(id))
+                    return false;
+                return false;
+            }
+        }
+        return false;
+    };
+
+    zu32 devs = HIDDevice::openFilter(filter_func);
+    DLOG("Found " << devs << " devices");
+}
+
 ZList<KBDevice> KBScan::open(){
     ZList<KBDevice> devs;
 
@@ -140,7 +213,7 @@ ZList<KBDevice> KBScan::open(){
         ListDevice ldev = it.get();
         // Check device
         if(ldev.hid.get() && ldev.hid->isOpen()){
-            ZPointer<UpdateInterface> iface;
+            ZPointer<KBProto> iface;
             // Select protocol
             if(ldev.dev.type == PROTO_POK3R){
                 iface = new ProtoPOK3R(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid);

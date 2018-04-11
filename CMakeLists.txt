@@ -12,12 +12,12 @@ set(POK3RLIB_SOURCES
     kbscan.h
     kbscan.cpp
 
+    kbproto.h
+    kbproto.cpp
     proto_pok3r.h
     proto_pok3r.cpp
     proto_cykb.h
     proto_cykb.cpp
-
-    updateinterface.h
 
     updatepackage.h
     updatepackage.cpp

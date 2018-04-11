@@ -28,48 +28,50 @@ struct Param {
 // ////////////////////////////////
 
 const ZMap<ZString, Device> devnames = {
-    { "pok3r",          DEV_POK3R },
+    { "pok3r",              DEV_POK3R },
 
-    { "pok3r-rgb",      DEV_POK3R_RGB },
-    { "pok3r_rgb",      DEV_POK3R_RGB },
+    { "pok3r-rgb",          DEV_POK3R_RGB },
+    { "pok3r_rgb",          DEV_POK3R_RGB },
 
-    { "core",           DEV_VORTEX_CORE },
-    { "vortex-core",    DEV_VORTEX_CORE },
-    { "vortex_core",    DEV_VORTEX_CORE },
+    { "core",               DEV_VORTEX_CORE },
+    { "vortex-core",        DEV_VORTEX_CORE },
+    { "vortex_core",        DEV_VORTEX_CORE },
     
-    { "race3",          DEV_VORTEX_RACE3 },
-    { "vortex-race3",   DEV_VORTEX_RACE3 },
-    { "vortex_race3",   DEV_VORTEX_RACE3 },
+    { "race3",              DEV_VORTEX_RACE3 },
+    { "vortex-race3",       DEV_VORTEX_RACE3 },
+    { "vortex_race3",       DEV_VORTEX_RACE3 },
 
-    { "tester",         DEV_VORTEX_TESTER },
-    { "vortex-tester",  DEV_VORTEX_TESTER },
-    { "vortex_tester",  DEV_VORTEX_TESTER },
+    { "tester",             DEV_VORTEX_TESTER },
+    { "vortex-tester",      DEV_VORTEX_TESTER },
+    { "vortex_tester",      DEV_VORTEX_TESTER },
 
-    { "vibe",           DEV_VORTEX_VIBE },
-    { "vortex-vibe",    DEV_VORTEX_VIBE },
-    { "vortex_vibe",    DEV_VORTEX_VIBE },
+    { "vibe",               DEV_VORTEX_VIBE },
+    { "vortex-vibe",        DEV_VORTEX_VIBE },
+    { "vortex_vibe",        DEV_VORTEX_VIBE },
 
-    { "kbpv60",         DEV_KBP_V60 },
-    { "kbp-v60",        DEV_KBP_V60 },
-    { "kbp_v60",        DEV_KBP_V60 },
+    { "kbpv60",             DEV_KBP_V60 },
+    { "kbp-v60",            DEV_KBP_V60 },
+    { "kbp_v60",            DEV_KBP_V60 },
 
-    { "kbpv80",         DEV_KBP_V80 },
-    { "kbp-v80",        DEV_KBP_V80 },
-    { "kbp_v80",        DEV_KBP_V80 },
+    { "kbpv80",             DEV_KBP_V80 },
+    { "kbp-v80",            DEV_KBP_V80 },
+    { "kbp_v80",            DEV_KBP_V80 },
 
-    { "yoda2",          DEV_TEX_YODA_II },
-    { "tex-yoda-2",     DEV_TEX_YODA_II },
-    { "tex_yoda_2",     DEV_TEX_YODA_II },
-    { "tex-yoda-ii",    DEV_TEX_YODA_II },
-    { "tex_yoda_ii",    DEV_TEX_YODA_II },
+    { "yoda2",              DEV_TEX_YODA_II },
+    { "tex-yoda-2",         DEV_TEX_YODA_II },
+    { "tex_yoda_2",         DEV_TEX_YODA_II },
+    { "tex-yoda-ii",        DEV_TEX_YODA_II },
+    { "tex_yoda_ii",        DEV_TEX_YODA_II },
 
-    { "pok3r_qmk",      DEV_POK3R_QMK },
+    { "qmk_pok3r",          DEV_QMK_POK3R },
+    { "qmk_pok3r_rgb",      DEV_QMK_POK3R_RGB },
+    { "qmk_vortex_core",    DEV_QMK_VORTEX_CORE },
 };
 
 // Functions
 // ////////////////////////////////
 
-ZPointer<UpdateInterface> openDevice(Device dev){
+ZPointer<KBProto> openDevice(Device dev){
     KBScan scanner;
     if(!scanner.find(dev))
         return nullptr;
@@ -123,7 +125,7 @@ int cmd_list(Param *param){
 
 int cmd_version(Param *param){
     // Read Version
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG("Version: " << kb->getVersion());
         return 0;
@@ -137,7 +139,7 @@ int cmd_setversion(Param *param){
 
     ZString version = param->args[1];
     // Set Version
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG("Old Version: " << kb->getVersion());
         LOG(kb->setVersion(version));
@@ -152,7 +154,7 @@ int cmd_info(Param *param){
         warning();
 
     // Get Info
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG(kb->getInfo());
         return 0;
@@ -162,7 +164,7 @@ int cmd_info(Param *param){
 
 int cmd_reboot(Param *param){
     // Reset to Firmware
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG(kb->rebootFirmware());
         // Read version
@@ -174,7 +176,7 @@ int cmd_reboot(Param *param){
 
 int cmd_bootloader(Param *param){
     // Reset to Bootloader
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG(kb->rebootBootloader());
         // Read version
@@ -190,7 +192,7 @@ int cmd_dump(Param *param){
 
     ZPath out = param->args[1];
     // Dump Flash
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG("Dump Flash");
         ZBinary bin = kb->dumpFlash();
@@ -213,7 +215,7 @@ int cmd_flash(Param *param){
         LOG("Please specifiy a device");
         return 2;
     }
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG("Update Firmware: " << firmware);
         ZBinary fwbin;
@@ -241,7 +243,7 @@ int cmd_wipe(Param *param){
         LOG("Please specifiy a device");
         return 2;
     }
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG("Erase Firmware");
         bool ret = kb->eraseAndCheck();

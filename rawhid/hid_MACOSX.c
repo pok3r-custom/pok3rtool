@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <string.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/hid/IOHIDLib.h>
 
@@ -479,6 +480,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
     ctx.cb = cb;
     ctx.user = user;
     ctx.opencount = 0;
+    memset(&ctx.detail, 0, sizeof(struct rawhid_detail));
 
     printf("rawhid_openll_filter\n");
     if (hid_init()) return 0;

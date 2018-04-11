@@ -15,6 +15,7 @@
 #define HEX(A) (ZString::ItoS((zu64)(A), 16))
 
 ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
+    KBProto(PROTO_CYKB),
     builtin(false), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_),
     dev(new HIDDevice){
@@ -22,6 +23,7 @@ ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
 }
 
 ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPointer<HIDDevice> dev_) :
+    KBProto(PROTO_CYKB),
     builtin(builtin_), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_),
     dev(dev_){
@@ -59,10 +61,10 @@ bool ProtoCYKB::isBuiltin() const {
 }
 
 bool ProtoCYKB::rebootFirmware(bool reopen){
-//    if(!builtin){
-////        LOG("In Firmware");
-//        return true;
-//    }
+    if(!builtin){
+//        LOG("In Firmware");
+        return true;
+    }
 
     LOG("Reset to Firmware");
     if(!sendCmd(RESET, RESET_FW))
@@ -84,10 +86,10 @@ bool ProtoCYKB::rebootFirmware(bool reopen){
 }
 
 bool ProtoCYKB::rebootBootloader(bool reopen){
-//    if(builtin){
-////        LOG("In Bootloader");
-//        return true;
-//    }
+    if(builtin){
+//        LOG("In Bootloader");
+        return true;
+    }
 
     LOG("Reset to Bootloader");
     if(!sendCmd(RESET, RESET_BL))
@@ -167,26 +169,26 @@ ZString ProtoCYKB::getVersion(){
     return ver;
 }
 
-bool ProtoCYKB::clearVersion(){
+KBStatus ProtoCYKB::clearVersion(){
     DLOG("clearVersion");
     if(!rebootBootloader())
-        return false;
+        return ERR_FAIL;
 
     if(!eraseFlash(VER_ADDR, 0xB4))
-        return false;
+        return ERR_FAIL;
 
     ZBinary data;
     if(!sendRecvCmd(READ, READ_VER2, data))
-        return false;
+        return ERR_FAIL;
 
     ZBinary tst;
     tst.fill(0xFF, 60);
     if(data.getSub(4) != tst){
         ELOG("version not cleared");
-        return false;
+        return ERR_FLASH;
     }
 
-    return true;
+    return SUCCESS;
 }
 
 const zu32 ver2[15] = {
@@ -196,10 +198,11 @@ const zu32 ver2[15] = {
     0xffffffff, 0xffffffff, 0x001c5aa5,
 };
 
-bool ProtoCYKB::setVersion(ZString version){
+KBStatus ProtoCYKB::setVersion(ZString version){
     DLOG("setVersion " << version);
-    if(!clearVersion())
-        return false;
+    auto status = clearVersion();
+    if(status != SUCCESS)
+        return status;
 
     LOG("Write Version...");
 
@@ -224,27 +227,27 @@ bool ProtoCYKB::setVersion(ZString version){
     // write version
     if(!writeFlash(VER_ADDR, vdata)){
         ELOG("write error");
-        return false;
+        return ERR_FAIL;
     }
 
     // check version
     ZBinary data;
     if(!sendRecvCmd(READ, READ_VER2, data))
-        return false;
+        return ERR_FAIL;
     ZBinary cdata(ver2, sizeof(ver2));
     if(data.getSub(4) != cdata){
         ELOG("failed to set version");
-        return false;
+        return ERR_FLASH;
     }
 
     ZString nver = getVersion();
     LOG("New Version: " << nver);
     if(nver != version){
         ELOG("failed to set version string");
-        return false;
+        return ERR_FLASH;
     }
 
-    return true;
+    return SUCCESS;
 }
 
 ZBinary ProtoCYKB::dumpFlash(){
@@ -296,29 +299,6 @@ bool ProtoCYKB::writeFirmware(const ZBinary &fwbinin){
     }
 
     return true;
-}
-
-bool ProtoCYKB::update(ZString version, const ZBinary &fwbin){
-    // Reset to bootloader
-    if(!rebootBootloader())
-        return false;
-
-    LOG("Current Version: " << getVersion());
-
-    if(!clearVersion())
-        return false;
-
-    if(!writeFirmware(fwbin))
-        return false;
-
-    if(!setVersion(version))
-        return false;
-
-    // Reset to firmware
-    if(!rebootFirmware())
-        return false;
-    return true;
-
 }
 
 bool ProtoCYKB::eraseAndCheck(){

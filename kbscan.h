@@ -1,8 +1,8 @@
 #ifndef KBSCAN_H
 #define KBSCAN_H
 
+#include "kbproto.h"
 #include "rawhid/hiddevice.h"
-#include "updateinterface.h"
 
 #include "zstring.h"
 #include "zpointer.h"
@@ -12,6 +12,7 @@ enum Device {
     DEV_NONE = 0,
     DEV_POK3R,          //!< Vortex POK3R
     DEV_POK3R_RGB,      //!< Vortex POK3R RGB
+    DEV_POK3R_RGB2,     //!< Vortex POK3R RGB (PCB v2)
     DEV_VORTEX_CORE,    //!< Vortex Core
     DEV_VORTEX_RACE3,   //!< Vortex Race 3
     DEV_VORTEX_TESTER,  //!< Vortex 22-Key Switch Tester
@@ -20,12 +21,9 @@ enum Device {
     DEV_KBP_V80,        //!< KBParadise v80
     DEV_TEX_YODA_II,    //!< Tex Yoda II
 
-    DEV_POK3R_QMK,
-};
-
-enum DevType {
-    PROTO_POK3R,    //!< Used in the POK3R and KBP keyboards.
-    PROTO_CYKB,     //!< Used in Vortex keyboards marked with CYKB.
+    DEV_QMK_POK3R,
+    DEV_QMK_POK3R_RGB,
+    DEV_QMK_VORTEX_CORE,
 };
 
 struct DeviceInfo {
@@ -33,7 +31,7 @@ struct DeviceInfo {
     zu16 vid;
     zu16 pid;
     zu16 boot_pid;
-    DevType type;
+    KBType type;
 };
 
 struct ListDevice {
@@ -43,12 +41,12 @@ struct ListDevice {
 };
 
 struct KBDevice {
-    DevType type;
+    KBType type;
     ZString name;
     zu16 vid;
     zu16 pid;
     DeviceInfo info;
-    ZPointer<UpdateInterface> iface;
+    ZPointer<KBProto> iface;
 };
 
 class KBScan {
@@ -57,6 +55,8 @@ public:
 
     zu32 find(Device dev);
     zu32 scan();
+
+    void dbgScan();
 
     ZList<KBDevice> open();
 

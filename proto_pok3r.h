@@ -1,23 +1,14 @@
 #ifndef PROTO_POK3R_H
 #define PROTO_POK3R_H
 
-#include "updateinterface.h"
+#include "kbproto.h"
 #include "rawhid/hiddevice.h"
 
 #include "zstring.h"
 #include "zbinary.h"
 using namespace LibChaos;
 
-#define POK3R_PID           0x0141
-#define POK3R_BOOT_PID      0x1141
-
-#define KBP_V60_PID         0x0112
-#define KBP_V60_BOOT_PID    0x1112
-
-#define KBP_V80_PID         0x0129
-#define KBP_V80_BOOT_PID    0x1129
-
-class ProtoPOK3R : public UpdateInterface {
+class ProtoPOK3R : public KBProto {
 public:
     enum pok3r_cmd {
         ERASE_CMD               = 0,    //! Erase pages of flash
@@ -74,16 +65,13 @@ public:
     //! Read the firmware version from the keyboard.
     ZString getVersion();
 
-    bool clearVersion();
-
-    bool setVersion(ZString version);
+    KBStatus clearVersion();
+    KBStatus setVersion(ZString version);
 
     //! Dump the contents of flash.
     ZBinary dumpFlash();
     //! Update the firmware.
     bool writeFirmware(const ZBinary &fwbin);
-
-    bool update(ZString version, const ZBinary &fwbin);
 
     //! Erase flash pages starting at \a start, ending on the page of \a end.
     bool eraseFlash(zu32 start, zu32 end);

@@ -11,6 +11,7 @@
 #define WAIT_SLEEP          2
 
 ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
+    KBProto(PROTO_POK3R),
     builtin(false), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_),
     dev(new HIDDevice){
@@ -18,6 +19,7 @@ ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
 }
 
 ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPointer<HIDDevice> dev_) :
+    KBProto(PROTO_POK3R),
     builtin(builtin_), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_),
     dev(dev_){
@@ -152,31 +154,32 @@ ZString ProtoPOK3R::getVersion(){
     return ZString(bin.raw() + 4, len);
 }
 
-bool ProtoPOK3R::clearVersion(){
+KBStatus ProtoPOK3R::clearVersion(){
     DLOG("clearVersion");
     if(!rebootBootloader())
-        return false;
+        return ERR_IO;
 
     LOG("Clear Version");
     if(!eraseFlash(VER_ADDR, VER_ADDR + 8))
-        return false;
+        return ERR_IO;
 
     ZBinary bin;
     if(!readFlash(VER_ADDR, bin))
-        return false;
+        return ERR_IO;
 
     ZBinary tst;
     tst.fill(0xFF, 64);
     if(bin != tst)
-        return false;
+        return ERR_IO;
 
-    return true;
+    return SUCCESS;
 }
 
-bool ProtoPOK3R::setVersion(ZString version){
+KBStatus ProtoPOK3R::setVersion(ZString version){
     DLOG("setVersion " << version);
-    if(!clearVersion())
-        return false;
+    auto status = clearVersion();
+    if(status != SUCCESS)
+        return status;
 
     LOG("Write Version: " << version);
 
@@ -189,7 +192,7 @@ bool ProtoPOK3R::setVersion(ZString version){
     // write version
     if(!writeFlash(VER_ADDR, vdata)){
         LOG("write error");
-        return false;
+        return ERR_FAIL;
     }
 
     // check version
@@ -198,10 +201,10 @@ bool ProtoPOK3R::setVersion(ZString version){
 
     if(nver != version){
         ELOG("failed to set version");
-        return false;
+        return ERR_FLASH;
     }
 
-    return true;
+    return SUCCESS;
 }
 
 ZBinary ProtoPOK3R::dumpFlash(){
@@ -272,28 +275,6 @@ bool ProtoPOK3R::writeFirmware(const ZBinary &fwbinin){
     DLOG("recv:");
     DLOG(ZLog::RAW << data.dumpBytes(4, 8));
 
-    return true;
-}
-
-bool ProtoPOK3R::update(ZString version, const ZBinary &fwbin){
-    // Reset to bootloader
-    if(!rebootBootloader())
-        return false;
-
-    LOG("Current Version: " << getVersion());
-
-    if(!clearVersion())
-        return false;
-
-    if(!writeFirmware(fwbin))
-        return false;
-
-    if(!setVersion(version))
-        return false;
-
-    // Reset to firmware
-    if(!rebootFirmware())
-        return false;
     return true;
 }
 

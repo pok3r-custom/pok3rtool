@@ -1,32 +1,14 @@
 #ifndef PROTO_CYKB_H
 #define PROTO_CYKB_H
 
-#include "updateinterface.h"
+#include "kbproto.h"
 #include "rawhid/hiddevice.h"
 
 #include "zstring.h"
 #include "zbinary.h"
 using namespace LibChaos;
 
-#define TEX_YODA_II_PID         0x0163
-#define TEX_YODA_II_BOOT_PID    0x1163
-
-#define POK3R_RGB_PID           0x0167
-#define POK3R_RGB_BOOT_PID      0x1167
-
-#define VORTEX_CORE_PID         0x0175
-#define VORTEX_CORE_BOOT_PID    0x1175
-
-#define VORTEX_RACE3_PID        0x0192
-#define VORTEX_RACE3_BOOT_PID   0x1192
-
-#define VORTEX_TESTER_PID       0x0200
-#define VORTEX_TESTER_BOOT_PID  0x1200
-
-#define VORTEX_VIBE_PID         0x0216
-#define VORTEX_VIBE_BOOT_PID    0x1216
-
-class ProtoCYKB : public UpdateInterface {
+class ProtoCYKB : public KBProto {
 public:
     enum pok3r_rgb_cmd {
         CMD_16      = 0x10,
@@ -83,16 +65,13 @@ public:
     //! Read the firmware version from the keyboard.
     ZString getVersion();
 
-    bool clearVersion();
-
-    bool setVersion(ZString version);
+    KBStatus clearVersion();
+    KBStatus setVersion(ZString version);
 
     //! Dump the contents of flash.
     ZBinary dumpFlash();
     //! Update the firmware.
     bool writeFirmware(const ZBinary &fwbin);
-
-    bool update(ZString version, const ZBinary &fwbin);
 
     bool eraseAndCheck();
 
