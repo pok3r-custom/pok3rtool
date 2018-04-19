@@ -166,9 +166,9 @@ int cmd_reboot(Param *param){
     // Reset to Firmware
     ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
-        LOG(kb->rebootFirmware());
+        LOG(kb->rebootFirmware(false));
         // Read version
-        LOG("Version: " << kb->getVersion());
+//        LOG("Version: " << kb->getVersion());
         return 0;
     }
     return -1;
@@ -178,9 +178,9 @@ int cmd_bootloader(Param *param){
     // Reset to Bootloader
     ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
-        LOG(kb->rebootBootloader());
+        LOG(kb->rebootBootloader(false));
         // Read version
-        LOG("Version: " << kb->getVersion());
+//        LOG("Version: " << kb->getVersion());
         return 0;
     }
     return -1;
