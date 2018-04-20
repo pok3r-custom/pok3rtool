@@ -8,7 +8,7 @@
 #include "zpointer.h"
 using namespace LibChaos;
 
-enum Device {
+enum DeviceType {
     DEV_NONE = 0,
     DEV_POK3R,          //!< Vortex POK3R
     DEV_POK3R_RGB,      //!< Vortex POK3R RGB
@@ -35,6 +35,7 @@ struct DeviceInfo {
 };
 
 struct ListDevice {
+    DeviceType devtype;
     DeviceInfo dev;
     ZPointer<HIDDevice> hid;
     bool boot;
@@ -42,9 +43,7 @@ struct ListDevice {
 
 struct KBDevice {
     KBType type;
-    ZString name;
-    zu16 vid;
-    zu16 pid;
+    DeviceType devtype;
     DeviceInfo info;
     ZPointer<KBProto> iface;
 };
@@ -53,7 +52,7 @@ class KBScan {
 public:
     KBScan();
 
-    zu32 find(Device dev);
+    zu32 find(DeviceType dev);
     zu32 scan();
 
     void dbgScan();

@@ -21,13 +21,13 @@ using namespace LibChaos;
 struct Param {
     bool ok;
     ZArray<ZString> args;
-    Device device;
+    DeviceType device;
 };
 
 // Constants
 // ////////////////////////////////
 
-const ZMap<ZString, Device> devnames = {
+const ZMap<ZString, DeviceType> devnames = {
     { "pok3r",              DEV_POK3R },
 
     { "pok3r-rgb",          DEV_POK3R_RGB },
@@ -71,14 +71,14 @@ const ZMap<ZString, Device> devnames = {
 // Functions
 // ////////////////////////////////
 
-ZPointer<KBProto> openDevice(Device dev){
+ZPointer<KBProto> openDevice(DeviceType dev){
     KBScan scanner;
     if(!scanner.find(dev))
         return nullptr;
 
     auto devs = scanner.open();
-    for (auto it = devs.begin(); it.more(); ++it){
-        auto kb = it.get();
+    if(devs.size() == 1){
+        auto kb = devs.front();
         if(kb.iface->isOpen()){
             if(kb.iface->isBuiltin()){
                 LOG("Opened " << kb.info.name << " (bootloader)");
@@ -86,8 +86,13 @@ ZPointer<KBProto> openDevice(Device dev){
                 LOG("Opened " << kb.info.name);
             }
             return kb.iface;
+        } else {
+            ELOG("Device found but not opened: " << kb.info.name);
         }
-        return nullptr;
+    } else if(devs.size() > 1){
+        ELOG("Multiple identical devices found, disconnect devices other than target");
+    } else {
+        ELOG("No device found, check connection and permissions");
     }
     return nullptr;
 }
