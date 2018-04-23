@@ -37,6 +37,13 @@ public:
         DEBUG_3_SUBCMD          = 3,    // ?
         DEBUG_4_SUBCMD          = 4,    // ?
         DEBUG_5_SUBCMD          = 5,    // ?
+
+        QMK_INFO                = 0x81,
+        QMK_EEPROM              = 0x82,
+        QMK_EEPROM_INFO         = 0,
+        QMK_EEPROM_READ         = 1,
+        QMK_EEPROM_WRITE        = 2,
+        QMK_EEPROM_ERASE        = 3,
     };
 
 public:
@@ -53,7 +60,8 @@ public:
     void close();
     bool isOpen() const;
 
-    bool isBuiltin() const;
+    bool isBuiltin();
+    bool isQMK();
 
     //! Reset and re-open device.
     bool rebootFirmware(bool reopen = true);
@@ -61,33 +69,41 @@ public:
     bool rebootBootloader(bool reopen = true);
 
     bool getInfo();
+    bool eepromTest();
 
     //! Read the firmware version from the keyboard.
     ZString getVersion();
 
     KBStatus clearVersion();
-    KBStatus setVersion(ZString version);
+    KBStatus setVersion(ZString version, zu8 opt_byte);
 
     //! Dump the contents of flash.
     ZBinary dumpFlash();
+    //! Dump the contents of external flash / eeprom.
+    ZBinary dumpEEPROM();
+
     //! Update the firmware.
     bool writeFirmware(const ZBinary &fwbin);
 
-    //! Erase flash pages starting at \a start, ending on the page of \a end.
-    bool eraseFlash(zu32 start, zu32 end);
     //! Read 64 bytes at \a addr.
     bool readFlash(zu32 addr, ZBinary &bin);
     //! Write 52 bytes at \a addr.
     bool writeFlash(zu32 addr, ZBinary bin);
     //! Check 52 bytes at \a addr.
     bool checkFlash(zu32 addr, ZBinary bin);
+    //! Erase flash pages starting at \a start, ending on the page of \a end.
+    bool eraseFlash(zu32 start, zu32 end);
+
+    bool readEEPROM(zu32 addr, ZBinary &bin);
+    bool writeEEPROM(zu32 addr, ZBinary bin);
+    bool eraseEEPROM(zu32 addr);
 
     //! Send CRC command.
     zu16 crcFlash(zu32 addr, zu32 len);
 
 private:
     //! Send command
-    bool sendCmd(zu8 cmd, zu8 subcmd, zu32 a1, zu32 a2, const zbyte *data = 0, zu8 len = 0);
+    bool sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin = ZBinary());
 
 public:
     static void decode_firmware(ZBinary &bin);

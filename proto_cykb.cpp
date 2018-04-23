@@ -56,7 +56,7 @@ bool ProtoCYKB::isOpen() const {
     return dev->isOpen();
 }
 
-bool ProtoCYKB::isBuiltin() const {
+bool ProtoCYKB::isBuiltin(){
     return builtin;
 }
 
@@ -198,7 +198,7 @@ const zu32 ver2[15] = {
     0xffffffff, 0xffffffff, 0x001c5aa5,
 };
 
-KBStatus ProtoCYKB::setVersion(ZString version){
+KBStatus ProtoCYKB::setVersion(ZString version, zu8 opt_byte){
     DLOG("setVersion " << version);
     auto status = clearVersion();
     if(status != SUCCESS)
@@ -252,18 +252,26 @@ KBStatus ProtoCYKB::setVersion(ZString version){
 
 ZBinary ProtoCYKB::dumpFlash(){
     ZBinary dump;
+    /*
     for(zu16 i = 0; i < FLASH_LEN - 60; i += 60){
         if(!readFlash(i, dump))
             return dump;
     }
+    */
 
     // readable flash is not a multiple of 60,
     // so read the last little bit for a full dump
-
+    /*
     ZBinary tmp;
     if(!readFlash(FLASH_LEN - 60, tmp))
         return dump;
     dump.write(tmp.raw() + 44, 16);
+    */
+
+    for(zu16 i = 0; i < FLASH_LEN - 60; i += 60){
+        if(!readFlash(i, dump))
+            return dump;
+    }
 
     return dump;
 }

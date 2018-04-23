@@ -53,7 +53,7 @@ public:
     void close();
     bool isOpen() const;
 
-    bool isBuiltin() const;
+    bool isBuiltin();
 
     //! Reset and re-open device.
     bool rebootFirmware(bool reopen = true);
@@ -66,7 +66,7 @@ public:
     ZString getVersion();
 
     KBStatus clearVersion();
-    KBStatus setVersion(ZString version);
+    KBStatus setVersion(ZString version, zu8 opt_byte);
 
     //! Dump the contents of flash.
     ZBinary dumpFlash();

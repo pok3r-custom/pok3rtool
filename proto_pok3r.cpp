@@ -7,14 +7,17 @@
 #define FW_ADDR             0x2c00
 
 #define FLASH_LEN           0x20000
+#define EEPROM_LEN          0x80000
 
-#define WAIT_SLEEP          2
+#define REBOOT_SLEEP        5
+#define ERASE_SLEEP         2
 
 ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
     KBProto(PROTO_POK3R),
     builtin(false), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_),
-    dev(new HIDDevice){
+    dev(new HIDDevice)
+{
 
 }
 
@@ -22,7 +25,22 @@ ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPoi
     KBProto(PROTO_POK3R),
     builtin(builtin_), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_),
-    dev(dev_){
+    dev(dev_)
+{
+    /*
+    if(dev.get() && dev.get()->isOpen()){
+        if(!sendCmd(QMK_INFO, 0, 0, 0))
+            return;
+
+        ZBinary data(64);
+        if(!dev->recv(data)){
+            ELOG("recv error");
+            return;
+        }
+        DLOG("recv:");
+        LOG(ZLog::RAW << data.dumpBytes(4, 8));
+    }
+    */
 
 }
 
@@ -52,23 +70,45 @@ bool ProtoPOK3R::isOpen() const {
     return dev->isOpen();
 }
 
-bool ProtoPOK3R::isBuiltin() const {
+bool ProtoPOK3R::isBuiltin() {
     return builtin;
 }
 
+bool ProtoPOK3R::isQMK() {
+    if(isBuiltin())
+        return false;
+
+    ZBinary bin;
+    if(!readFlash(FW_ADDR + 0x160, bin))
+        return false;
+
+    //LOG(ZLog::RAW << bin.dumpBytes(4, 8));
+    if(!bin.raw()){
+        ELOG("isQMK error");
+        return false;
+    }
+
+    bin.rewind();
+    if(ZString(bin.raw() + 2, 9) == "qmk_pok3r"){
+        //zu16 pid = bin.readleu16();
+        return true;
+    }
+    return false;
+}
+
 bool ProtoPOK3R::rebootFirmware(bool reopen){
-//    if(!builtin){
-////        LOG("In Firmware");
-//        return true;
-//    }
+    if(!builtin){
+//        LOG("In Firmware");
+        return true;
+    }
 
     LOG("Reset to Firmware");
-    if(!sendCmd(RESET_CMD, RESET_BOOT_SUBCMD, 0, 0))
+    if(!sendCmd(RESET_CMD, RESET_BOOT_SUBCMD))
         return false;
     close();
 
     if(reopen){
-        ZThread::sleep(WAIT_SLEEP);
+        ZThread::sleep(REBOOT_SLEEP);
 
         // Find device with new vid and pid
         if(!open()){
@@ -83,18 +123,18 @@ bool ProtoPOK3R::rebootFirmware(bool reopen){
 }
 
 bool ProtoPOK3R::rebootBootloader(bool reopen){
-//    if(builtin){
-////        LOG("In Bootloader");
-//        return true;
-//    }
+    if(builtin){
+//        LOG("In Bootloader");
+        return true;
+    }
 
     LOG("Reset to Bootloader");
-    if(!sendCmd(RESET_CMD, RESET_BUILTIN_SUBCMD, 0, 0))
+    if(!sendCmd(RESET_CMD, RESET_BUILTIN_SUBCMD))
         return false;
     close();
 
     if(reopen){
-        ZThread::sleep(WAIT_SLEEP);
+        ZThread::sleep(REBOOT_SLEEP);
 
         // Find device with new vid and pid
         if(!open()){
@@ -109,7 +149,7 @@ bool ProtoPOK3R::rebootBootloader(bool reopen){
 }
 
 bool ProtoPOK3R::getInfo(){
-    if(!sendCmd(UPDATE_START_CMD, 0, 0, 0))
+    if(!sendCmd(UPDATE_START_CMD, 0))
         return false;
 
     ZBinary data(64);
@@ -139,6 +179,31 @@ bool ProtoPOK3R::getInfo(){
     return true;
 }
 
+bool ProtoPOK3R::eepromTest(){
+    // Send command
+    if(!sendCmd(QMK_EEPROM, QMK_EEPROM_INFO))
+        return false;
+
+    // Get response
+    ZBinary pkt(UPDATE_PKT_LEN);
+    if(!dev->recv(pkt)){
+        ELOG("recv error");
+        return false;
+    }
+    DLOG("recv:");
+    LOG(ZLog::RAW << pkt.dumpBytes(4, 8));
+
+    /*
+    ZBinary test;
+    test.fill(0xaa, 56);
+    writeEEPROM(0x1000, test);
+    */
+
+    eraseEEPROM(0x0000);
+
+    return true;
+}
+
 ZString ProtoPOK3R::getVersion(){
     ZBinary bin;
     if(!readFlash(VER_ADDR, bin))
@@ -151,7 +216,8 @@ ZString ProtoPOK3R::getVersion(){
 
     bin.rewind();
     zu32 len = MIN(bin.readleu32(), 64U);
-    return ZString(bin.raw() + 4, len);
+    ZString ver = ZString(bin.raw() + 4, len);
+    return ver;
 }
 
 KBStatus ProtoPOK3R::clearVersion(){
@@ -175,7 +241,7 @@ KBStatus ProtoPOK3R::clearVersion(){
     return SUCCESS;
 }
 
-KBStatus ProtoPOK3R::setVersion(ZString version){
+KBStatus ProtoPOK3R::setVersion(ZString version, zu8 opt_byte){
     DLOG("setVersion " << version);
     auto status = clearVersion();
     if(status != SUCCESS)
@@ -209,10 +275,41 @@ KBStatus ProtoPOK3R::setVersion(ZString version){
 
 ZBinary ProtoPOK3R::dumpFlash(){
     ZBinary dump;
-    for(zu32 i = 0; i < FLASH_LEN; i += 64){
-        if(!readFlash(i, dump))
+    zu32 cp = FLASH_LEN / 10;
+    int perc = 0;
+    RLOG(perc << "%...");
+    for(zu32 addr = 0; addr < FLASH_LEN; addr += 64){
+        if(!readFlash(addr, dump))
             break;
+
+        if(addr >= cp){
+            perc += 10;
+            RLOG(perc << "%...");
+            cp += FLASH_LEN / 10;
+        }
     }
+    RLOG("100%" << ZLog::NEWLN);
+
+    return dump;
+}
+
+ZBinary ProtoPOK3R::dumpEEPROM(){
+    ZBinary dump;
+    zu32 cp = EEPROM_LEN / 10;
+    int perc = 0;
+    RLOG(perc << "%...");
+    for(zu32 addr = 0; addr < EEPROM_LEN; addr += 64){
+        if(!readEEPROM(addr, dump))
+            break;
+
+        if(addr >= cp){
+            perc += 10;
+            RLOG(perc << "%...");
+            cp += EEPROM_LEN / 10;
+        }
+    }
+    RLOG("100%" << ZLog::NEWLN);
+
     return dump;
 }
 
@@ -222,7 +319,7 @@ bool ProtoPOK3R::writeFirmware(const ZBinary &fwbinin){
     encode_firmware(fwbin);
 
     // update reset
-    if(!sendCmd(UPDATE_START_CMD, 0, 0, 0))
+    if(!sendCmd(UPDATE_START_CMD, 0))
         return false;
     ZBinary data(UPDATE_PKT_LEN);
     if(!dev->recv(data)){
@@ -239,7 +336,7 @@ bool ProtoPOK3R::writeFirmware(const ZBinary &fwbinin){
         return false;
     }
 
-    ZThread::sleep(WAIT_SLEEP);
+    ZThread::sleep(ERASE_SLEEP);
 
     // Write firmware
     LOG("Write...");
@@ -265,7 +362,7 @@ bool ProtoPOK3R::writeFirmware(const ZBinary &fwbinin){
     }
 
     // update reset?
-    if(!sendCmd(UPDATE_START_CMD, 0, 0, 0)){
+    if(!sendCmd(UPDATE_START_CMD, 0)){
         return false;
     }
     if(!dev->recv(data)){
@@ -278,18 +375,13 @@ bool ProtoPOK3R::writeFirmware(const ZBinary &fwbinin){
     return true;
 }
 
-bool ProtoPOK3R::eraseFlash(zu32 start, zu32 end){
-    DLOG("eraseFlash " << start << " " << end);
-    // Send command
-    if(!sendCmd(ERASE_CMD, 8, start, end))
-        return false;
-    return true;
-}
-
 bool ProtoPOK3R::readFlash(zu32 addr, ZBinary &bin){
     DLOG("readFlash " << addr);
     // Send command
-    if(!sendCmd(FLASH_CMD, FLASH_READ_SUBCMD, addr, addr + 64))
+    ZBinary arg;
+    arg.writeleu32(addr);
+    arg.writeleu32(addr + 64);
+    if(!sendCmd(FLASH_CMD, FLASH_READ_SUBCMD, arg))
         return false;
 
     // Get response
@@ -310,7 +402,11 @@ bool ProtoPOK3R::writeFlash(zu32 addr, ZBinary bin){
     if(!bin.size())
         return false;
     // Send command
-    if(!sendCmd(FLASH_CMD, FLASH_WRITE_SUBCMD, addr, addr + bin.size() - 1, bin.raw(), bin.size()))
+    ZBinary arg;
+    arg.writeleu32(addr);
+    arg.writeleu32(addr + bin.size() - 1);
+    arg.write(bin);
+    if(!sendCmd(FLASH_CMD, FLASH_WRITE_SUBCMD, arg))
         return false;
     return true;
 }
@@ -320,14 +416,94 @@ bool ProtoPOK3R::checkFlash(zu32 addr, ZBinary bin){
     if(!bin.size())
         return false;
     // Send command
-    if(!sendCmd(FLASH_CMD, FLASH_CHECK_SUBCMD, addr, addr + bin.size() - 1, bin.raw(), bin.size()))
+    ZBinary arg;
+    arg.writeleu32(addr);
+    arg.writeleu32(addr + bin.size() - 1);
+    arg.write(bin);
+    if(!sendCmd(FLASH_CMD, FLASH_CHECK_SUBCMD, arg))
         return false;
+    return true;
+}
+
+bool ProtoPOK3R::eraseFlash(zu32 start, zu32 end){
+    DLOG("eraseFlash " << start << " " << end);
+    // Send command
+    ZBinary arg;
+    arg.writeleu32(start);
+    arg.writeleu32(end);
+    if(!sendCmd(ERASE_CMD, 8, arg))
+        return false;
+    return true;
+}
+
+bool ProtoPOK3R::readEEPROM(zu32 addr, ZBinary &bin){
+    DLOG("readEEPROM " << addr);
+    // Send command
+    ZBinary arg;
+    arg.writeleu32(addr);
+    if(!sendCmd(QMK_EEPROM, QMK_EEPROM_READ, arg))
+        return false;
+
+    // Get response
+    ZBinary pkt(UPDATE_PKT_LEN);
+    if(!dev->recv(pkt)){
+        ELOG("recv error");
+        return false;
+    }
+    DLOG("recv:");
+    DLOG(ZLog::RAW << pkt.dumpBytes(4, 8));
+
+    bin.write(pkt);
+    return true;
+}
+
+bool ProtoPOK3R::writeEEPROM(zu32 addr, ZBinary bin){
+    DLOG("writeEEPROM " << addr);
+    // Send command
+    ZBinary arg;
+    arg.writeleu32(addr);
+    arg.write(bin);
+    if(!sendCmd(QMK_EEPROM, QMK_EEPROM_WRITE, arg))
+        return false;
+
+    // Get response
+    ZBinary pkt(UPDATE_PKT_LEN);
+    if(!dev->recv(pkt)){
+        ELOG("recv error");
+        return false;
+    }
+    DLOG("recv:");
+    DLOG(ZLog::RAW << pkt.dumpBytes(4, 8));
+
+    return true;
+}
+
+bool ProtoPOK3R::eraseEEPROM(zu32 addr){
+    DLOG("eraseEEPROM " << addr);
+    // Send command
+    ZBinary arg;
+    arg.writeleu32(addr);
+    if(!sendCmd(QMK_EEPROM, QMK_EEPROM_ERASE, arg))
+        return false;
+
+    // Get response
+    ZBinary pkt(UPDATE_PKT_LEN);
+    if(!dev->recv(pkt)){
+        ELOG("recv error");
+        return false;
+    }
+    DLOG("recv:");
+    DLOG(ZLog::RAW << pkt.dumpBytes(4, 8));
+
     return true;
 }
 
 zu16 ProtoPOK3R::crcFlash(zu32 addr, zu32 len){
     // Send command
-    sendCmd(CRC_CMD, 0, addr, len);
+    ZBinary arg;
+    arg.writeleu32(addr);
+    arg.writeleu32(len);
+    sendCmd(CRC_CMD, 0, arg);
     return 0;
 }
 
@@ -347,23 +523,18 @@ zu16 crc16(unsigned char *addr, zu64 size) {
     return (zu16)crc;
 }
 
-bool ProtoPOK3R::sendCmd(zu8 cmd, zu8 subcmd, zu32 a1, zu32 a2, const zbyte *data, zu8 len){
-    if(len > 52){
+bool ProtoPOK3R::sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin){
+    if(bin.size() > 60){
         ELOG("bad data size");
         return false;
     }
 
     ZBinary packet(UPDATE_PKT_LEN);
     packet.fill(0);
-    packet.writeu8(cmd);      // command
-    packet.writeu8(subcmd);   // subcommand
+    packet.writeu8(cmd);    // command
+    packet.writeu8(subcmd); // subcommand
     packet.seek(4);
-    packet.writeleu32(a1);    // arg1
-    packet.writeleu32(a2);    // arg2
-
-    if(data){
-        packet.write(data, len);  // data
-    }
+    packet.write(bin);      // data
 
     packet.seek(2);
     packet.writeleu16(crc16(packet.raw(), UPDATE_PKT_LEN)); // CRC

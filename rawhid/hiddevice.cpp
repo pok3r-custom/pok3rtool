@@ -86,8 +86,8 @@ bool HIDDevice::recv(ZBinary &data){
     int ret;
     do {
         ret = rawhid_recv(device->hid, data.raw(), data.size(), RECV_TIMEOUT);
-    //} while(ret == 0 && !clock.passedMs(RECV_TIMEOUT));
-    } while(ret == 0);
+    } while(ret == 0 && !clock.passedMs(RECV_TIMEOUT_MAX));
+//    } while(ret == 0);
 
     //if(ret == 0){
     //    ELOG("hid recv timeout");

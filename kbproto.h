@@ -36,7 +36,8 @@ public:
     virtual void close() = 0;
     virtual bool isOpen() const = 0;
 
-    virtual bool isBuiltin() const { return false; }
+    virtual bool isBuiltin(){ return false; }
+    virtual bool isQMK(){ return false; }
 
     //! Reset to firmware and re-open device if needed.
     virtual bool rebootFirmware(bool reopen = true) = 0;
@@ -47,12 +48,16 @@ public:
     virtual ZString getVersion() = 0;
 
     virtual KBStatus clearVersion(){ return ERR_NOT_IMPLEMENTED; }
-    virtual KBStatus setVersion(ZString version){ return ERR_NOT_IMPLEMENTED; }
+    virtual KBStatus setVersion(ZString version, zu8 opt_byte = 0){ return ERR_NOT_IMPLEMENTED; }
 
     virtual bool getInfo(){ return false; }
+    virtual bool eepromTest(){ return false; }
 
     //! Dump the contents of flash.
     virtual ZBinary dumpFlash(){ return ZBinary(); }
+    //! Dump the contents of external flash / eeprom.
+    virtual ZBinary dumpEEPROM(){ return ZBinary(); }
+
     //! Write the firmware.
     virtual bool writeFirmware(const ZBinary &fwbin) = 0;
 

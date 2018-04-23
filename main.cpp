@@ -10,9 +10,6 @@
 #include "zoptions.h"
 using namespace LibChaos;
 
-#define UPDATE_USAGE_PAGE   0xff00
-#define UPDATE_USAGE        0x01
-
 #include <iostream>
 
 // Types
@@ -80,11 +77,10 @@ ZPointer<KBProto> openDevice(Device dev){
     for (auto it = devs.begin(); it.more(); ++it){
         auto kb = it.get();
         if(kb.iface->isOpen()){
-            if(kb.iface->isBuiltin()){
-                LOG("Opened " << kb.info.name << " (bootloader)");
-            } else {
-                LOG("Opened " << kb.info.name);
-            }
+            LOG("Opened " << kb.info.name <<
+                (kb.iface->isBuiltin() ? " (bootloader)" : "") <<
+                (kb.iface->isQMK() ? " [QMK]" : "")
+            );
             return kb.iface;
         }
         return nullptr;
@@ -117,7 +113,10 @@ int cmd_list(Param *param){
     scanner.scan();
     auto devs = scanner.open();
     for (auto it = devs.begin(); it.more(); ++it){
-        LOG(it.get().info.name << (it.get().iface->isBuiltin() ? " (bootloader)" : "") <<": " << it.get().iface->getVersion());
+        LOG(it.get().info.name <<
+            (it.get().iface->isBuiltin() ? " (bootloader)" : "") <<
+            (it.get().iface->isQMK() ? " [QMK]" : "") <<
+            ": " << it.get().iface->getVersion());
     }
 
     return 0;
@@ -190,15 +189,25 @@ int cmd_dump(Param *param){
     if(!param->ok)
         warning();
 
-    ZPath out = param->args[1];
+    ZPath out1 = param->args[1];
     // Dump Flash
     ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
+        /*
         LOG("Dump Flash");
-        ZBinary bin = kb->dumpFlash();
-        RLOG(bin.dumpBytes(4, 8));
-        LOG("Out: " << out);
-        ZFile::writeBinary(out, bin);
+        ZBinary bin1 = kb->dumpFlash();
+//        RLOG(bin.dumpBytes(4, 8));
+        LOG("Out: " << out1 << ", " << bin1.size() << " bytes");
+        ZFile::writeBinary(out1, bin1);
+        */
+
+        if(param->args.size() > 2){
+            ZPath out2 = param->args[2];
+            LOG("Dump EEPROM");
+            ZBinary bin2 = kb->dumpEEPROM();
+            LOG("Out: " << out2 << ", " << bin2.size() << " bytes");
+            ZFile::writeBinary(out2, bin2);
+        }
         return 0;
     }
     return -1;
@@ -270,6 +279,19 @@ int cmd_decode(Param *param){
     return 0;
 }
 
+int cmd_eeprom(Param *param){
+    ZPointer<KBProto> kb = openDevice(param->device);
+    if(kb.get()){
+        if(param->args[1] == "test"){
+            LOG("EEPROM Test");
+            bool ret = kb->eepromTest();
+            LOG(ret);
+        }
+        return 0;
+    }
+    return -1;
+}
+
 // Main
 // ////////////////////////////////
 
@@ -286,21 +308,23 @@ const ZArray<ZOptions::OptDef> optdef = {
 typedef int (*cmd_func)(Param *);
 struct CmdEntry {
     cmd_func func;
-    unsigned argn;
+    unsigned argmin;
+    unsigned argmax;
     ZString usage;
 };
 
 const ZMap<ZString, CmdEntry> cmds = {
-    { "list",       { cmd_list,         0, "list" } },
-    { "version",    { cmd_version,      0, "version" } },
-    { "setversion", { cmd_setversion,   1, "setversion <version>" } },
-    { "info",       { cmd_info,         0, "info" } },
-    { "reboot",     { cmd_reboot,       0, "reboot" } },
-    { "bootloader", { cmd_bootloader,   0, "bootloader" } },
-    { "dump",       { cmd_dump,         1, "dump <output file>" } },
-    { "flash",      { cmd_flash,        2, "flash <version> <firmware>" } },
-    { "wipe",       { cmd_wipe,        	0, "wipe" } },
-    { "decode",     { cmd_decode,       2, "decode <path to updater> <output file>" } },
+    { "list",       { cmd_list,         0, 0, "list" } },
+    { "version",    { cmd_version,      0, 0, "version" } },
+    { "setversion", { cmd_setversion,   1, 1, "setversion <version>" } },
+    { "info",       { cmd_info,         0, 0, "info" } },
+    { "reboot",     { cmd_reboot,       0, 0, "reboot" } },
+    { "bootloader", { cmd_bootloader,   0, 0, "bootloader" } },
+    { "dump",       { cmd_dump,         1, 2, "dump <flash dump> [eeprom dump]" } },
+    { "flash",      { cmd_flash,        2, 2, "flash <version> <firmware>" } },
+    { "wipe",       { cmd_wipe,        	0, 0, "wipe" } },
+    { "decode",     { cmd_decode,       2, 2, "decode <path to updater> <output file>" } },
+    { "eeprom",     { cmd_eeprom,       1, 2, "eeprom <cmd> [arg]" } },
 };
 
 void printUsage(){
@@ -354,7 +378,7 @@ int main(int argc, char **argv){
         ZString cmstr = param.args[0];
         if(cmds.contains(cmstr)){
             CmdEntry cmd = cmds[cmstr];
-            if(param.args.size() == cmd.argn + 1){
+            if((param.args.size() >= cmd.argmin + 1) && (param.args.size() <= cmd.argmax + 1)){
                 try {
                     return cmd.func(&param);
                 } catch(ZException e){
