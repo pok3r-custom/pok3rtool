@@ -33,7 +33,7 @@
 #define CONSOLE_USAGE_PAGE      0xff31
 #define CONSOLE_USAGE           0x0074
 
-static const ZMap<Device, DeviceInfo> known_devices = {
+static const ZMap<DeviceType, DeviceInfo> known_devices = {
     { DEV_POK3R,            { "POK3R",              HOLTEK_VID, POK3R_PID,                  BOOT_PID | POK3R_PID,           PROTO_POK3R } },
     { DEV_POK3R_RGB,        { "POK3R RGB",          HOLTEK_VID, POK3R_RGB_PID,              BOOT_PID | POK3R_RGB_PID,       PROTO_CYKB } },
     { DEV_POK3R_RGB2,       { "POK3R RGB",          HOLTEK_VID, POK3R_RGB2_PID,             BOOT_PID | POK3R_RGB2_PID,      PROTO_CYKB } },
@@ -51,7 +51,7 @@ static const ZMap<Device, DeviceInfo> known_devices = {
 //    { DEV_QMK_VORTEX_CORE,  { "Vortex Core [QMK]",  HOLTEK_VID, QMK_PID | VORTEX_CORE_PID,  BOOT_PID | VORTEX_CORE_PID,     PROTO_CYKB } },
 };
 
-static ZMap<zu32, Device> known_ids;
+static ZMap<zu32, DeviceType> known_ids;
 
 KBScan::KBScan(){
     if(!known_ids.size()){
@@ -69,14 +69,14 @@ KBScan::KBScan(){
     }
 }
 
-zu32 KBScan::find(Device devtype){
+zu32 KBScan::find(DeviceType devtype){
     if(!known_devices.contains(devtype)){
         ELOG("Unknown device!");
         return 0;
     }
     DeviceInfo dev = known_devices[devtype];
 
-    auto filter_func = [this,dev](const rawhid_detail *detail){
+    auto filter_func = [this,devtype,dev](const rawhid_detail *detail){
         switch(detail->step){
             case RAWHID_STEP_DEV:
                 return (detail->vid == dev.vid && (detail->pid == dev.pid || detail->pid == dev.boot_pid));
@@ -92,7 +92,7 @@ zu32 KBScan::find(Device devtype){
             case RAWHID_STEP_OPEN:
                 DLOG("OPEN " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
                 ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
-                devices.push({ dev, ptr, !!(detail->pid & 0x1000) });
+                devices.push({ devtype, dev, ptr, !!(detail->pid & 0x1000) });
                 // if hid pointer is taken, MUST return true here or it WILL double-free
                 return true;
         }
@@ -145,6 +145,7 @@ zu32 KBScan::scan(){
                 // make high-level wrapper object
                 ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
                 devices.push({
+                    known_ids[id],
                     known_devices[known_ids[id]],
                     ptr,
                     !!(detail->pid & 0x1000)
@@ -225,6 +226,7 @@ ZList<KBDevice> KBScan::open(){
             }
 
             KBDevice kdev;
+            kdev.devtype = ldev.devtype;
             kdev.info = ldev.dev;
             kdev.iface = iface;
             devs.push(kdev);
