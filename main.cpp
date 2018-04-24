@@ -287,10 +287,32 @@ int cmd_decode(Param *param){
 int cmd_eeprom(Param *param){
     ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
+        if(!kb->isQMK()){
+            ELOG("Not a QMK keyboard!");
+            return -2;
+        }
+
         if(param->args[1] == "test"){
             LOG("EEPROM Test");
             bool ret = kb->eepromTest();
             LOG(ret);
+        }
+        return 0;
+    }
+    return -1;
+}
+
+int cmd_keymap(Param *param){
+    ZPointer<KBProto> kb = openDevice(param->device);
+    if(kb.get()){
+        if(!kb->isQMK()){
+            ELOG("Not a QMK keyboard!");
+            return -2;
+        }
+
+        if(param->args[1] == "dump"){
+            LOG("Keymap Dump");
+            kb->keymapDump();
         }
         return 0;
     }
@@ -330,6 +352,7 @@ const ZMap<ZString, CmdEntry> cmds = {
     { "wipe",       { cmd_wipe,        	0, 0, "wipe" } },
     { "decode",     { cmd_decode,       2, 2, "decode <path to updater> <output file>" } },
     { "eeprom",     { cmd_eeprom,       1, 2, "eeprom <cmd> [arg]" } },
+    { "keymap",     { cmd_keymap,       1, 2, "keymap <cmd> [arg]" } },
 };
 
 void printUsage(){

@@ -1,4 +1,5 @@
 #include "proto_pok3r.h"
+#include "keycodes.h"
 #include "zlog.h"
 
 #define UPDATE_PKT_LEN      64
@@ -313,6 +314,48 @@ ZBinary ProtoPOK3R::dumpEEPROM(){
     return dump;
 }
 
+bool ProtoPOK3R::keymapDump(){
+    // Send command
+    if(!sendCmd(CMD_KEYMAP, SUB_KM_INFO))
+        return false;
+
+    // Get response
+    ZBinary pkt(UPDATE_PKT_LEN);
+    if(!dev->recv(pkt)){
+        ELOG("recv error");
+        return false;
+    }
+    DLOG("recv:");
+    DLOG(ZLog::RAW << pkt.dumpBytes(4, 8));
+
+    const int layers = pkt[0];
+    const int rows = pkt[1];
+    const int cols = pkt[2];
+    const int kcsize = pkt[3];
+    const int kmsize = kcsize * rows * cols;
+
+    LOG("Keymap Size: " << kmsize << ", " << layers << " layers");
+
+    for(int l = 0; l < layers; ++l){
+        ZBinary dump;
+        for(zu32 off = 0; off < kmsize; off += 64){
+            if(!readKeymap((kmsize * l) + off, dump))
+                break;
+        }
+        dump.rewind();
+        dump.resize(kmsize);
+
+        LOG("Layer " << l << ":");
+        LOG(ZLog::RAW << dump.dumpBytes(2, 16));
+        for(int i = 0; i < rows; ++i){
+            for(int j = 0; j < cols; ++j){
+                zu16 kc = dump.readleu16();
+                LOG(i << "," << j << ": " << keycodeName(kc));
+            }
+        }
+    }
+}
+
 bool ProtoPOK3R::writeFirmware(const ZBinary &fwbinin){
     ZBinary fwbin = fwbinin;
     // Encode the firmware for the POK3R
@@ -498,6 +541,28 @@ bool ProtoPOK3R::eraseEEPROM(zu32 addr){
     return true;
 }
 
+bool ProtoPOK3R::readKeymap(zu32 addr, ZBinary &bin){
+    DLOG("readKeymap " << addr);
+    // Send command
+    ZBinary data;
+    data.writeleu32(addr);
+    if(!sendRecvCmd(CMD_KEYMAP, SUB_KM_READ, data))
+        return false;
+    bin.write(data);
+    return true;
+}
+
+bool ProtoPOK3R::writeKeymap(zu32 addr, ZBinary bin){
+    DLOG("writeKeymap " << addr);
+    // Send command
+    ZBinary data;
+    data.writeleu32(addr);
+    data.write(bin);
+    if(!sendRecvCmd(CMD_KEYMAP, SUB_KM_WRITE, data))
+        return false;
+    return true;
+}
+
 zu16 ProtoPOK3R::crcFlash(zu32 addr, zu32 len){
     // Send command
     ZBinary arg;
@@ -547,6 +612,24 @@ bool ProtoPOK3R::sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin){
         ELOG("send error");
         return false;
     }
+    return true;
+}
+
+bool ProtoPOK3R::sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data){
+    if(!sendCmd(cmd, subcmd, data))
+        return false;
+
+    // Recv packet
+    data.resize(UPDATE_PKT_LEN);
+    if(!dev->recv(data)){
+        ELOG("recv error");
+        return false;
+    }
+
+    DLOG("recv:");
+    DLOG(ZLog::RAW << data.dumpBytes(4, 8));
+
+    data.rewind();
     return true;
 }
 

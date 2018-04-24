@@ -19,6 +19,9 @@ set(POK3RLIB_SOURCES
     proto_cykb.h
     proto_cykb.cpp
 
+    keycodes.h
+    keycodes.cpp
+
     updatepackage.h
     updatepackage.cpp
 )
@@ -31,6 +34,8 @@ set(FILES
     README.md
     99-pok3r.rules
     test.sh
+    proto_qmk.h
+    proto_qmk.cpp
 )
 
 ### =================== BUILD =================== ###

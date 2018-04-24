@@ -57,6 +57,8 @@ public:
     virtual ZBinary dumpFlash(){ return ZBinary(); }
     //! Dump the contents of external flash / eeprom.
     virtual ZBinary dumpEEPROM(){ return ZBinary(); }
+    //! Dump the keymap.
+    virtual bool keymapDump(){ return false; }
 
     //! Write the firmware.
     virtual bool writeFirmware(const ZBinary &fwbin) = 0;
