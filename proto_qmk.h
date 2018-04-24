@@ -8,7 +8,7 @@
 #include "zbinary.h"
 using namespace LibChaos;
 
-class ProtoQMK {
+class ProtoQMK : public KBProto {
 public:
     enum qmk_cmd {
         QMK_INFO                = 0x81,
@@ -31,21 +31,34 @@ public:
         SUB_BL_COMMIT           = 3,    //!< Commit backlight map to EEPROM.
     };
 
+protected:
+    ProtoQMK(KBType type) : KBProto(type){}
 public:
+    virtual ~ProtoQMK(){}
+
+    virtual bool isBuiltin() = 0;
     bool isQMK();
 
     bool eepromTest();
 
     //! Dump the contents of external flash / eeprom.
     ZBinary dumpEEPROM();
+    //! Dump the keymap.
+    bool keymapDump();
 
     bool readEEPROM(zu32 addr, ZBinary &bin);
     bool writeEEPROM(zu32 addr, ZBinary bin);
     bool eraseEEPROM(zu32 addr);
 
-private:
-    //! Send command
-    bool sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin = ZBinary());
+    bool readKeymap(zu32 addr, ZBinary &bin);
+    bool writeKeymap(zu32 addr, ZBinary bin);
+
+    virtual bool readFlash(zu32 addr, ZBinary &bin) = 0;
+
+protected:
+    virtual bool sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin = ZBinary()) = 0;
+    virtual bool sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data) = 0;
+
 };
 
 #endif // PROTO_QMK_H

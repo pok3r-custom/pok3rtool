@@ -14,7 +14,7 @@
 #define ERASE_SLEEP         2
 
 ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
-    KBProto(PROTO_POK3R),
+    ProtoQMK(PROTO_POK3R),
     builtin(false), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_),
     dev(new HIDDevice)
@@ -23,7 +23,7 @@ ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
 }
 
 ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPointer<HIDDevice> dev_) :
-    KBProto(PROTO_POK3R),
+    ProtoQMK(PROTO_POK3R),
     builtin(builtin_), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_),
     dev(dev_)
@@ -42,10 +42,6 @@ ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPoi
         LOG(ZLog::RAW << data.dumpBytes(4, 8));
     }
     */
-
-}
-
-ProtoPOK3R::~ProtoPOK3R(){
 
 }
 
@@ -73,28 +69,6 @@ bool ProtoPOK3R::isOpen() const {
 
 bool ProtoPOK3R::isBuiltin() {
     return builtin;
-}
-
-bool ProtoPOK3R::isQMK() {
-    if(isBuiltin())
-        return false;
-
-    ZBinary bin;
-    if(!readFlash(FW_ADDR + 0x160, bin))
-        return false;
-
-    //LOG(ZLog::RAW << bin.dumpBytes(4, 8));
-    if(!bin.raw()){
-        ELOG("isQMK error");
-        return false;
-    }
-
-    bin.rewind();
-    if(ZString(bin.raw() + 2, 9) == "qmk_pok3r"){
-        //zu16 pid = bin.readleu16();
-        return true;
-    }
-    return false;
 }
 
 bool ProtoPOK3R::rebootFirmware(bool reopen){
@@ -150,16 +124,9 @@ bool ProtoPOK3R::rebootBootloader(bool reopen){
 }
 
 bool ProtoPOK3R::getInfo(){
-    if(!sendCmd(UPDATE_START_CMD, 0))
+    ZBinary data;
+    if(!sendRecvCmd(UPDATE_START_CMD, 0, data))
         return false;
-
-    ZBinary data(64);
-    if(!dev->recv(data)){
-        ELOG("recv error");
-        return false;
-    }
-    DLOG("recv:");
-    DLOG(ZLog::RAW << data.dumpBytes(4, 8));
 
     RLOG(data.dumpBytes(4, 8));
 
@@ -176,31 +143,6 @@ bool ProtoPOK3R::getInfo(){
     LOG(e);
     LOG(f);
     LOG("version_address: 0x" << ZString::ItoS((zu64)ver_addr, 16));
-
-    return true;
-}
-
-bool ProtoPOK3R::eepromTest(){
-    // Send command
-    if(!sendCmd(QMK_EEPROM, QMK_EEPROM_INFO))
-        return false;
-
-    // Get response
-    ZBinary pkt(UPDATE_PKT_LEN);
-    if(!dev->recv(pkt)){
-        ELOG("recv error");
-        return false;
-    }
-    DLOG("recv:");
-    LOG(ZLog::RAW << pkt.dumpBytes(4, 8));
-
-    /*
-    ZBinary test;
-    test.fill(0xaa, 56);
-    writeEEPROM(0x1000, test);
-    */
-
-    eraseEEPROM(0x0000);
 
     return true;
 }
@@ -294,83 +236,15 @@ ZBinary ProtoPOK3R::dumpFlash(){
     return dump;
 }
 
-ZBinary ProtoPOK3R::dumpEEPROM(){
-    ZBinary dump;
-    zu32 cp = EEPROM_LEN / 10;
-    int perc = 0;
-    RLOG(perc << "%...");
-    for(zu32 addr = 0; addr < EEPROM_LEN; addr += 64){
-        if(!readEEPROM(addr, dump))
-            break;
-
-        if(addr >= cp){
-            perc += 10;
-            RLOG(perc << "%...");
-            cp += EEPROM_LEN / 10;
-        }
-    }
-    RLOG("100%" << ZLog::NEWLN);
-
-    return dump;
-}
-
-bool ProtoPOK3R::keymapDump(){
-    // Send command
-    if(!sendCmd(CMD_KEYMAP, SUB_KM_INFO))
-        return false;
-
-    // Get response
-    ZBinary pkt(UPDATE_PKT_LEN);
-    if(!dev->recv(pkt)){
-        ELOG("recv error");
-        return false;
-    }
-    DLOG("recv:");
-    DLOG(ZLog::RAW << pkt.dumpBytes(4, 8));
-
-    const int layers = pkt[0];
-    const int rows = pkt[1];
-    const int cols = pkt[2];
-    const int kcsize = pkt[3];
-    const int kmsize = kcsize * rows * cols;
-
-    LOG("Keymap Size: " << kmsize << ", " << layers << " layers");
-
-    for(int l = 0; l < layers; ++l){
-        ZBinary dump;
-        for(zu32 off = 0; off < kmsize; off += 64){
-            if(!readKeymap((kmsize * l) + off, dump))
-                break;
-        }
-        dump.rewind();
-        dump.resize(kmsize);
-
-        LOG("Layer " << l << ":");
-        LOG(ZLog::RAW << dump.dumpBytes(2, 16));
-        for(int i = 0; i < rows; ++i){
-            for(int j = 0; j < cols; ++j){
-                zu16 kc = dump.readleu16();
-                LOG(i << "," << j << ": " << keycodeName(kc));
-            }
-        }
-    }
-}
-
 bool ProtoPOK3R::writeFirmware(const ZBinary &fwbinin){
     ZBinary fwbin = fwbinin;
     // Encode the firmware for the POK3R
     encode_firmware(fwbin);
 
     // update reset
-    if(!sendCmd(UPDATE_START_CMD, 0))
+    ZBinary tmp1;
+    if(!sendRecvCmd(UPDATE_START_CMD, 0, tmp1))
         return false;
-    ZBinary data(UPDATE_PKT_LEN);
-    if(!dev->recv(data)){
-        ELOG("recv error");
-        return false;
-    }
-    DLOG("recv:");
-    DLOG(ZLog::RAW << data.dumpBytes(4, 8));
 
     LOG("Erase...");
     if(!eraseFlash(FW_ADDR, FW_ADDR + fwbin.size())){
@@ -405,38 +279,21 @@ bool ProtoPOK3R::writeFirmware(const ZBinary &fwbinin){
     }
 
     // update reset?
-    if(!sendCmd(UPDATE_START_CMD, 0)){
+    ZBinary tmp2;
+    if(!sendRecvCmd(UPDATE_START_CMD, 0, tmp2))
         return false;
-    }
-    if(!dev->recv(data)){
-        ELOG("recv error");
-        return false;
-    }
-    DLOG("recv:");
-    DLOG(ZLog::RAW << data.dumpBytes(4, 8));
-
     return true;
 }
 
 bool ProtoPOK3R::readFlash(zu32 addr, ZBinary &bin){
     DLOG("readFlash " << addr);
     // Send command
-    ZBinary arg;
-    arg.writeleu32(addr);
-    arg.writeleu32(addr + 64);
-    if(!sendCmd(FLASH_CMD, FLASH_READ_SUBCMD, arg))
+    ZBinary data;
+    data.writeleu32(addr);
+    data.writeleu32(addr + 64);
+    if(!sendRecvCmd(FLASH_CMD, FLASH_READ_SUBCMD, data))
         return false;
-
-    // Get response
-    ZBinary pkt(UPDATE_PKT_LEN);
-    if(!dev->recv(pkt)){
-        ELOG("recv error");
-        return false;
-    }
-    DLOG("recv:");
-    DLOG(ZLog::RAW << pkt.dumpBytes(4, 8));
-
-    bin.write(pkt);
+    bin.write(data);
     return true;
 }
 
@@ -475,90 +332,6 @@ bool ProtoPOK3R::eraseFlash(zu32 start, zu32 end){
     arg.writeleu32(start);
     arg.writeleu32(end);
     if(!sendCmd(ERASE_CMD, 8, arg))
-        return false;
-    return true;
-}
-
-bool ProtoPOK3R::readEEPROM(zu32 addr, ZBinary &bin){
-    DLOG("readEEPROM " << addr);
-    // Send command
-    ZBinary arg;
-    arg.writeleu32(addr);
-    if(!sendCmd(QMK_EEPROM, QMK_EEPROM_READ, arg))
-        return false;
-
-    // Get response
-    ZBinary pkt(UPDATE_PKT_LEN);
-    if(!dev->recv(pkt)){
-        ELOG("recv error");
-        return false;
-    }
-    DLOG("recv:");
-    DLOG(ZLog::RAW << pkt.dumpBytes(4, 8));
-
-    bin.write(pkt);
-    return true;
-}
-
-bool ProtoPOK3R::writeEEPROM(zu32 addr, ZBinary bin){
-    DLOG("writeEEPROM " << addr);
-    // Send command
-    ZBinary arg;
-    arg.writeleu32(addr);
-    arg.write(bin);
-    if(!sendCmd(QMK_EEPROM, QMK_EEPROM_WRITE, arg))
-        return false;
-
-    // Get response
-    ZBinary pkt(UPDATE_PKT_LEN);
-    if(!dev->recv(pkt)){
-        ELOG("recv error");
-        return false;
-    }
-    DLOG("recv:");
-    DLOG(ZLog::RAW << pkt.dumpBytes(4, 8));
-
-    return true;
-}
-
-bool ProtoPOK3R::eraseEEPROM(zu32 addr){
-    DLOG("eraseEEPROM " << addr);
-    // Send command
-    ZBinary arg;
-    arg.writeleu32(addr);
-    if(!sendCmd(QMK_EEPROM, QMK_EEPROM_ERASE, arg))
-        return false;
-
-    // Get response
-    ZBinary pkt(UPDATE_PKT_LEN);
-    if(!dev->recv(pkt)){
-        ELOG("recv error");
-        return false;
-    }
-    DLOG("recv:");
-    DLOG(ZLog::RAW << pkt.dumpBytes(4, 8));
-
-    return true;
-}
-
-bool ProtoPOK3R::readKeymap(zu32 addr, ZBinary &bin){
-    DLOG("readKeymap " << addr);
-    // Send command
-    ZBinary data;
-    data.writeleu32(addr);
-    if(!sendRecvCmd(CMD_KEYMAP, SUB_KM_READ, data))
-        return false;
-    bin.write(data);
-    return true;
-}
-
-bool ProtoPOK3R::writeKeymap(zu32 addr, ZBinary bin){
-    DLOG("writeKeymap " << addr);
-    // Send command
-    ZBinary data;
-    data.writeleu32(addr);
-    data.write(bin);
-    if(!sendRecvCmd(CMD_KEYMAP, SUB_KM_WRITE, data))
         return false;
     return true;
 }

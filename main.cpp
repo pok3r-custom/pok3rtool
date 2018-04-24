@@ -194,25 +194,15 @@ int cmd_dump(Param *param){
     if(!param->ok)
         warning();
 
-    ZPath out1 = param->args[1];
+    ZPath out = param->args[1];
     // Dump Flash
     ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
-        /*
         LOG("Dump Flash");
-        ZBinary bin1 = kb->dumpFlash();
+        ZBinary bin = kb->dumpFlash();
 //        RLOG(bin.dumpBytes(4, 8));
-        LOG("Out: " << out1 << ", " << bin1.size() << " bytes");
-        ZFile::writeBinary(out1, bin1);
-        */
-
-        if(param->args.size() > 2){
-            ZPath out2 = param->args[2];
-            LOG("Dump EEPROM");
-            ZBinary bin2 = kb->dumpEEPROM();
-            LOG("Out: " << out2 << ", " << bin2.size() << " bytes");
-            ZFile::writeBinary(out2, bin2);
-        }
+        LOG("Out: " << out << ", " << bin.size() << " bytes");
+        ZFile::writeBinary(out, bin);
         return 0;
     }
     return -1;
@@ -291,11 +281,22 @@ int cmd_eeprom(Param *param){
             ELOG("Not a QMK keyboard!");
             return -2;
         }
+        ProtoQMK *qmk = dynamic_cast<ProtoQMK *>(kb.get());
 
-        if(param->args[1] == "test"){
+        if(param->args[1] == "dump" && param->args.size() == 2){
+            ZPath out = param->args[2];
+            LOG("Dump EEPROM");
+            ZBinary bin = qmk->dumpEEPROM();
+            LOG("Out: " << out << ", " << bin.size() << " bytes");
+            ZFile::writeBinary(out, bin);
+
+        } else if(param->args[1] == "test"){
             LOG("EEPROM Test");
-            bool ret = kb->eepromTest();
+            bool ret = qmk->eepromTest();
             LOG(ret);
+
+        } else {
+            LOG("Usage: pok3rtool eeprom");
         }
         return 0;
     }
@@ -309,10 +310,13 @@ int cmd_keymap(Param *param){
             ELOG("Not a QMK keyboard!");
             return -2;
         }
+        ProtoQMK *qmk = dynamic_cast<ProtoQMK *>(kb.get());
 
         if(param->args[1] == "dump"){
             LOG("Keymap Dump");
-            kb->keymapDump();
+            qmk->keymapDump();
+        } else {
+            LOG("Usage: pok3rtool keymap");
         }
         return 0;
     }
@@ -347,7 +351,7 @@ const ZMap<ZString, CmdEntry> cmds = {
     { "info",       { cmd_info,         0, 0, "info" } },
     { "reboot",     { cmd_reboot,       0, 0, "reboot" } },
     { "bootloader", { cmd_bootloader,   0, 0, "bootloader" } },
-    { "dump",       { cmd_dump,         1, 2, "dump <flash dump> [eeprom dump]" } },
+    { "dump",       { cmd_dump,         1, 1, "dump <flash dump>" } },
     { "flash",      { cmd_flash,        2, 2, "flash <version> <firmware>" } },
     { "wipe",       { cmd_wipe,        	0, 0, "wipe" } },
     { "decode",     { cmd_decode,       2, 2, "decode <path to updater> <output file>" } },

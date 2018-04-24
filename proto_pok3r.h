@@ -2,13 +2,14 @@
 #define PROTO_POK3R_H
 
 #include "kbproto.h"
+#include "proto_qmk.h"
 #include "rawhid/hiddevice.h"
 
 #include "zstring.h"
 #include "zbinary.h"
 using namespace LibChaos;
 
-class ProtoPOK3R : public KBProto {
+class ProtoPOK3R : public ProtoQMK {
 public:
     enum pok3r_cmd {
         ERASE_CMD               = 0,    //! Erase pages of flash
@@ -39,27 +40,6 @@ public:
         DEBUG_5_SUBCMD          = 5,    // ?
     };
 
-    enum qmk_cmd {
-        QMK_INFO                = 0x81,
-        QMK_EEPROM              = 0x82,
-        QMK_EEPROM_INFO         = 0,
-        QMK_EEPROM_READ         = 1,
-        QMK_EEPROM_WRITE        = 2,
-        QMK_EEPROM_ERASE        = 3,
-
-        CMD_KEYMAP      = 0x83, //!< Keymap commands.
-        SUB_KM_INFO     = 0,    //!< Keymap info (layers, rows, cols, type size).
-        SUB_KM_READ     = 1,    //!< Read keymap.
-        SUB_KM_WRITE    = 2,    //!< Write to keymap.
-        SUB_KM_COMMIT   = 3,    //!< Commit keymap to EEPROM.
-
-        CMD_BACKLIGHT   = 0x84, //!< Backlight commands.
-        SUB_BL_INFO     = 0,    //!< Backlight map info (layers, rows, cols, type size).
-        SUB_BL_READ     = 1,    //!< Read backlight map.
-        SUB_BL_WRITE    = 2,    //!< Write to backlight map.
-        SUB_BL_COMMIT   = 3,    //!< Commit backlight map to EEPROM.
-    };
-
 public:
     //! Construct unopened device.
     ProtoPOK3R(zu16 vid, zu16 pid, zu16 boot_pid);
@@ -67,7 +47,7 @@ public:
     ProtoPOK3R(zu16 vid, zu16 pid, zu16 boot_pid, bool builtin, ZPointer<HIDDevice> dev);
 
     ProtoPOK3R(const ProtoPOK3R &) = delete;
-    ~ProtoPOK3R();
+    ~ProtoPOK3R(){}
 
     //! Find and open POK3R device.
     bool open();
@@ -75,7 +55,6 @@ public:
     bool isOpen() const;
 
     bool isBuiltin();
-    bool isQMK();
 
     //! Reset and re-open device.
     bool rebootFirmware(bool reopen = true);
@@ -83,7 +62,6 @@ public:
     bool rebootBootloader(bool reopen = true);
 
     bool getInfo();
-    bool eepromTest();
 
     //! Read the firmware version from the keyboard.
     ZString getVersion();
@@ -93,10 +71,6 @@ public:
 
     //! Dump the contents of flash.
     ZBinary dumpFlash();
-    //! Dump the contents of external flash / eeprom.
-    ZBinary dumpEEPROM();
-    //! Dump the keymap.
-    bool keymapDump();
 
     //! Update the firmware.
     bool writeFirmware(const ZBinary &fwbin);
@@ -109,13 +83,6 @@ public:
     bool checkFlash(zu32 addr, ZBinary bin);
     //! Erase flash pages starting at \a start, ending on the page of \a end.
     bool eraseFlash(zu32 start, zu32 end);
-
-    bool readEEPROM(zu32 addr, ZBinary &bin);
-    bool writeEEPROM(zu32 addr, ZBinary bin);
-    bool eraseEEPROM(zu32 addr);
-
-    bool readKeymap(zu32 addr, ZBinary &bin);
-    bool writeKeymap(zu32 addr, ZBinary bin);
 
     //! Send CRC command.
     zu16 crcFlash(zu32 addr, zu32 len);

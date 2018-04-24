@@ -51,14 +51,9 @@ public:
     virtual KBStatus setVersion(ZString version, zu8 opt_byte = 0){ return ERR_NOT_IMPLEMENTED; }
 
     virtual bool getInfo(){ return false; }
-    virtual bool eepromTest(){ return false; }
 
     //! Dump the contents of flash.
     virtual ZBinary dumpFlash(){ return ZBinary(); }
-    //! Dump the contents of external flash / eeprom.
-    virtual ZBinary dumpEEPROM(){ return ZBinary(); }
-    //! Dump the keymap.
-    virtual bool keymapDump(){ return false; }
 
     //! Write the firmware.
     virtual bool writeFirmware(const ZBinary &fwbin) = 0;

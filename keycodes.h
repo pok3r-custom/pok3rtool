@@ -5,6 +5,8 @@
 using namespace LibChaos;
 
 ZString keycodeName(zu16 kc);
+ZString keycodeAbbrev(zu16 kc);
+ZString keycodeDesc(zu16 kc);
 
 #define KC_TRANSPARENT  1
 
