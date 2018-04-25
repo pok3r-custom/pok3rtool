@@ -1,5 +1,5 @@
 #include "proto_qmk.h"
-#include "keycodes.h"
+#include "keymap.h"
 #include "zlog.h"
 
 #define VER_ADDR            0x2800
@@ -96,7 +96,7 @@ bool ProtoQMK::keymapDump(){
         for(int i = 0; i < rows; ++i){
             for(int j = 0; j < cols; ++j){
                 zu16 kc = dump.readleu16();
-                ZString str = keycodeAbbrev(kc);
+                ZString str = Keymap::keycodeAbbrev(kc);
                 //LOG(i << "," << j << ": " << str);
                 RLOG(ZString(str).pad(' ', 8));
             }

@@ -22,7 +22,8 @@ set(POK3RLIB_SOURCES
     proto_qmk.cpp
 
     keycodes.h
-    keycodes.cpp
+    keymap.h
+    keymap.cpp
 
     updatepackage.h
     updatepackage.cpp
