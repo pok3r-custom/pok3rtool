@@ -78,10 +78,30 @@ bool ProtoQMK::keymapDump(){
     const int rows = data[1];
     const int cols = data[2];
     const int kcsize = data[3];
+    const int nlayout = data[4];
+
+    const int knum = rows * cols;
     const int kmsize = kcsize * rows * cols;
 
     LOG("Keymap Size: " << kmsize << ", " << layers << " layers");
 
+    ZArray<ZBinary> layouts;
+
+    for(int l = 0; l < nlayout; ++l){
+        ZBinary dump;
+        for(zu32 off = 0; off < knum; off += 64){
+            if(!readKeymap(0x10000 + (knum * l) + off, dump))
+                break;
+        }
+        dump.rewind();
+        dump.resize(knum);
+
+        LOG("Layout " << l << ":");
+        LOG(ZLog::RAW << dump.dumpBytes(1, 32));
+        layouts.push(dump);
+    }
+
+    // Read and parse each layer
     for(int l = 0; l < layers; ++l){
         ZBinary dump;
         for(zu32 off = 0; off < kmsize; off += 64){
@@ -91,17 +111,39 @@ bool ProtoQMK::keymapDump(){
         dump.rewind();
         dump.resize(kmsize);
 
+        ZArray<zu16> keymap(knum);
+
         LOG("Layer " << l << ":");
         LOG(ZLog::RAW << dump.dumpBytes(2, 16));
+        /*
+        int c = 0;
         for(int i = 0; i < rows; ++i){
-            for(int j = 0; j < cols; ++j){
+            for(int j = 0; j < cols; ++j, ++c){
                 zu16 kc = dump.readleu16();
                 ZString str = keycodeAbbrev(kc);
+                keymap[layouts[0][c]] = kc;
                 //LOG(i << "," << j << ": " << str);
                 RLOG(ZString(str).pad(' ', 8));
             }
             RLOG(ZLog::NEWLN);
         }
+        */
+
+        for(int i = 0; i < knum; ++i){
+            zu16 kc = dump.readleu16();
+            int kp = layouts[0][i];
+            if(kp)
+                keymap[kp - 1] = kc;
+        }
+
+        for(int i = 0; i < keymap.size(); ++i){
+            zu16 kc = keymap[i];
+//            ZString str = keycodeAbbrev(kc);
+            ZString str = keycodeName(kc);
+//            RLOG(ZString(str).pad(' ', 8) + " ");
+            RLOG(str << ", ");
+        }
+        RLOG(ZLog::NEWLN);
     }
 }
 
@@ -137,11 +179,11 @@ bool ProtoQMK::eraseEEPROM(zu32 addr){
     return true;
 }
 
-bool ProtoQMK::readKeymap(zu32 addr, ZBinary &bin){
-    DLOG("readKeymap " << addr);
+bool ProtoQMK::readKeymap(zu32 offset, ZBinary &bin){
+    DLOG("readKeymap " << offset);
     // Send command
     ZBinary data;
-    data.writeleu32(addr);
+    data.writeleu32(offset);
     if(!sendRecvCmd(CMD_KEYMAP, SUB_KM_READ, data))
         return false;
     bin.write(data);
