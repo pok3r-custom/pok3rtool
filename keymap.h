@@ -2,13 +2,14 @@
 #define KEYMAP_H
 
 #include "zstring.h"
+#include "zbinary.h"
 using namespace LibChaos;
 
 #include "keycodes.h"
 
 class Keymap {
 public:
-    Keymap();
+    Keymap(ZBinary layout, zu8 rows, zu8 cols);
 
     zu16 get(zu8 i){ return keymap[i]; }
     void set(zu8 i, zu16 kc){ keymap[i] = kc; }
@@ -21,6 +22,7 @@ public:
     static ZString keycodeDesc(zu16 kc);
 
 private:
+    ZArray<ZArray<zu8>> layoutmap;
     ZArray<zu16> keymap;
 };
 

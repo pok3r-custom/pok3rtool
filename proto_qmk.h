@@ -50,7 +50,7 @@ public:
     bool writeEEPROM(zu32 addr, ZBinary bin);
     bool eraseEEPROM(zu32 addr);
 
-    bool readKeymap(zu32 addr, ZBinary &bin);
+    bool readKeymap(zu32 offset, ZBinary &bin);
     bool writeKeymap(zu32 addr, ZBinary bin);
 
     virtual bool readFlash(zu32 addr, ZBinary &bin) = 0;

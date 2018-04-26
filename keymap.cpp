@@ -1,6 +1,7 @@
 #include "keymap.h"
 
 #include "zmap.h"
+#include "zlog.h"
 
 struct Keycode {
     zu16 keycode;
@@ -199,10 +200,18 @@ const ZArray<Keycode> keycodes = {
 
 ZMap<zu16, Keycode> kc_map;
 
-Keymap::Keymap(){
+Keymap::Keymap(ZBinary layout, zu8 rows, zu8 cols){
     if(!kc_map.size()){
-        for(zu64 i = 0; i < keycodes.size(); ++i){
+        for(zsize i = 0; i < keycodes.size(); ++i){
             kc_map[keycodes[i].keycode] = keycodes[i];
+        }
+    }
+
+    zassert(layout.size() < (rows * cols), "Bad layout map!");
+
+    for(zsize i = 0; i < layout.size(); ++i){
+        for(zsize i = 0; i < layout.size(); ++i){
+
         }
     }
 }
