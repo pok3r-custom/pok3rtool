@@ -1,5 +1,5 @@
 #include "proto_qmk.h"
-#include "keycodes.h"
+#include "keymap.h"
 #include "zlog.h"
 
 #define VER_ADDR            0x2800
@@ -87,6 +87,7 @@ bool ProtoQMK::keymapDump(){
 
     ZArray<ZBinary> layouts;
 
+    // Read layouts
     for(int l = 0; l < nlayout; ++l){
         ZBinary dump;
         for(zu32 off = 0; off < knum; off += 64){
@@ -120,7 +121,7 @@ bool ProtoQMK::keymapDump(){
         for(int i = 0; i < rows; ++i){
             for(int j = 0; j < cols; ++j, ++c){
                 zu16 kc = dump.readleu16();
-                ZString str = keycodeAbbrev(kc);
+                ZString str = Keymap::keycodeAbbrev(kc);
                 keymap[layouts[0][c]] = kc;
                 //LOG(i << "," << j << ": " << str);
                 RLOG(ZString(str).pad(' ', 8));
@@ -138,13 +139,15 @@ bool ProtoQMK::keymapDump(){
 
         for(int i = 0; i < keymap.size(); ++i){
             zu16 kc = keymap[i];
-//            ZString str = keycodeAbbrev(kc);
-            ZString str = keycodeName(kc);
+//            ZString str = Keymap::keycodeAbbrev(kc);
+            ZString str = Keymap::keycodeName(kc);
 //            RLOG(ZString(str).pad(' ', 8) + " ");
             RLOG(str << ", ");
         }
         RLOG(ZLog::NEWLN);
     }
+
+    return true;
 }
 
 bool ProtoQMK::readEEPROM(zu32 addr, ZBinary &bin){

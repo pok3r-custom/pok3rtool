@@ -1,13 +1,6 @@
 #ifndef KEYCODES_H
 #define KEYCODES_H
 
-#include "zstring.h"
-using namespace LibChaos;
-
-ZString keycodeName(zu16 kc);
-ZString keycodeAbbrev(zu16 kc);
-ZString keycodeDesc(zu16 kc);
-
 #define KC_TRANSPARENT  1
 
 /* USB HID Keyboard/Keypad Usage(0x07) */
@@ -749,6 +742,5 @@ enum quantum_keycodes {
     // always leave at the end
     SAFE_RANGE
 };
-
 
 #endif // KEYCODES_H
