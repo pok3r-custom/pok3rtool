@@ -184,13 +184,13 @@ KBStatus ProtoPOK3R::clearVersion(){
     return SUCCESS;
 }
 
-KBStatus ProtoPOK3R::setVersion(ZString version, zu8 opt_byte){
+KBStatus ProtoPOK3R::setVersion(ZString version){
     DLOG("setVersion " << version);
     auto status = clearVersion();
     if(status != SUCCESS)
         return status;
 
-    LOG("Write Version: " << version);
+    LOG("Writing Version: " << version);
 
     ZBinary vdata;
     zu64 vlen = version.size() + 4;
@@ -206,7 +206,7 @@ KBStatus ProtoPOK3R::setVersion(ZString version, zu8 opt_byte){
 
     // check version
     ZString nver = getVersion();
-    LOG("New Version: " << nver);
+//    LOG("New Version: " << nver);
 
     if(nver != version){
         ELOG("failed to set version");

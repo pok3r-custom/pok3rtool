@@ -66,7 +66,7 @@ public:
     ZString getVersion();
 
     KBStatus clearVersion();
-    KBStatus setVersion(ZString version, zu8 opt_byte);
+    KBStatus setVersion(ZString version);
 
     //! Dump the contents of flash.
     ZBinary dumpFlash();

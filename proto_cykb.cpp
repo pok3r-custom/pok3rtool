@@ -198,13 +198,13 @@ const zu32 ver2[15] = {
     0xffffffff, 0xffffffff, 0x001c5aa5,
 };
 
-KBStatus ProtoCYKB::setVersion(ZString version, zu8 opt_byte){
+KBStatus ProtoCYKB::setVersion(ZString version){
     DLOG("setVersion " << version);
     auto status = clearVersion();
     if(status != SUCCESS)
         return status;
 
-    LOG("Write Version...");
+    LOG("Writing Version: " << version);
 
     // UTF-16 encoded version string
     zu16 str[256];
@@ -241,7 +241,7 @@ KBStatus ProtoCYKB::setVersion(ZString version, zu8 opt_byte){
     }
 
     ZString nver = getVersion();
-    LOG("New Version: " << nver);
+//    LOG("New Version: " << nver);
     if(nver != version){
         ELOG("failed to set version string");
         return ERR_FLASH;

@@ -48,7 +48,7 @@ public:
     virtual ZString getVersion() = 0;
 
     virtual KBStatus clearVersion(){ return ERR_NOT_IMPLEMENTED; }
-    virtual KBStatus setVersion(ZString version, zu8 opt_byte = 0){ return ERR_NOT_IMPLEMENTED; }
+    virtual KBStatus setVersion(ZString version){ return ERR_NOT_IMPLEMENTED; }
 
     virtual bool getInfo(){ return false; }
 
