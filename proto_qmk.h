@@ -56,6 +56,7 @@ public:
     virtual bool readFlash(zu32 addr, ZBinary &bin) = 0;
 
 protected:
+    virtual zu32 baseFirmwareAddr() const = 0;
     virtual bool sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin = ZBinary()) = 0;
     virtual bool sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data) = 0;
 

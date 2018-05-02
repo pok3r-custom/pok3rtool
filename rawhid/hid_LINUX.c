@@ -155,7 +155,7 @@ struct hid_match {
     hid_t **hids;
 };
 
-static int filter_cb(void *user, const struct rawhid_detail *detail)
+static int filter_cb(void *user, struct rawhid_detail *detail)
 {
     struct hid_match *match = (struct hid_match *)user;
 

@@ -70,8 +70,10 @@ const ZMap<ZString, DeviceType> devnames = {
 
 ZPointer<KBProto> openDevice(DeviceType dev){
     KBScan scanner;
-    if(!scanner.find(dev))
+    if(!scanner.find(dev)){
+        LOG("No device found, check connection and permissions");
         return nullptr;
+    }
 
     auto devs = scanner.open();
     if(devs.size() == 1){
@@ -88,7 +90,7 @@ ZPointer<KBProto> openDevice(DeviceType dev){
     } else if(devs.size() > 1){
         ELOG("Multiple identical devices found, disconnect devices other than target");
     } else {
-        ELOG("No device found, check connection and permissions");
+        ELOG("No device to open?");
     }
     return nullptr;
 }
@@ -283,7 +285,11 @@ int cmd_eeprom(Param *param){
         }
         ProtoQMK *qmk = dynamic_cast<ProtoQMK *>(kb.get());
 
-        if(param->args[1] == "dump" && param->args.size() == 2){
+        if(param->args[1] == "dump"){
+            if(param->args.size() != 3){
+                ELOG("Usage: pok3rtool eeprom dump <out file>");
+                return -2;
+            }
             ZPath out = param->args[2];
             LOG("Dump EEPROM");
             ZBinary bin = qmk->dumpEEPROM();
@@ -323,6 +329,28 @@ int cmd_keymap(Param *param){
     return -1;
 }
 
+int cmd_console(Param *param){
+    while(true){
+        ZPointer<HIDDevice> con = KBScan::openConsole(param->device);
+        if(con.get()){
+            LOG("Opened console");
+
+            ZBinary bin;
+            while(true){
+                if(con->recv(bin)){
+                    RLOG(bin.asChar());
+                } else {
+                    ELOG("Error");
+                    break;
+                }
+            }
+
+            return 0;
+        }
+    }
+    return -1;
+}
+
 // Main
 // ////////////////////////////////
 
@@ -357,6 +385,7 @@ const ZMap<ZString, CmdEntry> cmds = {
     { "decode",     { cmd_decode,       2, 2, "decode <path to updater> <output file>" } },
     { "eeprom",     { cmd_eeprom,       1, 2, "eeprom <cmd> [arg]" } },
     { "keymap",     { cmd_keymap,       1, 2, "keymap <cmd> [arg]" } },
+    { "console",    { cmd_console,      0, 0, "console" } },
 };
 
 void printUsage(){
@@ -373,9 +402,9 @@ void printUsage(){
 int main(int argc, char **argv){
     // Log files
     ZPath lgf = ZPath("logs") + ZLog::genLogFileName("pok3rtool_");
-    ZLog::logLevelFile(ZLog::INFO, lgf, "[%clock%] N %log%");
+    ZLog::logLevelFile(ZLog::INFO, lgf, "[%clock%] %thread% N %log%");
     ZLog::logLevelFile(ZLog::DEBUG, lgf, "[%clock%] %thread% D [%function%|%file%:%line%] %log%");
-    ZLog::logLevelFile(ZLog::ERRORS, lgf, "[%clock%] E [%function%|%file%:%line%] %log%");
+    ZLog::logLevelFile(ZLog::ERRORS, lgf, "[%clock%] %thread% E [%function%|%file%:%line%] %log%");
 
     ZString optbuf;
     for(int i = 0; i < argc; ++i){

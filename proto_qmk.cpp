@@ -2,28 +2,27 @@
 #include "keymap.h"
 #include "zlog.h"
 
-#define VER_ADDR            0x2800
-#define FW_ADDR             0x2c00
+#define QMKID_OFFSET        0x160
 
 #define EEPROM_LEN          0x80000
 
 bool ProtoQMK::isQMK() {
+    DLOG("isQMK");
     if(isBuiltin())
         return false;
 
     ZBinary bin;
-    if(!readFlash(FW_ADDR + 0x160, bin))
+    if(!readFlash(baseFirmwareAddr() + QMKID_OFFSET, bin))
         return false;
+    bin.resize(32);
 
-    //LOG(ZLog::RAW << bin.dumpBytes(4, 8));
-    if(!bin.raw()){
-        ELOG("isQMK error");
-        return false;
-    }
+    DLOG("qmk id:");
+    DLOG(ZLog::RAW << bin.dumpBytes(4, 8));
 
     bin.rewind();
     if(ZString(bin.raw() + 2, 9) == "qmk_pok3r"){
-        //zu16 pid = bin.readleu16();
+        zu16 pid = bin.readleu16();
+        DLOG("qmk pid: " << ZString::ItoS((zu64)pid, 16));
         return true;
     }
     return false;
@@ -90,17 +89,20 @@ bool ProtoQMK::keymapDump(){
     // Read layouts
     for(int l = 0; l < nlayout; ++l){
         ZBinary dump;
-        for(zu32 off = 0; off < knum; off += 64){
-            if(!readKeymap(0x10000 + (knum * l) + off, dump))
+        for(zu32 off = 0; off < kmsize; off += 64){
+            if(!readKeymap(0x10000 + (kmsize * l) + off, dump))
                 break;
         }
         dump.rewind();
-        dump.resize(knum);
+        dump.resize(kmsize);
 
-        LOG("Layout " << l << ":");
-        LOG(ZLog::RAW << dump.dumpBytes(1, 32));
+//        LOG("Layout " << l << ":");
+//        LOG(ZLog::RAW << dump.dumpBytes(1, 32));
         layouts.push(dump);
     }
+
+    Keymap keymap(rows, cols);
+    keymap.loadLayout(layouts[0]);
 
     // Read and parse each layer
     for(int l = 0; l < layers; ++l){
@@ -112,40 +114,10 @@ bool ProtoQMK::keymapDump(){
         dump.rewind();
         dump.resize(kmsize);
 
-        ZArray<zu16> keymap(knum);
-
-        LOG("Layer " << l << ":");
-        LOG(ZLog::RAW << dump.dumpBytes(2, 16));
-        /*
-        int c = 0;
-        for(int i = 0; i < rows; ++i){
-            for(int j = 0; j < cols; ++j, ++c){
-                zu16 kc = dump.readleu16();
-                ZString str = Keymap::keycodeAbbrev(kc);
-                keymap[layouts[0][c]] = kc;
-                //LOG(i << "," << j << ": " << str);
-                RLOG(ZString(str).pad(' ', 8));
-            }
-            RLOG(ZLog::NEWLN);
-        }
-        */
-
-        for(int i = 0; i < knum; ++i){
-            zu16 kc = dump.readleu16();
-            int kp = layouts[0][i];
-            if(kp)
-                keymap[kp - 1] = kc;
-        }
-
-        for(int i = 0; i < keymap.size(); ++i){
-            zu16 kc = keymap[i];
-//            ZString str = Keymap::keycodeAbbrev(kc);
-            ZString str = Keymap::keycodeName(kc);
-//            RLOG(ZString(str).pad(' ', 8) + " ");
-            RLOG(str << ", ");
-        }
-        RLOG(ZLog::NEWLN);
+        keymap.loadLayerMap(dump);
     }
+
+    keymap.dump();
 
     return true;
 }

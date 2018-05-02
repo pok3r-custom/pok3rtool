@@ -44,7 +44,7 @@ struct rawhid_detail {
     hid_t *hid;
 };
 
-typedef int (*rawhid_filter_cb)(void *user, const struct rawhid_detail *detail);
+typedef int (*rawhid_filter_cb)(void *user, struct rawhid_detail *detail);
 
 hid_t *rawhid_open(int vid, int pid, int usage_page, int usage);
 void rawhid_close(hid_t *hid);

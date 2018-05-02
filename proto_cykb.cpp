@@ -15,7 +15,7 @@
 #define HEX(A) (ZString::ItoS((zu64)(A), 16))
 
 ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
-    KBProto(PROTO_CYKB),
+    ProtoQMK(PROTO_CYKB),
     builtin(false), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_),
     dev(new HIDDevice){
@@ -23,7 +23,7 @@ ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
 }
 
 ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPointer<HIDDevice> dev_) :
-    KBProto(PROTO_CYKB),
+    ProtoQMK(PROTO_CYKB),
     builtin(builtin_), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_),
     dev(dev_){
@@ -185,6 +185,7 @@ KBStatus ProtoCYKB::clearVersion(){
     tst.fill(0xFF, 60);
     if(data.getSub(4) != tst){
         ELOG("version not cleared");
+        ELOG(ZLog::RAW << data.dumpBytes(4, 8));
         return ERR_FLASH;
     }
 
@@ -470,6 +471,10 @@ zu32 ProtoCYKB::crcFlash(zu32 addr, zu32 len){
 
     data.seek(4);
     return data.readleu32();
+}
+
+zu32 ProtoCYKB::baseFirmwareAddr() const {
+    return FW_ADDR;
 }
 
 bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){

@@ -345,6 +345,10 @@ zu16 ProtoPOK3R::crcFlash(zu32 addr, zu32 len){
     return 0;
 }
 
+zu32 ProtoPOK3R::baseFirmwareAddr() const {
+    return FW_ADDR;
+}
+
 // From http://mdfs.net/Info/Comp/Comms/CRC16.htm
 // CRC-CCITT
 #define poly 0x1021

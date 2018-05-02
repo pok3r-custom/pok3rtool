@@ -1,7 +1,6 @@
 #include "kbscan.h"
 #include "proto_pok3r.h"
 #include "proto_cykb.h"
-#include "rawhid/hid.h"
 
 #include <functional>
 
@@ -76,7 +75,7 @@ zu32 KBScan::find(DeviceType devtype){
     }
     DeviceInfo dev = known_devices[devtype];
 
-    auto filter_func = [this,devtype,dev](const rawhid_detail *detail){
+    auto filter_func = [this,devtype,dev](rawhid_detail *detail){
         switch(detail->step){
             case RAWHID_STEP_DEV:
                 return (detail->vid == dev.vid && (detail->pid == dev.pid || detail->pid == dev.boot_pid));
@@ -106,7 +105,7 @@ zu32 KBScan::find(DeviceType devtype){
 
 zu32 KBScan::scan(){
 
-    auto filter_func = [this](const rawhid_detail *detail){
+    auto filter_func = [this](rawhid_detail *detail){
         zu32 id = detail->pid | (detail->vid << 16);
         switch(detail->step){
             case RAWHID_STEP_DEV:
@@ -164,7 +163,7 @@ zu32 KBScan::scan(){
 
 void KBScan::dbgScan(){
 
-    auto filter_func = [this](const rawhid_detail *detail){
+    auto filter_func = [this](rawhid_detail *detail){
         zu32 id = detail->pid | (detail->vid << 16);
         switch(detail->step){
             case RAWHID_STEP_DEV:
@@ -237,4 +236,38 @@ ZList<KBDevice> KBScan::open(){
     }
 
     return devs;
+}
+
+ZPointer<HIDDevice> KBScan::openConsole(DeviceType devtype){
+    if(!known_devices.contains(devtype)){
+        ELOG("Unknown device!");
+        return 0;
+    }
+    DeviceInfo dev = known_devices[devtype];
+    ZPointer<HIDDevice> ptr;
+
+    auto filter_func = [devtype,dev,&ptr](rawhid_detail *detail){
+        switch(detail->step){
+            case RAWHID_STEP_DEV:
+                return (!ptr.get() && (detail->vid == dev.vid && (detail->pid == dev.pid || detail->pid == dev.boot_pid)));
+            case RAWHID_STEP_IFACE:
+                return (detail->ifclass == INTERFACE_CLASS_HID &&
+                        detail->subclass == INTERFACE_SUBCLASS_NONE &&
+                        detail->protocol == INTERFACE_PROTOCOL_NONE &&
+                        (detail->epin_size == 0 || detail->epin_size == 32) &&
+                        (detail->epout_size == 0 || detail->epout_size == 32));
+            case RAWHID_STEP_REPORT:
+                return (detail->usage_page == CONSOLE_USAGE_PAGE && detail->usage == CONSOLE_USAGE);
+            case RAWHID_STEP_OPEN:
+                DLOG("OPEN " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
+                ptr = new HIDDevice(detail->hid);
+                // if hid pointer is taken, MUST return true here or it WILL double-free
+                return true;
+        }
+        return false;
+    };
+
+    zu32 devs = HIDDevice::openFilter(filter_func);
+    DLOG("Found " << devs << " devices");
+    return ptr;
 }

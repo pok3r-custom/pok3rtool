@@ -88,6 +88,7 @@ public:
     zu16 crcFlash(zu32 addr, zu32 len);
 
 private:
+    zu32 baseFirmwareAddr() const;
     //! Send command
     bool sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin = ZBinary());
     //! Send command and recv response.

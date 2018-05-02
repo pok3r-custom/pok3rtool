@@ -2,13 +2,14 @@
 #define PROTO_CYKB_H
 
 #include "kbproto.h"
+#include "proto_qmk.h"
 #include "rawhid/hiddevice.h"
 
 #include "zstring.h"
 #include "zbinary.h"
 using namespace LibChaos;
 
-class ProtoCYKB : public KBProto {
+class ProtoCYKB : public ProtoQMK {
 public:
     enum pok3r_rgb_cmd {
         CMD_16      = 0x10,
@@ -88,6 +89,7 @@ public:
     zu32 crcFlash(zu32 addr, zu32 len);
 
 private:
+    zu32 baseFirmwareAddr() const;
     //! Send command
     bool sendCmd(zu8 cmd, zu8 a1, ZBinary data = ZBinary());
     //! Send command and recv response.

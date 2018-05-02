@@ -1,6 +1,8 @@
 #ifndef KEYCODES_H
 #define KEYCODES_H
 
+#define UNICODE_ENABLE
+
 #define KC_TRANSPARENT  1
 
 /* USB HID Keyboard/Keypad Usage(0x07) */
@@ -742,5 +744,219 @@ enum quantum_keycodes {
     // always leave at the end
     SAFE_RANGE
 };
+
+// Ability to use mods in layouts
+#define LCTL(kc) (kc | QK_LCTL)
+#define LSFT(kc) (kc | QK_LSFT)
+#define LALT(kc) (kc | QK_LALT)
+#define LGUI(kc) (kc | QK_LGUI)
+#define LCMD(kc) LGUI(kc)
+#define LWIN(kc) LGUI(kc)
+#define RCTL(kc) (kc | QK_RCTL)
+#define RSFT(kc) (kc | QK_RSFT)
+#define RALT(kc) (kc | QK_RALT)
+#define RGUI(kc) (kc | QK_RGUI)
+#define RCMD(kc) RGUI(kc)
+#define RWIN(kc) RGUI(kc)
+
+#define HYPR(kc) (kc | QK_LCTL | QK_LSFT | QK_LALT | QK_LGUI)
+#define MEH(kc)  (kc | QK_LCTL | QK_LSFT | QK_LALT)
+#define LCAG(kc) (kc | QK_LCTL | QK_LALT | QK_LGUI)
+#define ALTG(kc) (kc | QK_RCTL | QK_RALT)
+#define SGUI(kc) (kc | QK_LGUI | QK_LSFT)
+#define SCMD(kc) SGUI(kc)
+#define SWIN(kc) SGUI(kc)
+#define LCA(kc) (kc | QK_LCTL | QK_LALT)
+
+#define MOD_HYPR 0xf
+#define MOD_MEH 0x7
+
+
+// Aliases for shifted symbols
+// Each key has a 4-letter code, and some have longer aliases too.
+// While the long aliases are descriptive, the 4-letter codes
+// make for nicer grid layouts (everything lines up), and are
+// the preferred style for Quantum.
+#define KC_TILD LSFT(KC_GRV)    // ~
+#define KC_TILDE    KC_TILD
+
+#define KC_EXLM LSFT(KC_1)      // !
+#define KC_EXCLAIM  KC_EXLM
+
+#define KC_AT   LSFT(KC_2)      // @
+
+#define KC_HASH LSFT(KC_3)      // #
+
+#define KC_DLR  LSFT(KC_4)      // $
+#define KC_DOLLAR   KC_DLR
+
+#define KC_PERC LSFT(KC_5)      // %
+#define KC_PERCENT  KC_PERC
+
+#define KC_CIRC LSFT(KC_6)      // ^
+#define KC_CIRCUMFLEX   KC_CIRC
+
+#define KC_AMPR LSFT(KC_7)      // &
+#define KC_AMPERSAND    KC_AMPR
+
+#define KC_ASTR LSFT(KC_8)      // *
+#define KC_ASTERISK KC_ASTR
+
+#define KC_LPRN LSFT(KC_9)      // (
+#define KC_LEFT_PAREN   KC_LPRN
+
+#define KC_RPRN LSFT(KC_0)      // )
+#define KC_RIGHT_PAREN  KC_RPRN
+
+#define KC_UNDS LSFT(KC_MINS)   // _
+#define KC_UNDERSCORE   KC_UNDS
+
+#define KC_PLUS LSFT(KC_EQL)    // +
+
+#define KC_LCBR LSFT(KC_LBRC)   // {
+#define KC_LEFT_CURLY_BRACE KC_LCBR
+
+#define KC_RCBR LSFT(KC_RBRC)   // }
+#define KC_RIGHT_CURLY_BRACE    KC_RCBR
+
+#define KC_LABK LSFT(KC_COMM)   // <
+#define KC_LEFT_ANGLE_BRACKET   KC_LABK
+
+#define KC_RABK LSFT(KC_DOT)    // >
+#define KC_RIGHT_ANGLE_BRACKET  KC_RABK
+
+#define KC_COLN LSFT(KC_SCLN)   // :
+#define KC_COLON    KC_COLN
+
+#define KC_PIPE LSFT(KC_BSLS)   // |
+
+#define KC_LT LSFT(KC_COMM)     // <
+
+#define KC_GT LSFT(KC_DOT)      // >
+
+#define KC_QUES LSFT(KC_SLSH)   // ?
+#define KC_QUESTION KC_QUES
+
+#define KC_DQT LSFT(KC_QUOT)   // "
+#define KC_DOUBLE_QUOTE KC_DQT
+#define KC_DQUO KC_DQT
+
+#define KC_DELT KC_DELETE // Del key (four letter code)
+
+// Alias for function layers than expand past FN31
+#define FUNC(kc) (kc | QK_FUNCTION)
+
+// Aliases
+#define S(kc) LSFT(kc)
+#define F(kc) FUNC(kc)
+
+#define M(kc) (kc | QK_MACRO)
+
+#define MACROTAP(kc) (kc | QK_MACRO | FUNC_TAP<<8)
+#define MACRODOWN(...) (record->event.pressed ? MACRO(__VA_ARGS__) : MACRO_NONE)
+
+#define KC_GESC GRAVE_ESC
+
+#define RGB_MOD RGB_MODE_FORWARD
+#define RGB_SMOD RGB_MODE_FORWARD
+#define RGB_RMOD RGB_MODE_REVERSE
+
+#define RGB_M_P RGB_MODE_PLAIN
+#define RGB_M_B RGB_MODE_BREATHE
+#define RGB_M_R RGB_MODE_RAINBOW
+#define RGB_M_SW RGB_MODE_SWIRL
+#define RGB_M_SN RGB_MODE_SNAKE
+#define RGB_M_K RGB_MODE_KNIGHT
+#define RGB_M_X RGB_MODE_XMAS
+#define RGB_M_G RGB_MODE_GRADIENT
+
+// L-ayer, T-ap - 256 keycode max, 16 layer max
+#define LT(layer, kc) (kc | QK_LAYER_TAP | ((layer & 0xF) << 8))
+
+#define AG_SWAP MAGIC_SWAP_ALT_GUI
+#define AG_NORM MAGIC_UNSWAP_ALT_GUI
+
+// GOTO layer - 16 layers max
+// when:
+// ON_PRESS    = 1
+// ON_RELEASE  = 2
+// Unless you have a good reason not to do so, prefer  ON_PRESS (1) as your default.
+// In fact, we changed it to assume ON_PRESS for sanity/simplicity. If needed, you can add your own
+// keycode modeled after the old version, kept below for this.
+/* #define TO(layer, when) (layer | QK_TO | (when << 0x4)) */
+#define TO(layer) (layer | QK_TO | (ON_PRESS << 0x4))
+
+// Momentary switch layer - 256 layer max
+#define MO(layer) (layer | QK_MOMENTARY)
+
+// Set default layer - 256 layer max
+#define DF(layer) (layer | QK_DEF_LAYER)
+
+// Toggle to layer - 256 layer max
+#define TG(layer) (layer | QK_TOGGLE_LAYER)
+
+// One-shot layer - 256 layer max
+#define OSL(layer) (layer | QK_ONE_SHOT_LAYER)
+
+// L-ayer M-od: Momentary switch layer with modifiers active - 16 layer max, left mods only
+#define LM(layer, mod) (QK_LAYER_MOD | (((layer) & 0xF) << 4) | ((mod) & 0xF))
+
+// One-shot mod
+#define OSM(mod) ((mod) | QK_ONE_SHOT_MOD)
+
+// Layer tap-toggle
+#define TT(layer) (layer | QK_LAYER_TAP_TOGGLE)
+
+// M-od, T-ap - 256 keycode max
+#define MT(mod, kc) (kc | QK_MOD_TAP | (((mod) & 0x1F) << 8))
+
+#define CTL_T(kc) MT(MOD_LCTL, kc)
+#define LCTL_T(kc) MT(MOD_LCTL, kc)
+#define RCTL_T(kc) MT(MOD_RCTL, kc)
+
+#define SFT_T(kc) MT(MOD_LSFT, kc)
+#define LSFT_T(kc) MT(MOD_LSFT, kc)
+#define RSFT_T(kc) MT(MOD_RSFT, kc)
+
+#define ALT_T(kc) MT(MOD_LALT, kc)
+#define LALT_T(kc) MT(MOD_LALT, kc)
+#define RALT_T(kc) MT(MOD_RALT, kc)
+#define ALGR_T(kc) MT(MOD_RALT, kc) // dual-function AltGR
+
+#define GUI_T(kc) MT(MOD_LGUI, kc)
+#define CMD_T(kc) GUI_T(kc)
+#define WIN_T(kc) GUI_T(kc)
+#define LGUI_T(kc) MT(MOD_LGUI, kc)
+#define LCMD_T(kc) LGUI_T(kc)
+#define LWIN_T(kc) LGUI_T(kc)
+#define RGUI_T(kc) MT(MOD_RGUI, kc)
+#define RCMD_T(kc) RGUI_T(kc)
+#define RWIN_T(kc) RGUI_T(kc)
+
+#define C_S_T(kc) MT((MOD_LCTL | MOD_LSFT), kc) // Control + Shift e.g. for gnome-terminal
+#define MEH_T(kc) MT((MOD_LCTL | MOD_LSFT | MOD_LALT), kc) // Meh is a less hyper version of the Hyper key -- doesn't include Win or Cmd, so just alt+shift+ctrl
+#define LCAG_T(kc) MT((MOD_LCTL | MOD_LALT | MOD_LGUI), kc) // Left control alt and gui
+#define RCAG_T(kc) MT((MOD_RCTL | MOD_RALT | MOD_RGUI), kc) // Right control alt and gui
+#define ALL_T(kc) MT((MOD_LCTL | MOD_LSFT | MOD_LALT | MOD_LGUI), kc) // see http://brettterpstra.com/2012/12/08/a-useful-caps-lock-key/
+#define SGUI_T(kc) MT((MOD_LGUI | MOD_LSFT), kc)
+#define SCMD_T(kc) SGUI_T(kc)
+#define SWIN_T(kc) SGUI_T(kc)
+#define LCA_T(kc) MT((MOD_LCTL | MOD_LALT), kc) // Left control and left alt
+
+// Dedicated keycode versions for Hyper and Meh, if you want to use them as standalone keys rather than mod-tap
+#define KC_HYPR HYPR(KC_NO)
+#define KC_MEH  MEH(KC_NO)
+
+#ifdef UNICODE_ENABLE
+    // For sending unicode codes.
+    // You may not send codes over 7FFF -- this supports most of UTF8.
+    // To have a key that sends out Œ, go UC(0x0152)
+    #define UNICODE(n) (n | QK_UNICODE)
+    #define UC(n) UNICODE(n)
+#endif
+
+#ifdef UNICODEMAP_ENABLE
+    #define X(n) (n | QK_UNICODE_MAP)
+#endif
 
 #endif // KEYCODES_H

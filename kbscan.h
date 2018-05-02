@@ -52,12 +52,14 @@ class KBScan {
 public:
     KBScan();
 
-    zu32 find(DeviceType dev);
+    zu32 find(DeviceType devtype);
     zu32 scan();
 
     void dbgScan();
 
     ZList<KBDevice> open();
+
+    static ZPointer<HIDDevice> openConsole(DeviceType devtype);
 
 private:
     ZList<ListDevice> devices;
