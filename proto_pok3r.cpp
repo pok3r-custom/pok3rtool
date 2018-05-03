@@ -352,10 +352,10 @@ zu32 ProtoPOK3R::baseFirmwareAddr() const {
 // From http://mdfs.net/Info/Comp/Comms/CRC16.htm
 // CRC-CCITT
 #define poly 0x1021
-zu16 crc16(unsigned char *addr, zu64 size) {
+zu16 crc16(unsigned char *ptr, zu64 size) {
     zu32 crc = 0;
     for(zu64 i = 0; i < size; ++i){             /* Step through bytes in memory */
-        crc ^= (zu16)(addr[i] << 8);            /* Fetch byte from memory, XOR into CRC top byte*/
+        crc ^= (zu16)(ptr[i] << 8);            /* Fetch byte from memory, XOR into CRC top byte*/
         for(int j = 0; j < 8; j++){             /* Prepare to rotate 8 bits */
             crc = crc << 1;                     /* rotate */
             if(crc & 0x10000)                   /* bit 15 was set (now bit 16)... */

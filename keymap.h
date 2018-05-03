@@ -21,11 +21,21 @@ public:
     void loadLayout(ZBinary layout);
     void loadLayerMap(ZBinary layer);
 
-    void dump();
+    ZArray<ZArray<keycode>> getKeycodeLayout(zu8 layer) const;
+    ZBinary toMatrix() const;
 
-    keycode get(zu8 l, zu8 k){ return layers[l][k]; }
-    void set(zu8 l, zu8 k, keycode kc){ layers[l][k] = kc; }
+    void printLayers() const;
+    void printMatrix() const;
 
+    keycode get(zu8 l, zu16 k) const { return layers[l][k]; }
+    void set(zu8 l, zu16 k, keycode kc){ layers[l][k] = kc; }
+
+    zu16 rowCount(zu8 row) const;
+    zu16 layoutRC2K(zu8 r, zu8 c) const;
+
+    zu16 keyOffset(zu8 l, zu16 k) const;
+
+    keycode toKeycode(ZString name) const;
     ZString keycodeName(keycode kc) const;
     ZString keycodeAbbrev(keycode kc) const;
     ZString keycodeDesc(keycode kc) const;

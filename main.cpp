@@ -1,6 +1,7 @@
 #include "kbscan.h"
 #include "proto_pok3r.h"
 #include "proto_cykb.h"
+#include "keymap.h"
 #include "updatepackage.h"
 
 #include "zlog.h"
@@ -321,6 +322,42 @@ int cmd_keymap(Param *param){
         if(param->args[1] == "dump"){
             LOG("Keymap Dump");
             qmk->keymapDump();
+
+        } else if(param->args[1] == "set"){
+            if(param->args.size() != 5 && param->args.size() != 6){
+                ELOG("Usage: pok3rtool keymap set <layer> [<key_row> <key_col> | <key>] <keycode>");
+                return -2;
+            }
+
+            auto keymap = qmk->loadKeymap();
+            if(!keymap.get()){
+                ELOG("Unable to load keymap");
+                return -3;
+            }
+
+            zu8 layer;
+            zu16 kp;
+            ZString keycode;
+            if(param->args.size() == 5){
+                layer = param->args[2].toUint();
+                kp = param->args[3].toUint();
+                keycode = param->args[4];
+            } else if(param->args.size() == 6){
+                layer = param->args[2].toUint();
+                kp = keymap->layoutRC2K(param->args[3].toUint(), param->args[4].toUint());
+                keycode = param->args[5];
+            } else {
+                return -4;
+            }
+
+            Keymap::keycode kc = keymap->toKeycode(keycode);
+
+            LOG("Keymap Set: layer " << layer << ", key " << kp << " -> " << keymap->keycodeName(kc));
+
+            keymap->set(layer, kp, kc);
+            //keymap->printLayers();
+            LOG(qmk->uploadKeymap(keymap));
+
         } else {
             LOG("Usage: pok3rtool keymap");
         }
@@ -384,7 +421,7 @@ const ZMap<ZString, CmdEntry> cmds = {
     { "wipe",       { cmd_wipe,        	0, 0, "wipe" } },
     { "decode",     { cmd_decode,       2, 2, "decode <path to updater> <output file>" } },
     { "eeprom",     { cmd_eeprom,       1, 2, "eeprom <cmd> [arg]" } },
-    { "keymap",     { cmd_keymap,       1, 2, "keymap <cmd> [arg]" } },
+    { "keymap",     { cmd_keymap,       1, 5, "keymap <cmd> [arg]" } },
     { "console",    { cmd_console,      0, 0, "console" } },
 };
 

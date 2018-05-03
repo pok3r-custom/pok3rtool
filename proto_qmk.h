@@ -2,6 +2,7 @@
 #define PROTO_QMK_H
 
 #include "kbproto.h"
+#include "keymap.h"
 #include "rawhid/hiddevice.h"
 
 #include "zstring.h"
@@ -46,12 +47,16 @@ public:
     //! Dump the keymap.
     bool keymapDump();
 
+    ZBinary getMatrix();
+    ZPointer<Keymap> loadKeymap();
+    bool uploadKeymap(ZPointer<Keymap> keymap);
+
     bool readEEPROM(zu32 addr, ZBinary &bin);
     bool writeEEPROM(zu32 addr, ZBinary bin);
     bool eraseEEPROM(zu32 addr);
 
     bool readKeymap(zu32 offset, ZBinary &bin);
-    bool writeKeymap(zu32 addr, ZBinary bin);
+    bool writeKeymap(zu16 offset, ZBinary bin);
 
     virtual bool readFlash(zu32 addr, ZBinary &bin) = 0;
 

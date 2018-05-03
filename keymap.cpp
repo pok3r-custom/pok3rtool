@@ -4,10 +4,10 @@
 #include "zmap.h"
 #include "zlog.h"
 
+#define MIN(A, B) (A < B ? A : B)
 #define MAX(A, B) (A > B ? A : B)
 
-#define LAYOUT_SP 0x80
-#define LAYOUT_NR 0x40
+#define LAYOUT_NR 0x80
 #define LAYOUT_MASK 0x3F
 
 struct Keycode {
@@ -334,13 +334,17 @@ const ZArray<Keycode> keycodes = {
 
 };
 
-ZMap<Keymap::keycode, Keycode> kc_map;
+ZMap<Keymap::keycode, Keycode> kcode_map;
+ZMap<ZString, Keymap::keycode> kname_map;
 
 Keymap::Keymap(zu8 _rows, zu8 _cols) : rows(_rows), cols(_cols), nkeys(0){
     // make keycode map
-    if(!kc_map.size()){
+    if(!kcode_map.size()){
         for(zsize i = 0; i < keycodes.size(); ++i){
-            kc_map[keycodes[i].keycode] = keycodes[i];
+            kcode_map[keycodes[i].keycode] = keycodes[i];
+            if(kname_map.contains(keycodes[i].name))
+                ELOG("Duplicate keycode name");
+            kname_map[keycodes[i].name] = keycodes[i].keycode;
         }
     }
 }
@@ -390,15 +394,11 @@ void Keymap::loadLayout(ZBinary layout){
     for(zsize i = 0; i < nkeys; ++i){
         const zu8 keyw = wlayout[i].width;
         if(!keyw){
-            LOG("Zero size key");
+            //LOG("Zero size key");
         }
         rwidth += keyw;
         if(wlayout[i].newrow){
-            if(rwmax){
-                //zassert(rwidth == rwmax, "Row sizes do not match");
-            } else {
-                rwmax = MAX(rwmax, rwidth);
-            }
+            rwmax = MAX(rwmax, rwidth);
             rwidth = 0;
         }
     }
@@ -421,8 +421,45 @@ void Keymap::loadLayerMap(ZBinary layer){
     layers.push(keymap);
 }
 
-void Keymap::dump(){
-    LOG("Keymap Dump: " << nkeys  << " keys, " << rows << "/" << cols << " r/c, " << layers.size() << " layers");
+ZArray<ZArray<Keymap::keycode> > Keymap::getKeycodeLayout(zu8 l) const {
+    ZArray<ZArray<keycode>> keymap;
+    ZArray<keycode> layer;
+    for(zsize i = 0; i < nkeys; ++i){
+        layer.push(layers[l][i]);
+        if(wlayout[i].newrow){
+            keymap.push(layer);
+            layer.clear();
+        }
+    }
+    return keymap;
+}
+
+ZBinary Keymap::toMatrix() const {
+    ZBinary matrices;
+
+    for(zsize l = 0; l < layers.size(); ++l){
+        zu16 matrix[rows][cols];
+        memset(matrix, 0, sizeof(matrix));
+
+        // Put keycodes in matrix
+        for(zsize i = 0; i < nkeys; ++i){
+            const zu16 kc = layers[l][i];
+            matrix[wlayout[i].row][wlayout[i].col] = kc;
+        }
+
+        // Serialize matrix
+        for(zsize r = 0; r < rows; ++r){
+            for(zsize c = 0; c < cols; ++c){
+                matrices.writeleu16(matrix[r][c]);
+            }
+        }
+    }
+
+    return matrices;
+}
+
+void Keymap::printLayers() const{
+    LOG("Keymap Dump: " << nkeys  << " keys, " << layers.size() << " layers");
 
     for(zsize l = 0; l < layers.size(); ++l){
         bool blank = true;
@@ -438,23 +475,31 @@ void Keymap::dump(){
         } else {
             LOG("Layer " << l << ":");
             ZString lstr;
-            lstr += ZString('=', (mwidth*2)+1);
-            lstr += "\n|";
+            if(mwidth){
+                lstr += ZString('=', (mwidth*2)+1);
+                lstr += "\n|";
+            }
             for(zsize i = 0; i < nkeys; ++i){
                 const zu16 kc = layers[l][i];
                 const zu8 width = wlayout[i].width;
-                ZString str = keycodeAbbrev(kc);
                 ZString kstr;
-                kstr += ZString(str).substr(0, str.size()/2).lpad(' ', width-1);
-                kstr += ZString(str).substr(str.size()/2).rpad(' ', width+1);
-                kstr.last() = '|';
+                if(width){
+                    ZString str = keycodeAbbrev(kc);
+                    kstr += ZString(str).substr(0, str.size()/2).lpad(' ', width-1);
+                    kstr += ZString(str).substr(str.size()/2).rpad(' ', width+1);
+                    kstr.last() = '|';
+                } else {
+                    ZString str = keycodeName(kc);
+                    kstr += (str + ", ");
+                }
                 lstr += kstr;
-                //            lstr += (str + ", ");
                 if(wlayout[i].newrow){
-                    lstr += "\n";
-                    lstr += ZString('=', (mwidth*2)+1);
-                    if(i < (nkeys-1))
-                        lstr += "\n|";
+                    if(mwidth){
+                        lstr += "\n";
+                        lstr += ZString('=', (mwidth*2)+1);
+                        if(i < (nkeys-1))
+                            lstr += "\n|";
+                    }
                 }
             }
             RLOG(lstr << ZLog::NEWLN);
@@ -462,25 +507,95 @@ void Keymap::dump(){
     }
 }
 
+void Keymap::printMatrix() const {
+    LOG("Matrix Dump: " << rows << "/" << cols << " r/c, " << layers.size() << " layers");
+
+    for(zsize l = 0; l < layers.size(); ++l){
+        zu16 matrix[rows][cols];
+        memset(matrix, 0, sizeof(matrix));
+
+        for(zsize i = 0; i < nkeys; ++i){
+            const zu16 kc = layers[l][i];
+            matrix[wlayout[i].row][wlayout[i].col] = kc;
+        }
+
+        LOG("Layer " << l << ":");
+
+        RLOG("{" << ZLog::NEWLN);
+        for(zsize r = 0; r < rows; ++r){
+            ZString line = "  { ";
+            for(zsize c = 0; c < cols; ++c){
+                line += (ZString(keycodeName(matrix[r][c]) + ",").pad(' ', 20) + " ");
+            }
+            line += "},";
+            RLOG(line << ZLog::NEWLN);
+        }
+        RLOG("}" << ZLog::NEWLN);
+    }
+}
+
+zu16 Keymap::rowCount(zu8 row) const{
+    zu8 r = 0;
+    zu16 width = 0;
+    for(zsize i = 0; i < nkeys; ++i){
+        width += wlayout[i].width;
+        if(wlayout[i].newrow){
+            if(r == row)
+                return width;
+            width = 0;
+            r++;
+        }
+    }
+}
+
+zu16 Keymap::layoutRC2K(zu8 r, zu8 c) const {
+    zu8 row = 0;
+    zu8 col = 0;
+    for(zsize i = 0; i < nkeys; ++i){
+        if(row == r && col == c)
+            return i;
+        col++;
+        if(wlayout[i].newrow){
+            row++;
+            col = 0;
+        }
+    }
+}
+
+zu16 Keymap::keyOffset(zu8 l, zu16 k) const {
+    const zu8 row = wlayout[k].row;
+    const zu8 col = wlayout[k].col;
+    const zu16 lsize = rows * cols;
+    return ((lsize * l) + ((row * cols) + col)) * sizeof(zu16);
+}
+
+Keymap::keycode Keymap::toKeycode(ZString name) const {
+    if(kname_map.contains(name)){
+        return kname_map[name];
+    } else {
+        return KC_NO;
+    }
+}
+
 ZString Keymap::keycodeName(keycode kc) const {
-    if(kc_map.contains(kc)){
-        return kc_map[kc].name;
+    if(kcode_map.contains(kc)){
+        return kcode_map[kc].name;
     } else {
         return "0x" + ZString::ItoS(kc, 16, 4);
     }
 }
 
 ZString Keymap::keycodeAbbrev(keycode kc) const {
-    if(kc_map.contains(kc)){
-        return kc_map[kc].abbrev;
+    if(kcode_map.contains(kc)){
+        return kcode_map[kc].abbrev;
     } else {
         return "0x" + ZString::ItoS(kc, 16, 4);
     }
 }
 
-ZString Keymap::keycodeDesc(keycode kc) const{
-    if(kc_map.contains(kc)){
-        return kc_map[kc].desc;
+ZString Keymap::keycodeDesc(keycode kc) const {
+    if(kcode_map.contains(kc)){
+        return kcode_map[kc].desc;
     } else if(kc >= SAFE_RANGE){
         return "Custom keycode 0x" + ZString::ItoS(kc, 16, 4);
     } else {
