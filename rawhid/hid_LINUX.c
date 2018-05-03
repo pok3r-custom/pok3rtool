@@ -86,7 +86,7 @@
 // PCLinuxOS 2009.2: (would not boot)
 // Slackware: (no live cd available?  www.slackware-live.org dead)
 
-#define printf(...)  // comment this out for lots of info
+//#define printf(...)  // comment this out for lots of info
 
 struct hid_struct {
     usb_dev_handle *usb;
@@ -247,6 +247,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
             detail.pid = dev->descriptor.idProduct;
             if (!cb(user, &detail)) {
                 // if false, do not open/inspect device
+                printf("callback dev false\n");
                 continue;
             }
 
@@ -296,6 +297,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
                 detail.epin_size = epin_size;
                 detail.epout_size = epout_size;
                 if (!cb(user, &detail)) {
+                    printf("callback iface false\n");
                     continue;
                 }
 
@@ -304,7 +306,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
                 if (!hand) {
                     hand = usb_open(dev);
                     if (!hand) {
-                        printf("  unable to open device\n");
+                        printf("  unable to open device: %s\n", usb_strerror());
                         break;
                     }
                 }
@@ -349,6 +351,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
                 detail.usage = parsed_usage;
                 if (!cb(user, &detail)) {
                     usb_release_interface(hand, ifnum);
+                    printf("callback report false\n");
                     continue;
                 }
 
@@ -375,6 +378,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
                 detail.hid = hid;
                 if (!cb(user, &detail)) {
                     usb_release_interface(hand, ifnum);
+                    printf("callback open false\n");
                     continue;
                 }
 
