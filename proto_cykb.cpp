@@ -518,8 +518,8 @@ bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
     // Check error
     data.rewind();
     if(data.readleu16() == UPDATE_ERROR){
-        ELOG("error response: " << HEX(data[4]) << " " << HEX(data[5]));
-        ELOG(ZLog::RAW << data.dumpBytes(4, 8));
+        DLOG("error response: " << HEX(data[4]) << " " << HEX(data[5]));
+        DLOG(ZLog::RAW << data.dumpBytes(4, 8));
         return false;
     }
     data.rewind();

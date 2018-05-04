@@ -1,4 +1,7 @@
 
 # Holtek Raw HID Interfaces
-SUBSYSTEM=="usb", ATTRS{idVendor}=="04d9", ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceSubClass}=="00", MODE="0666"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="04d9", MODE="0666"
+#SUBSYSTEMS=="usb", ATTRS{idVendor}=="04d9", GROUP="usb"
+#SUBSYSTEMS=="usb", ATTRS{idVendor}=="04d9", ATTRS{bInterfaceClass}=="03", MODE="0666"
+#SUBSYSTEMS=="usb", ATTRS{idVendor}=="04d9", ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceSubClass}=="00", MODE="0666"
 

@@ -28,8 +28,13 @@ struct Param {
 const ZMap<ZString, DeviceType> devnames = {
     { "pok3r",              DEV_POK3R },
 
+    { "rgb",                DEV_POK3R_RGB },
     { "pok3r-rgb",          DEV_POK3R_RGB },
     { "pok3r_rgb",          DEV_POK3R_RGB },
+
+    { "rgb2",               DEV_POK3R_RGB2 },
+    { "pok3r-rgb2",         DEV_POK3R_RGB2 },
+    { "pok3r_rgb2",         DEV_POK3R_RGB2 },
 
     { "core",               DEV_VORTEX_CORE },
     { "vortex-core",        DEV_VORTEX_CORE },
@@ -61,9 +66,9 @@ const ZMap<ZString, DeviceType> devnames = {
     { "tex-yoda-ii",        DEV_TEX_YODA_II },
     { "tex_yoda_ii",        DEV_TEX_YODA_II },
 
-    { "qmk_pok3r",          DEV_QMK_POK3R },
-    { "qmk_pok3r_rgb",      DEV_QMK_POK3R_RGB },
-    { "qmk_vortex_core",    DEV_QMK_VORTEX_CORE },
+//  { "qmk_pok3r",          DEV_QMK_POK3R },
+//  { "qmk_pok3r_rgb",      DEV_QMK_POK3R_RGB },
+//  { "qmk_vortex_core",    DEV_QMK_VORTEX_CORE },
 };
 
 // Functions

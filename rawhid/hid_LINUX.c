@@ -86,7 +86,7 @@
 // PCLinuxOS 2009.2: (would not boot)
 // Slackware: (no live cd available?  www.slackware-live.org dead)
 
-//#define printf(...)  // comment this out for lots of info
+#define printf(...)  // comment this out for lots of info
 
 struct hid_struct {
     usb_dev_handle *usb;
