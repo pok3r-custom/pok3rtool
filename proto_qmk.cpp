@@ -6,6 +6,7 @@
 #define QMKID_OFFSET        0x160
 #define EEPROM_LEN          0x80000
 #define KM_READ_LAYOUT      0x10000
+#define KM_READ_LSTRS       0x20000
 
 bool ProtoQMK::isQMK() {
     DLOG("isQMK");
@@ -127,13 +128,36 @@ ZPointer<Keymap> ProtoQMK::loadKeymap(){
 
     const zu16 kmsize = kcsize * rows * cols;
 
+    // Read layout str
+//  ZBinary lstr;
+//  for(zu32 off = 0; true; off += 64){
+//      ZBinary dump;
+//      if(!readKeymap(KM_READ_LSTRS + off, dump))
+//          return nullptr;
+//      RLOG(dump.dumpBytes(4, 8));
+//      lstr.write(dump);
+//      bool nullt = false;
+
+//      for(zu64 i = 0; i < dump.size(); ++i){
+//          if(dump[i] == 0){
+//              nullt = true;
+//              break;
+//          }
+//      }
+//      if(nullt)
+//          break;
+//  }
+//  lstr.nullTerm();
+//  ZString str = lstr.asChar();
+//  LOG(str);
+
     // Read layouts
     ZArray<ZBinary> layouts;
     for(int l = 0; l < nlayout; ++l){
         ZBinary dump;
         for(zu32 off = 0; off < kmsize; off += 64){
             if(!readKeymap(KM_READ_LAYOUT + (kmsize * l) + off, dump))
-                break;
+                return nullptr;
         }
         dump.resize(kmsize);
         layouts.push(dump);
@@ -147,7 +171,7 @@ ZPointer<Keymap> ProtoQMK::loadKeymap(){
         ZBinary dump;
         for(zu32 off = 0; off < kmsize; off += 64){
             if(!readKeymap((kmsize * l) + off, dump))
-                break;
+                return nullptr;
         }
         dump.resize(kmsize);
         keymap->loadLayerMap(dump);

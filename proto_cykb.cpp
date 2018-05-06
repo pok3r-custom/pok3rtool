@@ -490,6 +490,10 @@ bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){
     packet.seek(4);
     packet.write(data);     // data
 
+    packet.seek(2);
+    zu16 crc = ZHash<ZBinary, ZHashBase::CRC16>(packet).hash();
+    packet.writeleu16(crc); // CRC
+
     DLOG("send:");
     DLOG(ZLog::RAW << packet.dumpBytes(4, 8));
 
@@ -514,6 +518,11 @@ bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
 
     DLOG("recv:");
     DLOG(ZLog::RAW << data.dumpBytes(4, 8));
+
+    if(data.size() != UPDATE_PKT_LEN){
+        DLOG("bad recv size");
+        return false;
+    }
 
     // Check error
     data.rewind();
