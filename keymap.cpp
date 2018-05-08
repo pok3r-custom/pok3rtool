@@ -349,7 +349,9 @@ Keymap::Keymap(zu8 _rows, zu8 _cols) : rows(_rows), cols(_cols), nkeys(0){
     }
 }
 
-void Keymap::loadLayout(ZBinary layout){
+void Keymap::loadLayout(ZString name, ZBinary layout){
+    layout_name = name;
+
     const int knum = rows * cols;
     zassert(layout.size() == (knum * 2), "Bad layout map size!");
 
@@ -459,8 +461,6 @@ ZBinary Keymap::toMatrix() const {
 }
 
 void Keymap::printLayers() const{
-    LOG("Keymap Dump: " << nkeys  << " keys, " << layers.size() << " layers");
-
     for(zsize l = 0; l < layers.size(); ++l){
         bool blank = true;
         for(zsize i = 0; i < nkeys; ++i){

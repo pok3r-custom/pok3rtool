@@ -16,19 +16,17 @@
 #define HEX(A) (ZString::ItoS((zu64)(A), 16))
 
 ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
-    ProtoQMK(PROTO_POK3R),
+    ProtoQMK(PROTO_POK3R, new HIDDevice),
     builtin(false), debug(false), nop(false),
-    vid(vid_), pid(pid_), boot_pid(boot_pid_),
-    dev(new HIDDevice)
+    vid(vid_), pid(pid_), boot_pid(boot_pid_)
 {
 
 }
 
 ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPointer<HIDDevice> dev_) :
-    ProtoQMK(PROTO_POK3R),
+    ProtoQMK(PROTO_POK3R, dev_),
     builtin(builtin_), debug(false), nop(false),
-    vid(vid_), pid(pid_), boot_pid(boot_pid_),
-    dev(dev_)
+    vid(vid_), pid(pid_), boot_pid(boot_pid_)
 {
     /*
     if(dev.get() && dev.get()->isOpen()){

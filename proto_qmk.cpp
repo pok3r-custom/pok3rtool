@@ -3,10 +3,14 @@
 #include "keycodes.h"
 #include "zlog.h"
 
+#define UPDATE_PKT_LEN      64
+
 #define QMKID_OFFSET        0x160
 #define EEPROM_LEN          0x80000
 #define KM_READ_LAYOUT      0x10000
 #define KM_READ_LSTRS       0x20000
+
+#define HEX(A) (ZString::ItoS((zu64)(A), 16))
 
 bool ProtoQMK::isQMK() {
     DLOG("isQMK");
@@ -33,7 +37,7 @@ bool ProtoQMK::isQMK() {
 bool ProtoQMK::eepromTest(){
     // Send command
     ZBinary data;
-    if(!sendRecvCmd(QMK_EEPROM, QMK_EEPROM_INFO, data))
+    if(!sendRecvCmdQmk(QMK_EEPROM, QMK_EEPROM_INFO, data))
         return false;
 
     LOG(ZLog::RAW << data.dumpBytes(4, 8));
@@ -54,7 +58,7 @@ ZBinary ProtoQMK::dumpEEPROM(){
     zu32 cp = EEPROM_LEN / 10;
     int perc = 0;
     RLOG(perc << "%...");
-    for(zu32 addr = 0; addr < EEPROM_LEN; addr += 64){
+    for(zu32 addr = 0; addr < EEPROM_LEN; addr += 60){
         if(!readEEPROM(addr, dump))
             break;
 
@@ -76,6 +80,9 @@ bool ProtoQMK::keymapDump(){
         return false;
     }
 
+    LOG("Keymap Dump: " << keymap->numKeys() << " keys, " << keymap->numLayers() << " layers");
+    LOG("Current Layout: " << keymap->layoutName());
+
     keymap->printLayers();
     //keymap->printMatrix();
 
@@ -86,7 +93,7 @@ ZBinary ProtoQMK::getMatrix(){
     DLOG("loadKeymap");
     // Send command
     ZBinary data;
-    if(!sendRecvCmd(CMD_KEYMAP, SUB_KM_INFO, data))
+    if(!sendRecvCmdQmk(CMD_KEYMAP, SUB_KM_INFO, data))
         return nullptr;
 
     const zu8 layers = data[0];
@@ -101,7 +108,7 @@ ZBinary ProtoQMK::getMatrix(){
     ZBinary matrices;
     for(int l = 0; l < layers; ++l){
         ZBinary dump;
-        for(zu32 off = 0; off < kmsize; off += 64){
+        for(zu32 off = 0; off < kmsize; off += 60){
             if(!readKeymap((kmsize * l) + off, dump))
                 break;
         }
@@ -116,7 +123,7 @@ ZPointer<Keymap> ProtoQMK::loadKeymap(){
     DLOG("loadKeymap");
     // Send command
     ZBinary data;
-    if(!sendRecvCmd(CMD_KEYMAP, SUB_KM_INFO, data))
+    if(!sendRecvCmdQmk(CMD_KEYMAP, SUB_KM_INFO, data))
         return nullptr;
 
     const zu8 layers = data[0];
@@ -128,34 +135,33 @@ ZPointer<Keymap> ProtoQMK::loadKeymap(){
 
     const zu16 kmsize = kcsize * rows * cols;
 
-    // Read layout str
-//  ZBinary lstr;
-//  for(zu32 off = 0; true; off += 64){
-//      ZBinary dump;
-//      if(!readKeymap(KM_READ_LSTRS + off, dump))
-//          return nullptr;
-//      RLOG(dump.dumpBytes(4, 8));
-//      lstr.write(dump);
-//      bool nullt = false;
+    // Read layout strs
+    ZBinary lstr;
+    for(zu32 off = 0; true; off += 60){
+        ZBinary dump;
+        if(!readKeymap(KM_READ_LSTRS + off, dump))
+            return nullptr;
+        lstr.write(dump);
 
-//      for(zu64 i = 0; i < dump.size(); ++i){
-//          if(dump[i] == 0){
-//              nullt = true;
-//              break;
-//          }
-//      }
-//      if(nullt)
-//          break;
-//  }
-//  lstr.nullTerm();
-//  ZString str = lstr.asChar();
-//  LOG(str);
+        bool nullt = false;
+        for(zu64 i = 0; i < dump.size(); ++i){
+            if(dump[i] == 0){
+                nullt = true;
+                break;
+            }
+        }
+        if(nullt)
+            break;
+    }
+    lstr.nullTerm();
+    ZArray<ZString> lstrs = ZString(lstr.asChar()).explode(',');
+    zassert(lstrs.size() == nlayout, "Layout string count does not match num layouts");
 
     // Read layouts
     ZArray<ZBinary> layouts;
     for(int l = 0; l < nlayout; ++l){
         ZBinary dump;
-        for(zu32 off = 0; off < kmsize; off += 64){
+        for(zu32 off = 0; off < kmsize; off += 60){
             if(!readKeymap(KM_READ_LAYOUT + (kmsize * l) + off, dump))
                 return nullptr;
         }
@@ -163,13 +169,15 @@ ZPointer<Keymap> ProtoQMK::loadKeymap(){
         layouts.push(dump);
     }
 
+    zassert(clayout < layouts.size(), "Invalid current layout");
+
     ZPointer<Keymap> keymap = new Keymap(rows, cols);
-    keymap->loadLayout(layouts[clayout]);
+    keymap->loadLayout(lstrs[clayout], layouts[clayout]);
 
     // Read each layer into keymap
     for(int l = 0; l < layers; ++l){
         ZBinary dump;
-        for(zu32 off = 0; off < kmsize; off += 64){
+        for(zu32 off = 0; off < kmsize; off += 60){
             if(!readKeymap((kmsize * l) + off, dump))
                 return nullptr;
         }
@@ -207,43 +215,43 @@ bool ProtoQMK::uploadKeymap(ZPointer<Keymap> keymap){
 }
 
 bool ProtoQMK::readEEPROM(zu32 addr, ZBinary &bin){
-    DLOG("readEEPROM " << addr);
+    DLOG("readEEPROM " << HEX(addr));
     // Send command
     ZBinary data;
     data.writeleu32(addr);
-    if(!sendRecvCmd(QMK_EEPROM, QMK_EEPROM_READ, data))
+    if(!sendRecvCmdQmk(QMK_EEPROM, QMK_EEPROM_READ, data))
         return false;
     bin.write(data);
     return true;
 }
 
 bool ProtoQMK::writeEEPROM(zu32 addr, ZBinary bin){
-    DLOG("writeEEPROM " << addr);
+    DLOG("writeEEPROM " << HEX(addr));
     // Send command
     ZBinary data;
     data.writeleu32(addr);
     data.write(bin);
-    if(!sendRecvCmd(QMK_EEPROM, QMK_EEPROM_WRITE, data))
+    if(!sendRecvCmdQmk(QMK_EEPROM, QMK_EEPROM_WRITE, data))
         return false;
     return true;
 }
 
 bool ProtoQMK::eraseEEPROM(zu32 addr){
-    DLOG("eraseEEPROM " << addr);
+    DLOG("eraseEEPROM " << HEX(addr));
     // Send command
     ZBinary data;
     data.writeleu32(addr);
-    if(!sendRecvCmd(QMK_EEPROM, QMK_EEPROM_ERASE, data))
+    if(!sendRecvCmdQmk(QMK_EEPROM, QMK_EEPROM_ERASE, data))
         return false;
     return true;
 }
 
 bool ProtoQMK::readKeymap(zu32 offset, ZBinary &bin){
-    DLOG("readKeymap " << offset);
+    DLOG("readKeymap " << HEX(offset));
     // Send command
     ZBinary data;
     data.writeleu32(offset);
-    if(!sendRecvCmd(CMD_KEYMAP, SUB_KM_READ, data))
+    if(!sendRecvCmdQmk(CMD_KEYMAP, SUB_KM_READ, data))
         return false;
     bin.write(data);
     return true;
@@ -260,7 +268,71 @@ bool ProtoQMK::writeKeymap(zu16 offset, ZBinary bin){
     data.writeleu16(offset);
     data.writeleu16(bin.size());
     data.write(bin);
-    if(!sendRecvCmd(CMD_KEYMAP, SUB_KM_WRITE, data))
+    if(!sendRecvCmdQmk(CMD_KEYMAP, SUB_KM_WRITE, data))
         return false;
+    return true;
+}
+
+bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data){
+    if(data.size() > 60){
+        ELOG("bad data size");
+        return false;
+    }
+
+    ZBinary pkt_out(UPDATE_PKT_LEN);
+    pkt_out.fill(0);
+    pkt_out.writeu8(cmd);    // command
+    pkt_out.writeu8(subcmd); // subcommand
+    pkt_out.seek(4);
+    pkt_out.write(data);      // data
+
+    pkt_out.seek(2);
+    zu16 crc = ZHash<ZBinary, ZHashBase::CRC16>(pkt_out).hash();
+    pkt_out.writeleu16(crc); // CRC
+
+    DLOG("send:");
+    DLOG(ZLog::RAW << pkt_out.dumpBytes(4, 8));
+
+    // Send command (interrupt write)
+    if(!dev->send(pkt_out)){
+        ELOG("send error");
+        return false;
+    }
+
+    // Recv packet
+    ZBinary pkt_in;
+    pkt_in.resize(UPDATE_PKT_LEN);
+    if(!dev->recv(pkt_in)){
+        ELOG("recv error");
+        return false;
+    }
+
+    DLOG("recv:");
+    DLOG(ZLog::RAW << pkt_in.dumpBytes(4, 8));
+
+    if(pkt_in.size() != UPDATE_PKT_LEN){
+        DLOG("bad recv size");
+        return false;
+    }
+
+    zu16 crc0 = pkt_in.readleu16();
+    zu16 crc1 = pkt_in.readleu16();
+    pkt_in.seek(2);
+    pkt_in.writeleu16(0);
+    zu16 crc2 = ZHash<ZBinary, ZHashBase::CRC16>(pkt_in).hash();
+
+    if(crc1 != crc2){
+        ELOG("corrupt response");
+        return false;
+    }
+
+    if(crc != crc0){
+        ELOG("packets out of sequence");
+        return false;
+    }
+
+    pkt_in.seek(4);
+    pkt_in.read(data, 60);
+    data.rewind();
     return true;
 }

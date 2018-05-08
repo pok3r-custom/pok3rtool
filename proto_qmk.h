@@ -33,7 +33,7 @@ public:
     };
 
 protected:
-    ProtoQMK(KBType type) : KBProto(type){}
+    ProtoQMK(KBType type, ZPointer<HIDDevice> dev) : KBProto(type), dev(dev){}
 public:
     virtual ~ProtoQMK(){}
 
@@ -62,9 +62,12 @@ public:
 
 protected:
     virtual zu32 baseFirmwareAddr() const = 0;
-    virtual bool sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin = ZBinary()) = 0;
-    virtual bool sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data) = 0;
 
+private:
+    bool sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data);
+
+protected:
+    ZPointer<HIDDevice> dev;
 };
 
 #endif // PROTO_QMK_H

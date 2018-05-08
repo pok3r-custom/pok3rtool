@@ -325,7 +325,6 @@ int cmd_keymap(Param *param){
         ProtoQMK *qmk = dynamic_cast<ProtoQMK *>(kb.get());
 
         if(param->args[1] == "dump"){
-            LOG("Keymap Dump");
             qmk->keymapDump();
 
         } else if(param->args[1] == "set"){
@@ -460,10 +459,13 @@ int main(int argc, char **argv){
         return -2;
 
     // Console log
-    ZLog::logLevelStdOut(ZLog::INFO, "[%clock%] N %log%");
-    ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "[%clock%] E %log%" TERM_RESET);
     if(options.getOpts().contains(OPT_VERBOSE)){
+        ZLog::logLevelStdOut(ZLog::INFO, "[%clock%] N %log%");
         ZLog::logLevelStdOut(ZLog::DEBUG, TERM_PURPLE "[%clock%] D %log%" TERM_RESET);
+        ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "[%clock%] E %log%" TERM_RESET);
+    } else {
+        ZLog::logLevelStdOut(ZLog::INFO, "%log%");
+        ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "%log%" TERM_RESET);
     }
 
     Param param;
@@ -487,7 +489,12 @@ int main(int argc, char **argv){
                 } catch(ZException e){
                     ELOG("ERROR: " << e.what());
                     ELOG("Trace: " << e.traceStr());
+#if 0
+                } catch(zexception e){
+                    ELOG("FATAL: " << e.what);
+#endif
                 }
+                return -2;
             } else {
                 LOG("Usage: pok3rtool " << cmd.usage);
                 return -1;

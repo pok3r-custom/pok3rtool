@@ -18,19 +18,31 @@ public:
 public:
     Keymap(zu8 rows, zu8 cols);
 
-    void loadLayout(ZBinary layout);
+    void loadLayout(ZString name, ZBinary layout);
     void loadLayerMap(ZBinary layer);
 
     ZArray<ZArray<keycode>> getKeycodeLayout(zu8 layer) const;
+    //! Get layer matrices binary for firmware.
     ZBinary toMatrix() const;
 
+    //! Pretty-print layout layers and keycodes.
     void printLayers() const;
+    //! Print layer matrices and keycodes.
     void printMatrix() const;
 
     keycode get(zu8 l, zu16 k) const { return layers[l][k]; }
     void set(zu8 l, zu16 k, keycode kc){ layers[l][k] = kc; }
 
+    //! Get number of keys in layout.
+    zu16 numKeys() const { return nkeys; }
+    //! Get number of layers.
+    zsize numLayers() const { return layers.size(); }
+    //! Get number of rows in layout.
     zu16 rowCount(zu8 row) const;
+
+    //! Get name of current layout.
+    ZString layoutName() const { return layout_name; }
+    //! Covert layout key row and column to key number.
     zu16 layoutRC2K(zu8 r, zu8 c) const;
 
     zu16 keyOffset(zu8 l, zu16 k) const;
@@ -41,14 +53,16 @@ public:
     ZString keycodeDesc(keycode kc) const;
 
 private:
-    const zu8 rows;
-    const zu8 cols;
+    //! Matrix rows, columns.
+    const zu8 rows, cols;
     zu16 nkeys;
     ZArray<Key> wlayout;
     zu16 mwidth;
     ZArray<zu8> matrix2layout;
     ZArray<zu8> layout2matrix;
     ZArray<ZArray<keycode>> layers;
+
+    ZString layout_name;
 };
 
 #endif // KEYMAP_H
