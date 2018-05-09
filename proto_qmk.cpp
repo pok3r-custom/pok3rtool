@@ -131,8 +131,9 @@ ZPointer<Keymap> ProtoQMK::loadKeymap(){
     const zu8 cols = data[2];
     const zu8 kcsize = data[3];
     const zu8 nlayout = data[4];
-    const zu8 clayout = data[5];
+    zu8 clayout = data[5];
 
+    const zu16 ksize = rows * cols;
     const zu16 kmsize = kcsize * rows * cols;
 
     // Read layout strs
@@ -161,11 +162,11 @@ ZPointer<Keymap> ProtoQMK::loadKeymap(){
     ZArray<ZBinary> layouts;
     for(int l = 0; l < nlayout; ++l){
         ZBinary dump;
-        for(zu32 off = 0; off < kmsize; off += 60){
-            if(!readKeymap(KM_READ_LAYOUT + (kmsize * l) + off, dump))
+        for(zu32 off = 0; off < ksize; off += 60){
+            if(!readKeymap(KM_READ_LAYOUT + (ksize * l) + off, dump))
                 return nullptr;
         }
-        dump.resize(kmsize);
+        dump.resize(ksize);
         layouts.push(dump);
     }
 

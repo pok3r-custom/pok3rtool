@@ -78,3 +78,31 @@ if(MINGW)
             "$<TARGET_FILE_DIR:pok3rtool>"
     )
 endif()
+
+# Creates C resources file from files in given directory
+function(create_resources dir output name)
+    # Create empty output file
+    file(WRITE ${output} "")
+    # Collect input files
+    file(GLOB bins ${dir}/*)
+
+    # Iterate through input files
+    foreach(bin ${bins})
+        # Get short filename
+        string(REGEX MATCH "([^/]+)$" filename ${bin})
+        # Replace filename spaces & extension separator for C compatibility
+        string(REGEX REPLACE "\\.| |-" "_" filename ${filename})
+        # Read hex data from file
+        file(READ ${bin} filedata HEX)
+        # Convert hex data for C compatibility
+        string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," filedata ${filedata})
+        # Append data to output file
+        file(APPEND ${output} "const unsigned char ${filename}[] = {${filedata}};\nconst unsigned ${filename}_size = sizeof(${filename});\n")
+        set(filenames "${filenames}${filename},")
+        set(filename_sizes "${filename_sizes}${filename}_size,")
+    endforeach()
+
+    file(APPEND ${output} "const unsigned char *${name}[] = {${filenames}};\nconst unsigned ${name}_sizes[] = {${filename_sizes}};\nconst unsigned ${name}_size = sizeof(${name}_sizes);")
+endfunction()
+
+create_resources("keymaps" "gen_keymaps.h" "keymaps_json")

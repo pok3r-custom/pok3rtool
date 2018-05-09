@@ -140,10 +140,10 @@ bool ProtoCYKB::getInfo(){
 }
 
 ZString ProtoCYKB::getVersion(){
-    ZBinary data;
+    DLOG("getVersion");
 
     // version 1
-    data.clear();
+    ZBinary data;
     if(!sendRecvCmd(READ, READ_VER1, data))
         return "ERROR";
 //    RLOG(data.dumpBytes(4, 8));
@@ -159,12 +159,14 @@ ZString ProtoCYKB::getVersion(){
         zu32 len = MIN(data.readleu32(), 60U);
         ver.parseUTF16((zu16 *)(data.raw() + 8), len);
     }
+    DLOG("version: " << ver);
 
     // version 2
-//    data.clear();
-//    if(!sendRecvCmd(READ, READ_VER2, data))
-//        return "ERROR";
-//    RLOG(data.dumpBytes(4, 8));
+    ZBinary data2;
+    if(!sendRecvCmd(READ, READ_VER2, data2))
+        return "ERROR";
+    DLOG("ver2:");
+    DLOG(ZLog::RAW << data2.getSub(4).dumpBytes(4, 8));
 
     return ver;
 }
@@ -389,7 +391,7 @@ void ProtoCYKB::test(){
 }
 
 bool ProtoCYKB::eraseFlash(zu32 start, zu32 length){
-    DLOG("eraseFlash 0x" << HEX(start) << " 0x" << HEX(length));
+    DLOG("eraseFlash 0x" << HEX(start) << " " << length);
     if(start < VER_ADDR){
         ELOG("bad address");
         return false;
@@ -401,7 +403,6 @@ bool ProtoCYKB::eraseFlash(zu32 start, zu32 length){
 
     if(!sendRecvCmd(FW, FW_ERASE, data))
         return false;
-
     return true;
 }
 

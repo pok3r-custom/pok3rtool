@@ -3,12 +3,14 @@
 #include "proto_cykb.h"
 #include "keymap.h"
 #include "updatepackage.h"
+#include "gen_keymaps.h"
 
 #include "zlog.h"
 #include "zfile.h"
 #include "zpointer.h"
 #include "zmap.h"
 #include "zoptions.h"
+#include "zjson.h"
 using namespace LibChaos;
 
 #include <iostream>
@@ -327,6 +329,19 @@ int cmd_keymap(Param *param){
         if(param->args[1] == "dump"){
             qmk->keymapDump();
 
+        } else if(param->args[1] == "layouts"){
+            zu64 n = keymaps_json_size / sizeof(unsigned);
+            for(zu64 i = 0; i < n; ++i){
+                zu64 len = keymaps_json_sizes[i];
+                ZString str(keymaps_json[i], len);
+                ZJSON json;
+                zassert(json.decode(str), "layout json decode");
+                zassert(json.type() == ZJSON::OBJECT, "layout json object");
+                zassert(json.object().contains("name"), "layout json name");
+                zassert(json["name"].type() == ZJSON::STRING, "layout json name type");
+                LOG(i << " " << len << " " << json["name"].string());
+            }
+
         } else if(param->args[1] == "set"){
             if(param->args.size() != 5 && param->args.size() != 6){
                 ELOG("Usage: pok3rtool keymap set <layer> [<key_row> <key_col> | <key>] <keycode>");
@@ -486,11 +501,11 @@ int main(int argc, char **argv){
             if((param.args.size() >= cmd.argmin + 1) && (param.args.size() <= cmd.argmax + 1)){
                 try {
                     return cmd.func(&param);
-                } catch(ZException e){
+                } catch(const ZException &e){
                     ELOG("ERROR: " << e.what());
                     ELOG("Trace: " << e.traceStr());
-#if 0
-                } catch(zexception e){
+#if 1
+                } catch(const zexception &e){
                     ELOG("FATAL: " << e.what);
 #endif
                 }
