@@ -18,6 +18,13 @@ public:
         int raw;
     };
 
+    struct Keycode {
+        Keymap::keycode keycode;
+        ZString name;
+        ZString abbrev;
+        ZString desc;
+    };
+
 public:
     Keymap(zu8 rows, zu8 cols);
 
@@ -58,6 +65,8 @@ public:
     ZString keycodeName(keycode kc) const;
     ZString keycodeAbbrev(keycode kc) const;
     ZString keycodeDesc(keycode kc) const;
+
+    static const ZArray<Keycode> &getAllKeycodes();
 
 private:
     //! Matrix rows, columns.

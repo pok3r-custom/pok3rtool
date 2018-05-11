@@ -68,6 +68,7 @@ private:
 
 protected:
     ZPointer<HIDDevice> dev;
+    ZBinary cachedMatrix;
 };
 
 #endif // PROTO_QMK_H

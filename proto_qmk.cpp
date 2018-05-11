@@ -115,6 +115,7 @@ ZBinary ProtoQMK::getMatrix(){
         dump.resize(kmsize);
         matrices.write(dump);
     }
+    cachedMatrix = matrices;
 
     return matrices;
 }
@@ -176,6 +177,7 @@ ZPointer<Keymap> ProtoQMK::loadKeymap(){
     keymap->loadLayout(lstrs[clayout], layouts[clayout]);
 
     // Read each layer into keymap
+    ZBinary matrices;
     for(int l = 0; l < layers; ++l){
         ZBinary dump;
         for(zu32 off = 0; off < kmsize; off += 60){
@@ -183,8 +185,10 @@ ZPointer<Keymap> ProtoQMK::loadKeymap(){
                 return nullptr;
         }
         dump.resize(kmsize);
+        matrices.write(dump);
         keymap->loadLayerMap(dump);
     }
+    cachedMatrix = matrices;
 
     return keymap;
 }
@@ -192,7 +196,10 @@ ZPointer<Keymap> ProtoQMK::loadKeymap(){
 bool ProtoQMK::uploadKeymap(ZPointer<Keymap> keymap){
     DLOG("uploadKeymap");
 
-    ZBinary dump = getMatrix();
+    ZBinary dump = cachedMatrix;
+    // use cached matrix if possible
+    if(!dump.size())
+        dump = getMatrix();
     //RLOG(dump.dumpBytes(2, 16));
 
     ZBinary map = keymap->toMatrix();
@@ -202,16 +209,19 @@ bool ProtoQMK::uploadKeymap(ZPointer<Keymap> keymap){
     ZBinary diff;
     zu64 offset = dump.subDiff(map, diff);
     zassert(offset != ZU64_MAX, "invalid diff");
-    LOG("Diff start " << ZString::ItoS(offset, 16));
-    RLOG(diff.dumpBytes(2, 16));
+    LOG("Keymap Diff:");
+    RLOG(diff.dumpBytes(2, 16, offset));
 
     for(zu32 off = 0; off < diff.size(); off += 56){
         ZBinary bin;
         diff.read(bin, 56);
-        RLOG(bin.dumpBytes(2, 16));
+        //RLOG(bin.dumpBytes(2, 16));
         if(!writeKeymap(offset + off, bin))
             return false;
     }
+
+    // update cached matrix
+    cachedMatrix = map;
     return true;
 }
 

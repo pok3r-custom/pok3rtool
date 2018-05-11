@@ -12,16 +12,9 @@
 #define LAYOUT_SP 0x80
 #define LAYOUT_MASK 0x3F
 
-struct Keycode {
-    Keymap::keycode keycode;
-    ZString name;
-    ZString abbrev;
-    ZString desc;
-};
-
-const ZArray<Keycode> keycodes = {
+const ZArray<Keymap::Keycode> keycodes = {
     { KC_NO,                    "KC_NO",                    "",         "None" },
-    { KC_TRANSPARENT,           "KC_TRNS",                  "",         "Transparent" },
+    { KC_TRANSPARENT,           "KC_TRNS",                  "",         "Transparent (keycode from previous layer)" },
     { KC_A,                     "KC_A",                     "A",        "A" },
     { KC_B,                     "KC_B",                     "B",        "B" },
     { KC_C,                     "KC_C",                     "C",        "C" },
@@ -336,7 +329,7 @@ const ZArray<Keycode> keycodes = {
 
 };
 
-ZMap<Keymap::keycode, Keycode> kcode_map;
+ZMap<Keymap::keycode, Keymap::Keycode> kcode_map;
 ZMap<ZString, Keymap::keycode> kname_map;
 
 Keymap::Keymap(zu8 _rows, zu8 _cols) : rows(_rows), cols(_cols), nkeys(0){
@@ -657,4 +650,8 @@ ZString Keymap::keycodeDesc(keycode kc) const {
     } else {
         return "Unknown keycode 0x" + ZString::ItoS(kc, 16, 4);
     }
+}
+
+const ZArray<Keymap::Keycode> &Keymap::getAllKeycodes(){
+    return keycodes;
 }
