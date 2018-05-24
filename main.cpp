@@ -304,6 +304,30 @@ int cmd_eeprom(Param *param){
             LOG("Out: " << out << ", " << bin.size() << " bytes");
             ZFile::writeBinary(out, bin);
 
+        } else if(param->args[1] == "erase"){
+            if(param->args.size() != 3){
+                ELOG("Usage: pok3rtool eeprom erase <addr>");
+                return -2;
+            }
+            zu32 addr = param->args[2].toUint(16);
+            LOG("Erase EEPROM Page 0x" << ZString::ItoS((zu64)addr, 16));
+            LOG(qmk->eraseEEPROM(addr));
+
+        } else if(param->args[1] == "keymap"){
+            if(param->args.size() != 2){
+                ELOG("Usage: pok3rtool eeprom keymap");
+                return -2;
+            }
+            LOG("EEPROM Keymap");
+            ZBinary eebin;
+            for(zu32 addr = QMK_EE_KEYM_PAGE; addr < QMK_EE_KEYM_PAGE + QMK_EE_PAGE_SIZE; addr += 60){
+                if(!qmk->readEEPROM(addr, eebin))
+                    break;
+            }
+            zassert(eebin.size() > QMK_EE_PAGE_SIZE);
+            eebin.resize(QMK_EE_PAGE_SIZE);
+            RLOG(eebin.dumpBytes(4, 8, QMK_EE_KEYM_PAGE));
+
         } else if(param->args[1] == "test"){
             LOG("EEPROM Test");
             bool ret = qmk->eepromTest();
@@ -376,6 +400,22 @@ int cmd_keymap(Param *param){
             keymap->set(layer, kp, kc);
             //keymap->printLayers();
             LOG(qmk->uploadKeymap(keymap));
+
+        } else if(param->args[1] == "commit"){
+            if(param->args.size() != 2){
+                ELOG("Usage: pok3rtool keymap commit");
+                return -2;
+            }
+            LOG("Commit Keymap");
+            LOG(qmk->commitKeymap());
+
+        } else if(param->args[1] == "reload"){
+            if(param->args.size() != 2){
+                ELOG("Usage: pok3rtool keymap reload");
+                return -2;
+            }
+            LOG("Reload Keymap");
+            LOG(qmk->reloadKeymap());
 
         } else {
             LOG("Usage: pok3rtool keymap");

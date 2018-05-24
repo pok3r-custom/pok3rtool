@@ -585,6 +585,7 @@ zu16 Keymap::rowCount(zu8 row) const{
             r++;
         }
     }
+    return width;
 }
 
 ZArray<int> Keymap::getLayout() const {
@@ -609,6 +610,7 @@ zu16 Keymap::layoutRC2K(zu8 r, zu8 c) const {
             col = 0;
         }
     }
+    return 0xFFFF;
 }
 
 zu16 Keymap::keyOffset(zu8 l, zu16 k) const {

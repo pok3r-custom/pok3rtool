@@ -66,17 +66,30 @@ endif()
 if(MINGW)
     # Apparently Qt's mingw doesn't come with some static libraries
     get_filename_component(MINGW_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
+    set(MINGW_LIBGCC "${MINGW_DIR}/../i686-w64-mingw32/lib/libgcc_s_dw2-1.dll")
+    set(MINGW_LIBSTD "${MINGW_DIR}/../i686-w64-mingw32/lib/libstdc++-6.dll")
+    set(MINGW_LIBWINPT "${MINGW_DIR}/../i686-w64-mingw32/lib/libwinpthread-1.dll")
     add_custom_command(TARGET pok3rtool POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MINGW_DIR}/../i686-w64-mingw32/lib/libgcc_s_dw2-1.dll"
+            "${MINGW_LIBGCC}"
             "$<TARGET_FILE_DIR:pok3rtool>"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MINGW_DIR}/../i686-w64-mingw32/lib/libstdc++-6.dll"
+            "${MINGW_LIBSTD}"
             "$<TARGET_FILE_DIR:pok3rtool>"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MINGW_DIR}/../i686-w64-mingw32/lib/libwinpthread-1.dll"
+            "${MINGW_LIBWINPT}"
             "$<TARGET_FILE_DIR:pok3rtool>"
     )
+endif()
+
+# install tool and lib
+install(TARGETS pok3rtool DESTINATION bin)
+install(TARGETS pok3rlib DESTINATION lib)
+
+if(MINGW)
+    install(FILES "${MINGW_LIBGCC}" DESTINATION lib)
+    install(FILES "${MINGW_LIBSTD}" DESTINATION lib)
+    install(FILES "${LIB_LIBWINPT}" DESTINATION lib)
 endif()
 
 # Creates C resources file from files in given directory

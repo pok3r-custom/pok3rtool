@@ -37,7 +37,7 @@ bool ProtoQMK::isQMK() {
 bool ProtoQMK::eepromTest(){
     // Send command
     ZBinary data;
-    if(!sendRecvCmdQmk(QMK_EEPROM, QMK_EEPROM_INFO, data))
+    if(!sendRecvCmdQmk(QMK_EEPROM, SUB_EE_INFO, data))
         return false;
 
     LOG(ZLog::RAW << data.dumpBytes(4, 8));
@@ -230,7 +230,7 @@ bool ProtoQMK::readEEPROM(zu32 addr, ZBinary &bin){
     // Send command
     ZBinary data;
     data.writeleu32(addr);
-    if(!sendRecvCmdQmk(QMK_EEPROM, QMK_EEPROM_READ, data))
+    if(!sendRecvCmdQmk(QMK_EEPROM, SUB_EE_READ, data))
         return false;
     bin.write(data);
     return true;
@@ -242,7 +242,7 @@ bool ProtoQMK::writeEEPROM(zu32 addr, ZBinary bin){
     ZBinary data;
     data.writeleu32(addr);
     data.write(bin);
-    if(!sendRecvCmdQmk(QMK_EEPROM, QMK_EEPROM_WRITE, data))
+    if(!sendRecvCmdQmk(QMK_EEPROM, SUBB_EE_WRITE, data))
         return false;
     return true;
 }
@@ -252,7 +252,7 @@ bool ProtoQMK::eraseEEPROM(zu32 addr){
     // Send command
     ZBinary data;
     data.writeleu32(addr);
-    if(!sendRecvCmdQmk(QMK_EEPROM, QMK_EEPROM_ERASE, data))
+    if(!sendRecvCmdQmk(QMK_EEPROM, SUB_EE_ERASE, data))
         return false;
     return true;
 }
@@ -280,6 +280,20 @@ bool ProtoQMK::writeKeymap(zu16 offset, ZBinary bin){
     data.writeleu16(bin.size());
     data.write(bin);
     if(!sendRecvCmdQmk(CMD_KEYMAP, SUB_KM_WRITE, data))
+        return false;
+    return true;
+}
+
+bool ProtoQMK::commitKeymap(){
+    ZBinary data;
+    if(!sendRecvCmdQmk(CMD_KEYMAP, SUB_KM_COMMIT, data))
+        return false;
+    return true;
+}
+
+bool ProtoQMK::reloadKeymap(){
+    ZBinary data;
+    if(!sendRecvCmdQmk(CMD_KEYMAP, SUB_KM_RELOAD, data))
         return false;
     return true;
 }
