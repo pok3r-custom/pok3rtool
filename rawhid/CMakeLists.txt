@@ -55,3 +55,6 @@ ELSE()
     # Linux/BSD
     TARGET_LINK_LIBRARIES(rawhid usb)
 ENDIF()
+
+# install
+install(TARGETS rawhid DESTINATION lib)
