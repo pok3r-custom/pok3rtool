@@ -76,7 +76,7 @@ public:
     bool writeFirmware(const ZBinary &fwbin);
 
     //! Read 64 bytes at \a addr.
-    bool readFlash(zu32 addr, ZBinary &bin);
+    bool readFlash(zu32 addr, ZBinary &bin, bool stream = false);
     //! Write 52 bytes at \a addr.
     bool writeFlash(zu32 addr, ZBinary bin);
     //! Check 52 bytes at \a addr.
@@ -92,7 +92,7 @@ private:
     //! Send command
     bool sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin = ZBinary());
     //! Send command and recv response.
-    bool sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data);
+    bool sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data, bool stream = false);
 
 public:
     static void decode_firmware(ZBinary &bin);

@@ -65,7 +65,7 @@ public:
     bool commitKeymap();
     bool reloadKeymap();
 
-    virtual bool readFlash(zu32 addr, ZBinary &bin) = 0;
+    virtual bool readFlash(zu32 addr, ZBinary &bin, bool stream = false) = 0;
 
 protected:
     virtual zu32 baseFirmwareAddr() const = 0;

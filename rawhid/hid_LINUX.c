@@ -120,7 +120,7 @@ int rawhid_recv(hid_t *hid, void *buf, int len, int timeout)
     if (!hid || !hid->open) return -1;
     printf("recv ep %d\n", hid->ep_in);
     r = usb_interrupt_read(hid->usb, hid->ep_in, buf, len, timeout);
-    if (r >= 0) return r;
+    //if (r >= 0) return r;
     if (r == -110) return 0;  // timeout
     return r;
 }

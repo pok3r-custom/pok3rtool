@@ -179,17 +179,17 @@ KBStatus ProtoCYKB::clearVersion(){
     if(!eraseFlash(VER_ADDR, 0xB4))
         return ERR_FAIL;
 
-    ZBinary data;
-    if(!sendRecvCmd(READ, READ_VER2, data))
-        return ERR_FAIL;
+//    ZBinary data;
+//    if(!sendRecvCmd(READ, READ_VER2, data))
+//        return ERR_FAIL;
 
-    ZBinary tst;
-    tst.fill(0xFF, 60);
-    if(data.getSub(4) != tst){
-        ELOG("version not cleared");
-        ELOG(ZLog::RAW << data.dumpBytes(4, 8));
-        return ERR_FLASH;
-    }
+//    ZBinary tst;
+//    tst.fill(0xFF, 60);
+//    if(data.getSub(4) != tst){
+//        ELOG("version not cleared");
+//        ELOG(ZLog::RAW << data.dumpBytes(4, 8));
+//        return ERR_FLASH;
+//    }
 
     return SUCCESS;
 }
@@ -283,8 +283,10 @@ bool ProtoCYKB::writeFirmware(const ZBinary &fwbinin){
     ZBinary fwbin = fwbinin;
     // Encode the firmware for the POK3R RGB
     encode_firmware(fwbin);
+    zu32 crc0 = ZHash<ZBinary, ZHashBase::CRC32>(fwbinin).hash();
+    LOG("Firmware CRC D: " << ZString::ItoS((zu64)crc0, 16, 8));
     zu32 crc1 = ZHash<ZBinary, ZHashBase::CRC32>(fwbin).hash();
-    LOG("Firmware CRC: " << ZString::ItoS((zu64)crc1, 16, 8));
+    LOG("Firmware CRC E: " << ZString::ItoS((zu64)crc1, 16, 8));
 
 //    zu32 ccrc = crcFlash(FW_ADDR, 0xc000);
     zu32 ccrc = crcFlash(FW_ADDR, fwbin.size());
@@ -406,13 +408,12 @@ bool ProtoCYKB::eraseFlash(zu32 start, zu32 length){
     return true;
 }
 
-bool ProtoCYKB::readFlash(zu32 addr, ZBinary &bin){
+bool ProtoCYKB::readFlash(zu32 addr, ZBinary &bin, bool stream){
     DLOG("readFlash 0x" << HEX(addr));
     ZBinary data;
     data.writeleu32(addr);
-    if(!sendRecvCmd(READ, READ_ADDR, data))
+    if(!sendRecvCmd(READ, READ_ADDR, data, stream))
         return false;
-
     bin.write(data.raw() + 4, 60);
     return true;
 }
@@ -443,12 +444,22 @@ bool ProtoCYKB::writeFlash(zu32 addr, ZBinary bin){
     }
 
     // Write
+    zu16 pos = FW_ADDR - VER_ADDR;
     bin.rewind();
     while(!bin.atEnd()){
         ZBinary data;
         bin.read(data, 52);
-        if(!sendRecvCmd(WRITE, data.size(), data))
+        zu8 sz = data.size();
+        //bin.read(data, 60);
+        DLOG("write " << HEX(VER_ADDR + pos) << ", " << sz << " bytes");
+        if(!sendRecvCmd(WRITE, sz, data))
             return false;
+        data.seek(4);
+        zu16 next = data.readleu16();
+        if(next != pos){
+            ELOG("write sequence error " << HEX(next) << " " << HEX(pos));
+        }
+        pos += sz;
     }
 
     return true;
@@ -462,16 +473,29 @@ zu32 ProtoCYKB::crcFlash(zu32 addr, zu32 len){
 
     DLOG("crcFlash 0x" << HEX(addr) << " 0x" << HEX(len));
 
-    ZBinary data;
-    data.writeleu32(addr - VER_ADDR);
-    data.writeleu32(len);
-
     // CRC command
-    if(!sendRecvCmd(FW, FW_CRC, data))
+    ZBinary data1;
+    data1.writeleu32(addr - VER_ADDR);
+    //data1.writeleu32(0);
+    data1.writeleu32(len);
+    if(!sendRecvCmd(FW, FW_CRC, data1))
         return 0;
+    data1.seek(4);
+    zu32 crc = data1.readleu32();
 
-    data.seek(4);
-    return data.readleu32();
+    // SUM command
+    ZBinary data2;
+    data2.writeleu32(addr - VER_ADDR);
+    //data2.writeleu32(0);
+    data2.writeleu32(len);
+    if(!sendRecvCmd(FW, FW_SUM, data2))
+        return 0;
+    data2.seek(4);
+    zu32 sum = data2.readleu32();
+
+    LOG("crc " << HEX(crc) << " sum " << HEX(sum));
+
+    return crc;
 }
 
 zu32 ProtoCYKB::baseFirmwareAddr() const {
@@ -479,7 +503,7 @@ zu32 ProtoCYKB::baseFirmwareAddr() const {
 }
 
 bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){
-    if(data.size() > 52){
+    if(data.size() > 60){
         ELOG("bad data size");
         return false;
     }
@@ -506,15 +530,22 @@ bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){
     return true;
 }
 
-bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
+bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data, bool stream){
     if(!sendCmd(cmd, a1, data))
         return false;
 
     // Recv packet
     data.resize(UPDATE_PKT_LEN);
-    if(!dev->recv(data)){
-        ELOG("recv error");
-        return false;
+    if(stream){
+        if(!dev->recvStream(data)){
+            ELOG("recv error");
+            return false;
+        }
+    } else {
+        if(!dev->recv(data)){
+            ELOG("recv error");
+            return false;
+        }
     }
 
     DLOG("recv:");
@@ -524,6 +555,14 @@ bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
         DLOG("bad recv size");
         return false;
     }
+
+    data.seek(2);
+    zu16 crc0 = data.readleu16();
+    data.seek(2);
+    data.writeleu16(0);
+    data.rewind();
+    zu16 crc1 = ZHash<ZBinary, ZHashBase::CRC16>(data).hash();
+    DLOG("crc: " << HEX(crc0) << " " << HEX(crc1));
 
     // Check error
     data.rewind();

@@ -79,6 +79,28 @@ bool HIDDevice::recv(ZBinary &data){
     if(data.size() == 0)
         return false;
 
+    int ret = rawhid_recv(hid, data.raw(), data.size(), RECV_TIMEOUT);
+    if(ret == 0){
+        ELOG("hid recv timeout");
+        return false;
+    } else if(ret < 0){
+#if LIBCHAOS_PLATFORM == _PLATFORM_LINUX
+        ELOG("hid recv error: " << ret << ": " << usb_strerror());
+#else
+        ELOG("hid recv error: " << ret);
+#endif
+        return false;
+    }
+    data.resize((zu64)ret);
+    return true;
+}
+
+bool HIDDevice::recvStream(ZBinary &data){
+    if(!isOpen())
+        return false;
+    if(data.size() == 0)
+        return false;
+
     ZClock clock;
     int ret;
     do {

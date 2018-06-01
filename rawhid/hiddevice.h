@@ -30,6 +30,7 @@ public:
 
     bool send(const ZBinary &data, bool tolerate_dc = false);
     bool recv(ZBinary &data);
+    bool recvStream(ZBinary &data);
 
     static ZArray<ZPointer<HIDDevice>> openAll(zu16 vid, zu16 pid, zu16 usage_page, zu16 usage);
 

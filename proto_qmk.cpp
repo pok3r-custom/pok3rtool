@@ -18,7 +18,7 @@ bool ProtoQMK::isQMK() {
         return false;
 
     ZBinary bin;
-    if(!readFlash(baseFirmwareAddr() + QMKID_OFFSET, bin))
+    if(!readFlash(baseFirmwareAddr() + QMKID_OFFSET, bin, true))
         return false;
     bin.resize(32);
 
@@ -327,7 +327,7 @@ bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data){
     // Recv packet
     ZBinary pkt_in;
     pkt_in.resize(UPDATE_PKT_LEN);
-    if(!dev->recv(pkt_in)){
+    if(!dev->recvStream(pkt_in)){
         ELOG("recv error");
         return false;
     }
