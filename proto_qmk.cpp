@@ -42,11 +42,9 @@ bool ProtoQMK::eepromTest(){
 
     LOG(ZLog::RAW << data.dumpBytes(4, 8));
 
-    /*
     ZBinary test;
     test.fill(0xaa, 56);
     writeEEPROM(0x1000, test);
-    */
 
     //eraseEEPROM(0x0000);
 
@@ -312,8 +310,8 @@ bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data){
     pkt_out.write(data);      // data
 
     pkt_out.seek(2);
-    zu16 crc = ZHash<ZBinary, ZHashBase::CRC16>(pkt_out).hash();
-    pkt_out.writeleu16(crc); // CRC
+    zu16 crc_out = ZHash<ZBinary, ZHashBase::CRC16>(pkt_out).hash();
+    pkt_out.writeleu16(crc_out); // CRC
 
     DLOG("send:");
     DLOG(ZLog::RAW << pkt_out.dumpBytes(4, 8));
@@ -340,19 +338,20 @@ bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data){
         return false;
     }
 
-    zu16 crc0 = pkt_in.readleu16();
-    zu16 crc1 = pkt_in.readleu16();
+    pkt_in.rewind();
+    zu16 crc0 = pkt_in.readleu16(); // crc for request
+    zu16 crc1 = pkt_in.readleu16(); // crc for response
     pkt_in.seek(2);
     pkt_in.writeleu16(0);
-    zu16 crc2 = ZHash<ZBinary, ZHashBase::CRC16>(pkt_in).hash();
+    zu16 crc_in = ZHash<ZBinary, ZHashBase::CRC16>(pkt_in).hash();
 
-    if(crc1 != crc2){
-        ELOG("corrupt response");
+    if(crc1 != crc_in){
+        ELOG("response invalid crc " << HEX(crc1) << " expected " << HEX(crc_in));
         return false;
     }
 
-    if(crc != crc0){
-        ELOG("packets out of sequence");
+    if(crc_out != crc0){
+        ELOG("response out of sequence" << HEX(crc0) << " expected " << HEX(crc_out));
         return false;
     }
 
