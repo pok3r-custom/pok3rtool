@@ -4,6 +4,7 @@
 #include "zlog.h"
 
 #define UPDATE_PKT_LEN      64
+#define UPDATE_ERROR        0xaaff
 
 #define QMKID_OFFSET        0x160
 #define EEPROM_LEN          0x80000
@@ -17,18 +18,14 @@ bool ProtoQMK::isQMK() {
     if(isBuiltin())
         return false;
 
-    ZBinary bin;
-    if(!readFlash(baseFirmwareAddr() + QMKID_OFFSET, bin, true))
+    ZBinary data;
+    if(!sendRecvCmdQmk(CMD_CTRL, SUB_CT_INFO, data, true))
         return false;
-    bin.resize(32);
 
-    DLOG("qmk id:");
-    DLOG(ZLog::RAW << bin.dumpBytes(4, 8));
-
-    bin.rewind();
-    if(ZString(bin.raw() + 2, 9) == "qmk_pok3r"){
-        zu16 pid = bin.readleu16();
-        DLOG("qmk pid: " << ZString::ItoS((zu64)pid, 16));
+    if(ZString(data.raw() + 4, 9) == "qmk_pok3r"){
+        zu16 pid = data.readleu16();
+        zu16 ver = data.readleu16();
+        DLOG("qmk info " << HEX(pid) << " " << ver);
         return true;
     }
     return false;
@@ -37,7 +34,7 @@ bool ProtoQMK::isQMK() {
 bool ProtoQMK::eepromTest(){
     // Send command
     ZBinary data;
-    if(!sendRecvCmdQmk(QMK_EEPROM, SUB_EE_INFO, data))
+    if(!sendRecvCmdQmk(CMD_EEPROM, SUB_EE_INFO, data))
         return false;
 
     LOG(ZLog::RAW << data.dumpBytes(4, 8));
@@ -228,7 +225,7 @@ bool ProtoQMK::readEEPROM(zu32 addr, ZBinary &bin){
     // Send command
     ZBinary data;
     data.writeleu32(addr);
-    if(!sendRecvCmdQmk(QMK_EEPROM, SUB_EE_READ, data))
+    if(!sendRecvCmdQmk(CMD_EEPROM, SUB_EE_READ, data))
         return false;
     bin.write(data);
     return true;
@@ -240,7 +237,7 @@ bool ProtoQMK::writeEEPROM(zu32 addr, ZBinary bin){
     ZBinary data;
     data.writeleu32(addr);
     data.write(bin);
-    if(!sendRecvCmdQmk(QMK_EEPROM, SUBB_EE_WRITE, data))
+    if(!sendRecvCmdQmk(CMD_EEPROM, SUBB_EE_WRITE, data))
         return false;
     return true;
 }
@@ -250,7 +247,7 @@ bool ProtoQMK::eraseEEPROM(zu32 addr){
     // Send command
     ZBinary data;
     data.writeleu32(addr);
-    if(!sendRecvCmdQmk(QMK_EEPROM, SUB_EE_ERASE, data))
+    if(!sendRecvCmdQmk(CMD_EEPROM, SUB_EE_ERASE, data))
         return false;
     return true;
 }
@@ -296,10 +293,17 @@ bool ProtoQMK::reloadKeymap(){
     return true;
 }
 
-bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data){
+bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data, bool quiet){
     if(data.size() > 60){
         ELOG("bad data size");
         return false;
+    }
+
+    // discard any unread data
+    ZBinary tmp_buff;
+    while(dev->recvStream(tmp_buff)){
+        DLOG("discard recv");
+        DLOG(ZLog::RAW << tmp_buff.dumpBytes(4, 8));
     }
 
     ZBinary pkt_out(UPDATE_PKT_LEN);
@@ -325,7 +329,7 @@ bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data){
     // Recv packet
     ZBinary pkt_in;
     pkt_in.resize(UPDATE_PKT_LEN);
-    if(!dev->recvStream(pkt_in)){
+    if(!dev->recv(pkt_in)){
         ELOG("recv error");
         return false;
     }
@@ -338,6 +342,9 @@ bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data){
         return false;
     }
 
+    pkt_in.seek(4);
+    pkt_in.read(data, 60); // read data
+    data.rewind();
     pkt_in.rewind();
     zu16 crc0 = pkt_in.readleu16(); // crc for request
     zu16 crc1 = pkt_in.readleu16(); // crc for response
@@ -345,18 +352,25 @@ bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data){
     pkt_in.writeleu16(0);
     zu16 crc_in = ZHash<ZBinary, ZHashBase::CRC16>(pkt_in).hash();
 
+    // check for error
+    if(crc0 == UPDATE_ERROR && crc1 == 0){
+        if(quiet)
+            return true;
+        ELOG("command error");
+        return false;
+    }
+
+    // compare response crc
     if(crc1 != crc_in){
         ELOG("response invalid crc " << HEX(crc1) << " expected " << HEX(crc_in));
         return false;
     }
 
+    // compare request crc
     if(crc_out != crc0){
         ELOG("response out of sequence" << HEX(crc0) << " expected " << HEX(crc_out));
         return false;
     }
 
-    pkt_in.seek(4);
-    pkt_in.read(data, 60);
-    data.rewind();
     return true;
 }

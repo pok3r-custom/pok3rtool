@@ -12,16 +12,12 @@
     #include <errno.h>
 #endif
 
-struct HIDDeviceData {
-    hid_t *hid;
-};
+HIDDevice::HIDDevice() : HIDDevice(NULL){
 
-HIDDevice::HIDDevice(){
-    hid = NULL;
 }
 
-HIDDevice::HIDDevice(hid_t *hidt){
-    hid = hidt;
+HIDDevice::HIDDevice(hid_t *hidt) : hid(hidt), stream(false){
+
 }
 
 HIDDevice::~HIDDevice(){
@@ -79,17 +75,38 @@ bool HIDDevice::recv(ZBinary &data){
     if(data.size() == 0)
         return false;
 
-    int ret = rawhid_recv(hid, data.raw(), data.size(), RECV_TIMEOUT);
-    if(ret == 0){
-        ELOG("hid recv timeout");
-        return false;
-    } else if(ret < 0){
+    int ret;
+    if(stream){
+
+        ZClock clock;
+        do {
+            ret = rawhid_recv(hid, data.raw(), data.size(), RECV_TIMEOUT);
+        } while(ret == 0 && !clock.passedMs(RECV_TIMEOUT_MAX));
+
+        if(ret < 0){
 #if LIBCHAOS_PLATFORM == _PLATFORM_LINUX
-        ELOG("hid recv error: " << ret << ": " << usb_strerror());
+            ELOG("hid recv error: " << ret << ": " << usb_strerror());
 #else
-        ELOG("hid recv error: " << ret);
+            ELOG("hid recv error: " << ret);
 #endif
-        return false;
+            return false;
+        }
+
+    } else {
+
+        ret = rawhid_recv(hid, data.raw(), data.size(), RECV_TIMEOUT);
+        if(ret == 0){
+            ELOG("hid recv timeout");
+            return false;
+        } else if(ret < 0){
+#if LIBCHAOS_PLATFORM == _PLATFORM_LINUX
+            ELOG("hid recv error: " << ret << ": " << usb_strerror());
+#else
+            ELOG("hid recv error: " << ret);
+#endif
+            return false;
+        }
+
     }
     data.resize((zu64)ret);
     return true;
@@ -106,12 +123,7 @@ bool HIDDevice::recvStream(ZBinary &data){
     do {
         ret = rawhid_recv(hid, data.raw(), data.size(), RECV_TIMEOUT);
     } while(ret == 0 && !clock.passedMs(RECV_TIMEOUT_MAX));
-//    } while(ret == 0);
 
-    //if(ret == 0){
-    //    ELOG("hid recv timeout");
-    //    return false;
-    //} else
     if(ret < 0){
 #if LIBCHAOS_PLATFORM == _PLATFORM_LINUX
         ELOG("hid recv error: " << ret << ": " << usb_strerror());
@@ -120,6 +132,7 @@ bool HIDDevice::recvStream(ZBinary &data){
 #endif
         return false;
     }
+
     data.resize((zu64)ret);
     return true;
 }

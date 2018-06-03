@@ -536,16 +536,9 @@ bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data, bool stream){
 
     // Recv packet
     data.resize(UPDATE_PKT_LEN);
-    if(stream){
-        if(!dev->recvStream(data)){
-            ELOG("recv error");
-            return false;
-        }
-    } else {
-        if(!dev->recv(data)){
-            ELOG("recv error");
-            return false;
-        }
+    if(!dev->recv(data)){
+        ELOG("recv error");
+        return false;
     }
 
     DLOG("recv:");

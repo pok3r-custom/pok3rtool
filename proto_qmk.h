@@ -16,8 +16,11 @@ using namespace LibChaos;
 class ProtoQMK : public KBProto {
 public:
     enum qmk_cmd {
-        QMK_INFO        = 0x81,
-        QMK_EEPROM      = 0x82,
+        CMD_CTRL        = 0x81,
+        SUB_CT_INFO     = 0,
+        SUB_CT_LAYOUT   = 1,
+
+        CMD_EEPROM      = 0x82,
         SUB_EE_INFO     = 0,
         SUB_EE_READ     = 1,
         SUBB_EE_WRITE   = 2,
@@ -71,7 +74,7 @@ protected:
     virtual zu32 baseFirmwareAddr() const = 0;
 
 private:
-    bool sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data);
+    bool sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data, bool quiet = false);
 
 protected:
     ZPointer<HIDDevice> dev;
