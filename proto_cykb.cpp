@@ -408,11 +408,11 @@ bool ProtoCYKB::eraseFlash(zu32 start, zu32 length){
     return true;
 }
 
-bool ProtoCYKB::readFlash(zu32 addr, ZBinary &bin, bool stream){
+bool ProtoCYKB::readFlash(zu32 addr, ZBinary &bin){
     DLOG("readFlash 0x" << HEX(addr));
     ZBinary data;
     data.writeleu32(addr);
-    if(!sendRecvCmd(READ, READ_ADDR, data, stream))
+    if(!sendRecvCmd(READ, READ_ADDR, data))
         return false;
     bin.write(data.raw() + 4, 60);
     return true;
@@ -530,7 +530,7 @@ bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){
     return true;
 }
 
-bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data, bool stream){
+bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
     if(!sendCmd(cmd, a1, data))
         return false;
 

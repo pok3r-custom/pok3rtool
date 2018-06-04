@@ -112,31 +112,6 @@ bool HIDDevice::recv(ZBinary &data){
     return true;
 }
 
-bool HIDDevice::recvStream(ZBinary &data){
-    if(!isOpen())
-        return false;
-    if(data.size() == 0)
-        return false;
-
-    ZClock clock;
-    int ret;
-    do {
-        ret = rawhid_recv(hid, data.raw(), data.size(), RECV_TIMEOUT);
-    } while(ret == 0 && !clock.passedMs(RECV_TIMEOUT_MAX));
-
-    if(ret < 0){
-#if LIBCHAOS_PLATFORM == _PLATFORM_LINUX
-        ELOG("hid recv error: " << ret << ": " << usb_strerror());
-#else
-        ELOG("hid recv error: " << ret);
-#endif
-        return false;
-    }
-
-    data.resize((zu64)ret);
-    return true;
-}
-
 ZArray<ZPointer<HIDDevice> > HIDDevice::openAll(zu16 vid, zu16 pid, zu16 usage_page, zu16 usage){
     ZArray<ZPointer<HIDDevice>> devs;
 #if LIBCHAOS_PLATFORM == _PLATFORM_MACOSX

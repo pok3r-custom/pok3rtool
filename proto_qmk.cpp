@@ -18,17 +18,22 @@ bool ProtoQMK::isQMK() {
     if(isBuiltin())
         return false;
 
+    dev->setStream(true);
     ZBinary data;
-    if(!sendRecvCmdQmk(CMD_CTRL, SUB_CT_INFO, data, true))
+    if(!sendRecvCmdQmk(CMD_CTRL, SUB_CT_INFO, data, true)){
+        dev->setStream(false);
         return false;
-
-    if(ZString(data.raw() + 4, 9) == "qmk_pok3r"){
-        zu16 pid = data.readleu16();
-        zu16 ver = data.readleu16();
-        DLOG("qmk info " << HEX(pid) << " " << ver);
-        return true;
     }
-    return false;
+
+    if(ZString(data.raw() + 4, 9) != "qmk_pok3r"){
+        dev->setStream(false);
+        return false;
+    }
+
+    zu16 pid = data.readleu16();
+    zu16 ver = data.readleu16();
+    DLOG("qmk info " << HEX(pid) << " " << ver);
+    return true;
 }
 
 bool ProtoQMK::eepromTest(){
@@ -301,7 +306,7 @@ bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data, bool quiet){
 
     // discard any unread data
     ZBinary tmp_buff;
-    while(dev->recvStream(tmp_buff)){
+    while(dev->recv(tmp_buff)){
         DLOG("discard recv");
         DLOG(ZLog::RAW << tmp_buff.dumpBytes(4, 8));
     }

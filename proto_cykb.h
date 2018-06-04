@@ -81,7 +81,7 @@ public:
     //! Erase flash pages starting at \a start, ending on the page of \a end.
     bool eraseFlash(zu32 start, zu32 length);
     //! Read 64 bytes at \a addr.
-    bool readFlash(zu32 addr, ZBinary &bin, bool stream = false);
+    bool readFlash(zu32 addr, ZBinary &bin);
     //! Write 52 bytes at \a addr.
     bool writeFlash(zu32 addr, ZBinary bin);
 
@@ -93,7 +93,7 @@ private:
     //! Send command
     bool sendCmd(zu8 cmd, zu8 a1, ZBinary data = ZBinary());
     //! Send command and recv response.
-    bool sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data, bool stream = false);
+    bool sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data);
 
 public:
     static void decode_firmware(ZBinary &bin);

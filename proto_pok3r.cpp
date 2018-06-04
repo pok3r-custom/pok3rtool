@@ -285,13 +285,13 @@ bool ProtoPOK3R::writeFirmware(const ZBinary &fwbinin){
     return true;
 }
 
-bool ProtoPOK3R::readFlash(zu32 addr, ZBinary &bin, bool stream){
+bool ProtoPOK3R::readFlash(zu32 addr, ZBinary &bin){
     DLOG("readFlash " << HEX(addr));
     // Send command
     ZBinary data;
     data.writeleu32(addr);
     data.writeleu32(addr + 64);
-    if(!sendRecvCmd(FLASH_CMD, FLASH_READ_SUBCMD, data, stream))
+    if(!sendRecvCmd(FLASH_CMD, FLASH_READ_SUBCMD, data))
         return false;
     bin.write(data);
     return true;
@@ -377,22 +377,15 @@ bool ProtoPOK3R::sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin){
     return true;
 }
 
-bool ProtoPOK3R::sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data, bool stream){
+bool ProtoPOK3R::sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data){
     if(!sendCmd(cmd, subcmd, data))
         return false;
 
     // Recv packet
     data.resize(UPDATE_PKT_LEN);
-    if(stream){
-        if(!dev->recvStream(data)){
-            ELOG("recv error");
-            return false;
-        }
-    } else {
-        if(!dev->recv(data)){
-            ELOG("recv error");
-            return false;
-        }
+    if(!dev->recv(data)){
+        ELOG("recv error");
+        return false;
     }
 
     DLOG("recv:");

@@ -30,7 +30,6 @@ public:
 
     bool send(const ZBinary &data, bool tolerate_dc = false);
     bool recv(ZBinary &data);
-    bool recvStream(ZBinary &data);
 
     void setStream(bool mode){ stream = mode; }
 
