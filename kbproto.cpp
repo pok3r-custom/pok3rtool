@@ -25,7 +25,7 @@ bool KBProto::update(ZString version, const ZBinary &fwbin){
         return status;
 
     // Reset to firmware
-    if(!rebootFirmware())
+    if(!rebootFirmware(false))
         return false;
     return true;
 }

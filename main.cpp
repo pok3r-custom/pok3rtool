@@ -3,12 +3,14 @@
 #include "proto_cykb.h"
 #include "keymap.h"
 #include "updatepackage.h"
+#include "gen_keymaps.h"
 
 #include "zlog.h"
 #include "zfile.h"
 #include "zpointer.h"
 #include "zmap.h"
 #include "zoptions.h"
+#include "zjson.h"
 using namespace LibChaos;
 
 #include <iostream>
@@ -302,6 +304,30 @@ int cmd_eeprom(Param *param){
             LOG("Out: " << out << ", " << bin.size() << " bytes");
             ZFile::writeBinary(out, bin);
 
+        } else if(param->args[1] == "erase"){
+            if(param->args.size() != 3){
+                ELOG("Usage: pok3rtool eeprom erase <addr>");
+                return -2;
+            }
+            zu32 addr = param->args[2].toUint(16);
+            LOG("Erase EEPROM Page 0x" << ZString::ItoS((zu64)addr, 16));
+            LOG(qmk->eraseEEPROM(addr));
+
+        } else if(param->args[1] == "keymap"){
+            if(param->args.size() != 2){
+                ELOG("Usage: pok3rtool eeprom keymap");
+                return -2;
+            }
+            LOG("EEPROM Keymap");
+            ZBinary eebin;
+            for(zu32 addr = QMK_EE_KEYM_PAGE; addr < QMK_EE_KEYM_PAGE + QMK_EE_PAGE_SIZE; addr += 60){
+                if(!qmk->readEEPROM(addr, eebin))
+                    break;
+            }
+            zassert(eebin.size() > QMK_EE_PAGE_SIZE);
+            eebin.resize(QMK_EE_PAGE_SIZE);
+            RLOG(eebin.dumpBytes(4, 8, QMK_EE_KEYM_PAGE));
+
         } else if(param->args[1] == "test"){
             LOG("EEPROM Test");
             bool ret = qmk->eepromTest();
@@ -325,8 +351,20 @@ int cmd_keymap(Param *param){
         ProtoQMK *qmk = dynamic_cast<ProtoQMK *>(kb.get());
 
         if(param->args[1] == "dump"){
-            LOG("Keymap Dump");
             qmk->keymapDump();
+
+        } else if(param->args[1] == "layouts"){
+            zu64 n = keymaps_json_size / sizeof(unsigned);
+            for(zu64 i = 0; i < n; ++i){
+                zu64 len = keymaps_json_sizes[i];
+                ZString str(keymaps_json[i], len);
+                ZJSON json;
+                zassert(json.decode(str), "layout json decode");
+                zassert(json.type() == ZJSON::OBJECT, "layout json object");
+                zassert(json.object().contains("name"), "layout json name");
+                zassert(json["name"].type() == ZJSON::STRING, "layout json name type");
+                LOG(i << " " << len << " " << json["name"].string());
+            }
 
         } else if(param->args[1] == "set"){
             if(param->args.size() != 5 && param->args.size() != 6){
@@ -362,6 +400,22 @@ int cmd_keymap(Param *param){
             keymap->set(layer, kp, kc);
             //keymap->printLayers();
             LOG(qmk->uploadKeymap(keymap));
+
+        } else if(param->args[1] == "commit"){
+            if(param->args.size() != 2){
+                ELOG("Usage: pok3rtool keymap commit");
+                return -2;
+            }
+            LOG("Commit Keymap");
+            LOG(qmk->commitKeymap());
+
+        } else if(param->args[1] == "reload"){
+            if(param->args.size() != 2){
+                ELOG("Usage: pok3rtool keymap reload");
+                return -2;
+            }
+            LOG("Reload Keymap");
+            LOG(qmk->reloadKeymap());
 
         } else {
             LOG("Usage: pok3rtool keymap");
@@ -460,10 +514,13 @@ int main(int argc, char **argv){
         return -2;
 
     // Console log
-    ZLog::logLevelStdOut(ZLog::INFO, "[%clock%] N %log%");
-    ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "[%clock%] E %log%" TERM_RESET);
     if(options.getOpts().contains(OPT_VERBOSE)){
+        ZLog::logLevelStdOut(ZLog::INFO, "[%clock%] N %log%");
         ZLog::logLevelStdOut(ZLog::DEBUG, TERM_PURPLE "[%clock%] D %log%" TERM_RESET);
+        ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "[%clock%] E %log%" TERM_RESET);
+    } else {
+        ZLog::logLevelStdOut(ZLog::INFO, "%log%");
+        ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "%log%" TERM_RESET);
     }
 
     Param param;
@@ -484,10 +541,15 @@ int main(int argc, char **argv){
             if((param.args.size() >= cmd.argmin + 1) && (param.args.size() <= cmd.argmax + 1)){
                 try {
                     return cmd.func(&param);
-                } catch(ZException e){
+                } catch(const ZException &e){
                     ELOG("ERROR: " << e.what());
                     ELOG("Trace: " << e.traceStr());
+#if 1
+                } catch(const zexception &e){
+                    ELOG("FATAL: " << e.what);
+#endif
                 }
+                return -2;
             } else {
                 LOG("Usage: pok3rtool " << cmd.usage);
                 return -1;

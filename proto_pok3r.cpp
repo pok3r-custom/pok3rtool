@@ -13,20 +13,20 @@
 #define REBOOT_SLEEP        5
 #define ERASE_SLEEP         2
 
+#define HEX(A) (ZString::ItoS((zu64)(A), 16))
+
 ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
-    ProtoQMK(PROTO_POK3R),
+    ProtoQMK(PROTO_POK3R, new HIDDevice),
     builtin(false), debug(false), nop(false),
-    vid(vid_), pid(pid_), boot_pid(boot_pid_),
-    dev(new HIDDevice)
+    vid(vid_), pid(pid_), boot_pid(boot_pid_)
 {
 
 }
 
 ProtoPOK3R::ProtoPOK3R(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPointer<HIDDevice> dev_) :
-    ProtoQMK(PROTO_POK3R),
+    ProtoQMK(PROTO_POK3R, dev_),
     builtin(builtin_), debug(false), nop(false),
-    vid(vid_), pid(pid_), boot_pid(boot_pid_),
-    dev(dev_)
+    vid(vid_), pid(pid_), boot_pid(boot_pid_)
 {
     /*
     if(dev.get() && dev.get()->isOpen()){
@@ -138,11 +138,11 @@ bool ProtoPOK3R::getInfo(){
     zu32 ver_addr = data.readleu32();
 
     LOG(ZString::ItoS((zu64)a, 16));
-    LOG("firmware address: 0x" << ZString::ItoS((zu64)fw_addr, 16));
-    LOG("page size?: 0x" << ZString::ItoS((zu64)page_size, 16));
+    LOG("firmware address: 0x" << HEX(fw_addr));
+    LOG("page size?: 0x" << HEX(page_size));
     LOG(e);
     LOG(f);
-    LOG("version_address: 0x" << ZString::ItoS((zu64)ver_addr, 16));
+    LOG("version_address: 0x" << HEX(ver_addr));
 
     return true;
 }
@@ -286,7 +286,7 @@ bool ProtoPOK3R::writeFirmware(const ZBinary &fwbinin){
 }
 
 bool ProtoPOK3R::readFlash(zu32 addr, ZBinary &bin){
-    DLOG("readFlash " << addr);
+    DLOG("readFlash " << HEX(addr));
     // Send command
     ZBinary data;
     data.writeleu32(addr);
@@ -298,7 +298,7 @@ bool ProtoPOK3R::readFlash(zu32 addr, ZBinary &bin){
 }
 
 bool ProtoPOK3R::writeFlash(zu32 addr, ZBinary bin){
-    DLOG("writeFlash " << addr << " " << bin.size());
+    DLOG("writeFlash " << HEX(addr) << " " << bin.size());
     if(!bin.size())
         return false;
     // Send command
@@ -312,7 +312,7 @@ bool ProtoPOK3R::writeFlash(zu32 addr, ZBinary bin){
 }
 
 bool ProtoPOK3R::checkFlash(zu32 addr, ZBinary bin){
-    DLOG("checkFlash " << addr << " " << bin.size());
+    DLOG("checkFlash " << HEX(addr) << " " << bin.size());
     if(!bin.size())
         return false;
     // Send command
@@ -326,7 +326,7 @@ bool ProtoPOK3R::checkFlash(zu32 addr, ZBinary bin){
 }
 
 bool ProtoPOK3R::eraseFlash(zu32 start, zu32 end){
-    DLOG("eraseFlash " << start << " " << end);
+    DLOG("eraseFlash " << HEX(start) << " " << end);
     // Send command
     ZBinary arg;
     arg.writeleu32(start);
@@ -349,22 +349,6 @@ zu32 ProtoPOK3R::baseFirmwareAddr() const {
     return FW_ADDR;
 }
 
-// From http://mdfs.net/Info/Comp/Comms/CRC16.htm
-// CRC-CCITT
-#define poly 0x1021
-zu16 crc16(unsigned char *ptr, zu64 size) {
-    zu32 crc = 0;
-    for(zu64 i = 0; i < size; ++i){             /* Step through bytes in memory */
-        crc ^= (zu16)(ptr[i] << 8);            /* Fetch byte from memory, XOR into CRC top byte*/
-        for(int j = 0; j < 8; j++){             /* Prepare to rotate 8 bits */
-            crc = crc << 1;                     /* rotate */
-            if(crc & 0x10000)                   /* bit 15 was set (now bit 16)... */
-                crc = (crc ^ poly) & 0xFFFF;    /* XOR with XMODEM polynomic and ensure CRC remains 16-bit value */
-        }
-    }
-    return (zu16)crc;
-}
-
 bool ProtoPOK3R::sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin){
     if(bin.size() > 60){
         ELOG("bad data size");
@@ -379,7 +363,8 @@ bool ProtoPOK3R::sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin){
     packet.write(bin);      // data
 
     packet.seek(2);
-    packet.writeleu16(crc16(packet.raw(), UPDATE_PKT_LEN)); // CRC
+    zu16 crc = ZHash<ZBinary, ZHashBase::CRC16>(packet).hash();
+    packet.writeleu16(crc); // CRC
 
     DLOG("send:");
     DLOG(ZLog::RAW << packet.dumpBytes(4, 8));
@@ -405,6 +390,11 @@ bool ProtoPOK3R::sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data){
 
     DLOG("recv:");
     DLOG(ZLog::RAW << data.dumpBytes(4, 8));
+
+    if(data.size() != UPDATE_PKT_LEN){
+        DLOG("bad recv size");
+        return false;
+    }
 
     data.rewind();
     return true;

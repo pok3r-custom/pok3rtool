@@ -1,25 +1,20 @@
 #include "keymap.h"
 #include "keycodes.h"
+#include "gen_keymaps.h"
 
-#include "zmap.h"
 #include "zlog.h"
+#include "zmap.h"
+#include "zjson.h"
 
 #define MIN(A, B) (A < B ? A : B)
 #define MAX(A, B) (A > B ? A : B)
 
-#define LAYOUT_NR 0x80
+#define LAYOUT_SP 0x80
 #define LAYOUT_MASK 0x3F
 
-struct Keycode {
-    Keymap::keycode keycode;
-    ZString name;
-    ZString abbrev;
-    ZString desc;
-};
-
-const ZArray<Keycode> keycodes = {
+const ZArray<Keymap::Keycode> keycodes = {
     { KC_NO,                    "KC_NO",                    "",         "None" },
-    { KC_TRANSPARENT,           "KC_TRNS",                  "",         "Transparent" },
+    { KC_TRANSPARENT,           "KC_TRNS",                  "",         "Transparent (keycode from previous layer)" },
     { KC_A,                     "KC_A",                     "A",        "A" },
     { KC_B,                     "KC_B",                     "B",        "B" },
     { KC_C,                     "KC_C",                     "C",        "C" },
@@ -334,7 +329,7 @@ const ZArray<Keycode> keycodes = {
 
 };
 
-ZMap<Keymap::keycode, Keycode> kcode_map;
+ZMap<Keymap::keycode, Keymap::Keycode> kcode_map;
 ZMap<ZString, Keymap::keycode> kname_map;
 
 Keymap::Keymap(zu8 _rows, zu8 _cols) : rows(_rows), cols(_cols), nkeys(0){
@@ -349,11 +344,12 @@ Keymap::Keymap(zu8 _rows, zu8 _cols) : rows(_rows), cols(_cols), nkeys(0){
     }
 }
 
-void Keymap::loadLayout(ZBinary layout){
-    const int knum = rows * cols;
-    zassert(layout.size() == (knum * 2), "Bad layout map size!");
+void Keymap::loadLayout(ZString lname, ZBinary layout){
+    layout_name = lname;
 
-    wlayout.resize(knum);
+    const int knum = rows * cols;
+    zassert(layout.size() == knum, "Bad layout map size!");
+
     matrix2layout.resize(knum);
     layout2matrix.resize(knum);
     for(zsize i = 0; i < knum; ++i){
@@ -361,41 +357,70 @@ void Keymap::loadLayout(ZBinary layout){
         layout2matrix[i] = 0;
     }
 
+    // search known layouts
+    bool found = false;
+    zu16 lkeys = 0;
+    for(zu64 i = 0; i < keymaps_json_size / sizeof(unsigned); ++i){
+        zu64 len = keymaps_json_sizes[i];
+        ZString str(keymaps_json[i], len);
+        ZJSON json;
+        zassert(json.decode(str), "layout json decode");
+        zassert(json.type() == ZJSON::OBJECT, "layout json object");
+        zassert(json.object().contains("name"), "layout json name");
+        zassert(json["name"].type() == ZJSON::STRING, "layout json name type");
+        ZString name = json["name"].string();
+        if(name == layout_name){
+            zassert(json.object().contains("layout"), "layout json layout");
+            zassert(json["layout"].type() == ZJSON::ARRAY, "layout json layout type");
+            for(auto it = json["layout"].array().begin(); it.more(); ++it){
+                zassert(it.get().type() == ZJSON::ARRAY, "bad layout row type");
+                zassert(it.get().array().size(), "empty layout row");
+                for(auto jt = it.get().array().begin(); jt.more(); ++jt){
+                    zassert(jt.get().type() == ZJSON::NUMBER, "bad layout key type");
+                    int width = jt.get().number();
+                    Key k;
+                    k.width = width & LAYOUT_MASK;
+                    k.space = width & LAYOUT_SP;
+                    if(!k.space){
+                        lkeys++;
+                        lkmap[lkeys] = wlayout.size();
+                    }
+                    wlayout.push(k);
+                }
+                wlayout[wlayout.size() - 1].newrow = true;
+            }
+            found = true;
+            break;
+        }
+    }
+    zassert(found, "layout not known");
+
     // layout is a matrix, with each key given an index
     // numbered left to right, wrapping rows
     nkeys = 0;
     for(zsize i = 0, r = 0; r < rows; ++r){
         for(zsize c = 0; c < cols; ++c, ++i){
             const zu8 mpos = i;
-            const zu16 lk = layout.readleu16();
-            const zu8 lpos = lk & 0xFF;
-            const zu8 keyw = (lk >> 8) & 0xFF;
+            const zu8 lpos = layout.readu8();
             if(lpos){
-                zassert(matrix2layout[mpos] == 0, "Duplicate matrix index");
-                zassert(layout2matrix[lpos - 1] == 0, "Duplicate layout index");
-                wlayout[lpos - 1].row = r;
-                wlayout[lpos - 1].col = c;
-                wlayout[lpos - 1].width = keyw & LAYOUT_MASK;
-                wlayout[lpos - 1].newrow = keyw & LAYOUT_NR;
+                zassert(matrix2layout[mpos] == 0, "duplicate matrix index");
+                zassert(layout2matrix[lpos - 1] == 0, "duplicate layout index");
+                wlayout[lkmap[lpos]].row = r;
+                wlayout[lkmap[lpos]].col = c;
                 matrix2layout[mpos] = lpos;
                 layout2matrix[lpos - 1] = mpos;
                 nkeys++;
             }
         }
     }
+    zassert(nkeys == lkeys, "key count mismatch");
     wlayout.resize(nkeys);
     wlayout[nkeys - 1].newrow = true;
-    for(zsize i = 0; i < nkeys; ++i){
-        zassert(wlayout[i].row < rows && wlayout[i].col < cols, "Invalid layout row/col");
-    }
 
     zu16 rwmax = 0;
     int rwidth = 0;
     for(zsize i = 0; i < nkeys; ++i){
         const zu8 keyw = wlayout[i].width;
-        if(!keyw){
-            //LOG("Zero size key");
-        }
         rwidth += keyw;
         if(wlayout[i].newrow){
             rwmax = MAX(rwmax, rwidth);
@@ -459,8 +484,6 @@ ZBinary Keymap::toMatrix() const {
 }
 
 void Keymap::printLayers() const{
-    LOG("Keymap Dump: " << nkeys  << " keys, " << layers.size() << " layers");
-
     for(zsize l = 0; l < layers.size(); ++l){
         bool blank = true;
         for(zsize i = 0; i < nkeys; ++i){
@@ -534,6 +557,22 @@ void Keymap::printMatrix() const {
     }
 }
 
+ZArray<int> Keymap::getLayer(zu8 layer) const {
+    ZArray<int> keymap;
+    for(zsize i = 0; i < layers[layer].size(); ++i){
+        keymap.push(layers[layer][i]);
+    }
+    return keymap;
+}
+
+ZArray<ZString> Keymap::getLayerAbbrev(zu8 layer) const {
+    ZArray<ZString> keymap;
+    for(zsize i = 0; i < layers[layer].size(); ++i){
+        keymap.push(keycodeAbbrev(layers[layer][i]));
+    }
+    return keymap;
+}
+
 zu16 Keymap::rowCount(zu8 row) const{
     zu8 r = 0;
     zu16 width = 0;
@@ -546,6 +585,17 @@ zu16 Keymap::rowCount(zu8 row) const{
             r++;
         }
     }
+    return width;
+}
+
+ZArray<int> Keymap::getLayout() const {
+    ZArray<int> layout;
+    for(zsize i = 0; i < wlayout.size(); ++i){
+        layout.push(wlayout[i].width | (wlayout[i].space ? LAYOUT_SP : 0));
+        if(wlayout[i].newrow)
+            layout.push(-1);
+    }
+    return layout;
 }
 
 zu16 Keymap::layoutRC2K(zu8 r, zu8 c) const {
@@ -560,6 +610,7 @@ zu16 Keymap::layoutRC2K(zu8 r, zu8 c) const {
             col = 0;
         }
     }
+    return 0xFFFF;
 }
 
 zu16 Keymap::keyOffset(zu8 l, zu16 k) const {
@@ -601,4 +652,8 @@ ZString Keymap::keycodeDesc(keycode kc) const {
     } else {
         return "Unknown keycode 0x" + ZString::ItoS(kc, 16, 4);
     }
+}
+
+const ZArray<Keymap::Keycode> &Keymap::getAllKeycodes(){
+    return keycodes;
 }

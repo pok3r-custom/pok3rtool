@@ -105,8 +105,6 @@ private:
     zu16 vid;
     zu16 pid;
     zu16 boot_pid;
-
-    ZPointer<HIDDevice> dev;
 };
 
 #endif // PROTO_POK3R_H
