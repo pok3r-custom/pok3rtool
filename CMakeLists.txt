@@ -63,18 +63,60 @@ if(WIN32)
     )
 endif()
 
+# install tool and lib
+install(TARGETS pok3rtool DESTINATION bin)
+install(TARGETS pok3rlib DESTINATION lib)
+
 if(MINGW)
     # Apparently Qt's mingw doesn't come with some static libraries
     get_filename_component(MINGW_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
+    set(MINGW_LIBS_DIR "${MINGW_DIR}/../i686-w64-mingw32/lib")
+    set(MINGW_LIBGCC "${MINGW_LIBS_DIR}/libgcc_s_dw2-1.dll")
+    set(MINGW_LIBSTD "${MINGW_LIBS_DIR}/libstdc++-6.dll")
+    set(MINGW_LIBWPT "${MINGW_LIBS_DIR}/libwinpthread-1.dll")
+
     add_custom_command(TARGET pok3rtool POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MINGW_DIR}/../i686-w64-mingw32/lib/libgcc_s_dw2-1.dll"
+            "${MINGW_LIBGCC}"
             "$<TARGET_FILE_DIR:pok3rtool>"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MINGW_DIR}/../i686-w64-mingw32/lib/libstdc++-6.dll"
+            "${MINGW_LIBSTD}"
             "$<TARGET_FILE_DIR:pok3rtool>"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MINGW_DIR}/../i686-w64-mingw32/lib/libwinpthread-1.dll"
+            "${MINGW_LIBWPT}"
             "$<TARGET_FILE_DIR:pok3rtool>"
     )
+
+    # intall mingw libraries
+    install(FILES "${MINGW_LIBGCC}" DESTINATION lib)
+    install(FILES "${MINGW_LIBSTD}" DESTINATION lib)
+    install(FILES "${MINGW_LIBWPT}" DESTINATION lib)
 endif()
+
+# Creates C resources file from files in given directory
+function(create_resources dir output name)
+    # Create empty output file
+    file(WRITE ${output} "")
+    # Collect input files
+    file(GLOB bins ${dir}/*)
+
+    # Iterate through input files
+    foreach(bin ${bins})
+        # Get short filename
+        string(REGEX MATCH "([^/]+)$" filename ${bin})
+        # Replace filename spaces & extension separator for C compatibility
+        string(REGEX REPLACE "\\.| |-" "_" filename ${filename})
+        # Read hex data from file
+        file(READ ${bin} filedata HEX)
+        # Convert hex data for C compatibility
+        string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," filedata ${filedata})
+        # Append data to output file
+        file(APPEND ${output} "const unsigned char ${filename}[] = {${filedata}};\nconst unsigned ${filename}_size = sizeof(${filename});\n")
+        set(filenames "${filenames}${filename},")
+        set(filename_sizes "${filename_sizes}${filename}_size,")
+    endforeach()
+
+    file(APPEND ${output} "const unsigned char *${name}[] = {${filenames}};\nconst unsigned ${name}_sizes[] = {${filename_sizes}};\nconst unsigned ${name}_size = sizeof(${name}_sizes);")
+endfunction()
+
+create_resources("keymaps" "gen_keymaps.h" "keymaps_json")

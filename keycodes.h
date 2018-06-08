@@ -951,8 +951,8 @@ enum quantum_keycodes {
     // For sending unicode codes.
     // You may not send codes over 7FFF -- this supports most of UTF8.
     // To have a key that sends out Œ, go UC(0x0152)
-    #define UNICODE(n) (n | QK_UNICODE)
-    #define UC(n) UNICODE(n)
+    #define KC_UNICODE(n) (n | QK_UNICODE)
+    #define UC(n) KC_UNICODE(n)
 #endif
 
 #ifdef UNICODEMAP_ENABLE
