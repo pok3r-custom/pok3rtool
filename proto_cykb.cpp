@@ -15,9 +15,7 @@
 #define HEX(A) (ZString::ItoS((zu64)(A), 16))
 
 ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
-    ProtoQMK(PROTO_CYKB, new HIDDevice),
-    builtin(false), debug(false), nop(false),
-    vid(vid_), pid(pid_), boot_pid(boot_pid_)
+    ProtoCYKB(vid_, pid_, boot_pid_, false, new HIDDevice)
 {
 
 }
@@ -27,7 +25,7 @@ ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPoint
     builtin(builtin_), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_)
 {
-
+    dev->setStream(true);
 }
 
 ProtoCYKB::~ProtoCYKB(){
@@ -162,11 +160,11 @@ ZString ProtoCYKB::getVersion(){
     DLOG("version: " << ver);
 
     // version 2
-    ZBinary data2;
-    if(!sendRecvCmd(READ, READ_VER2, data2))
-        return "ERROR";
-    DLOG("ver2:");
-    DLOG(ZLog::RAW << data2.getSub(4).dumpBytes(4, 8));
+//    ZBinary data2;
+//    if(!sendRecvCmd(READ, READ_VER2, data2))
+//        return "ERROR";
+//    DLOG("ver2:");
+//    DLOG(ZLog::RAW << data2.getSub(4).dumpBytes(4, 8));
 
     return ver;
 }
@@ -179,17 +177,17 @@ KBStatus ProtoCYKB::clearVersion(){
     if(!eraseFlash(VER_ADDR, 0xB4))
         return ERR_FAIL;
 
-//    ZBinary data;
-//    if(!sendRecvCmd(READ, READ_VER2, data))
-//        return ERR_FAIL;
+    ZBinary data;
+    if(!sendRecvCmd(READ, READ_VER2, data))
+        return ERR_FAIL;
 
-//    ZBinary tst;
-//    tst.fill(0xFF, 60);
-//    if(data.getSub(4) != tst){
-//        ELOG("version not cleared");
-//        ELOG(ZLog::RAW << data.dumpBytes(4, 8));
-//        return ERR_FLASH;
-//    }
+    ZBinary tst;
+    tst.fill(0xFF, 60);
+    if(data.getSub(4) != tst){
+        ELOG("version not cleared");
+        ELOG(ZLog::RAW << data.dumpBytes(4, 8));
+        return ERR_FLASH;
+    }
 
     return SUCCESS;
 }
@@ -449,10 +447,10 @@ bool ProtoCYKB::writeFlash(zu32 addr, ZBinary bin){
     while(!bin.atEnd()){
         ZBinary data;
         bin.read(data, 52);
-        zu8 sz = data.size();
         //bin.read(data, 60);
+        zu8 sz = data.size();
         DLOG("write " << HEX(VER_ADDR + pos) << ", " << sz << " bytes");
-        if(!sendRecvCmd(WRITE, sz, data))
+        if(!sendRecvCmd(WRITE, data.size(), data))
             return false;
         data.seek(4);
         zu16 next = data.readleu16();
@@ -482,18 +480,18 @@ zu32 ProtoCYKB::crcFlash(zu32 addr, zu32 len){
         return 0;
     data1.seek(4);
     zu32 crc = data1.readleu32();
+    LOG("crc " << HEX(crc));
 
     // SUM command
-    ZBinary data2;
-    data2.writeleu32(addr - VER_ADDR);
-    //data2.writeleu32(0);
-    data2.writeleu32(len);
-    if(!sendRecvCmd(FW, FW_SUM, data2))
-        return 0;
-    data2.seek(4);
-    zu32 sum = data2.readleu32();
-
-    LOG("crc " << HEX(crc) << " sum " << HEX(sum));
+//    ZBinary data2;
+//    data2.writeleu32(addr - VER_ADDR);
+//    //data2.writeleu32(0);
+//    data2.writeleu32(len);
+//    if(!sendRecvCmd(FW, FW_SUM, data2))
+//        return 0;
+//    data2.seek(4);
+//    zu32 sum = data2.readleu32();
+//    LOG("sum " << HEX(sum));
 
     return crc;
 }
@@ -503,7 +501,7 @@ zu32 ProtoCYKB::baseFirmwareAddr() const {
 }
 
 bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){
-    if(data.size() > 60){
+    if(data.size() > 52){
         ELOG("bad data size");
         return false;
     }
@@ -515,9 +513,9 @@ bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){
     packet.seek(4);
     packet.write(data);     // data
 
-    packet.seek(2);
-    zu16 crc = ZHash<ZBinary, ZHashBase::CRC16>(packet).hash();
-    packet.writeleu16(crc); // CRC
+//    packet.seek(2);
+//    zu16 crc = ZHash<ZBinary, ZHashBase::CRC16>(packet).hash();
+//    packet.writeleu16(crc); // CRC
 
     DLOG("send:");
     DLOG(ZLog::RAW << packet.dumpBytes(4, 8));
@@ -549,13 +547,13 @@ bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
         return false;
     }
 
-    data.seek(2);
-    zu16 crc0 = data.readleu16();
-    data.seek(2);
-    data.writeleu16(0);
-    data.rewind();
-    zu16 crc1 = ZHash<ZBinary, ZHashBase::CRC16>(data).hash();
-    DLOG("crc: " << HEX(crc0) << " " << HEX(crc1));
+//    data.seek(2);
+//    zu16 crc0 = data.readleu16();
+//    data.seek(2);
+//    data.writeleu16(0);
+//    data.rewind();
+//    zu16 crc1 = ZHash<ZBinary, ZHashBase::CRC16>(data).hash();
+//    DLOG("crc: " << HEX(crc0) << " " << HEX(crc1));
 
     // Check error
     data.rewind();
