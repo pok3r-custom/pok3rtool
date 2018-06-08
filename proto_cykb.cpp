@@ -25,7 +25,7 @@ ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPoint
     builtin(builtin_), debug(false), nop(false),
     vid(vid_), pid(pid_), boot_pid(boot_pid_)
 {
-    dev->setStream(true);
+    //dev->setStream(true);
 }
 
 ProtoCYKB::~ProtoCYKB(){
@@ -442,7 +442,7 @@ bool ProtoCYKB::writeFlash(zu32 addr, ZBinary bin){
     }
 
     // Write
-    zu16 pos = FW_ADDR - VER_ADDR;
+    zu16 pos = addr - VER_ADDR;
     bin.rewind();
     while(!bin.atEnd()){
         ZBinary data;
@@ -454,10 +454,10 @@ bool ProtoCYKB::writeFlash(zu32 addr, ZBinary bin){
             return false;
         data.seek(4);
         zu16 next = data.readleu16();
+        pos += sz;
         if(next != pos){
             ELOG("write sequence error " << HEX(next) << " " << HEX(pos));
         }
-        pos += sz;
     }
 
     return true;

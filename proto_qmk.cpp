@@ -18,15 +18,15 @@ bool ProtoQMK::isQMK() {
     if(isBuiltin())
         return false;
 
-    dev->setStream(true);
+    //dev->setStream(true);
     ZBinary data;
     if(!sendRecvCmdQmk(CMD_CTRL, SUB_CT_INFO, data, true)){
-        dev->setStream(false);
+        //dev->setStream(false);
         return false;
     }
 
     if(ZString(data.raw() + 4, 9) != "qmk_pok3r"){
-        dev->setStream(false);
+        //dev->setStream(false);
         return false;
     }
 
