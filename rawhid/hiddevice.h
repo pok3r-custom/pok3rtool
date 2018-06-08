@@ -31,15 +31,12 @@ public:
     bool send(const ZBinary &data, bool tolerate_dc = false);
     bool recv(ZBinary &data);
 
-    void setStream(bool mode){ stream = mode; }
-
     static ZArray<ZPointer<HIDDevice>> openAll(zu16 vid, zu16 pid, zu16 usage_page, zu16 usage);
 
     static zu32 openFilter(std::function<bool(rawhid_detail *)> func);
 
 private:
     hid_t *hid;
-    bool stream;
 };
 
 #endif // HIDDEVICE_H
