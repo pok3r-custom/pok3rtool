@@ -4,6 +4,8 @@ stages:
 
 pok3rtool:linux:
   stage: build
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
   tags:
     - linux
   image: fedora
