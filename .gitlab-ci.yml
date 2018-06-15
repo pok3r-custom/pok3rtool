@@ -23,7 +23,7 @@ pok3rtool:linux:
 test:linux:
   stage: test
   dependencies:
-    - build:linux
+    - pok3rtool:linux
   variables:
     GIT_STRATEGY: none
   tags:
