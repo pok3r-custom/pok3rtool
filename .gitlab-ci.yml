@@ -1,0 +1,37 @@
+stages:
+  - build
+  - test
+
+pok3rtool:linux:
+  stage: build
+  tags:
+    - linux
+  image: fedora
+  before_script:
+    - yum install -y gcc gcc-c++ cmake make libusb-devel
+  script:
+    - mkdir build
+    - cd build
+    - cmake -D CMAKE_BUILD_TYPE="Release" ..
+    - make
+  artifacts:
+    paths:
+      - build/pok3rtool
+      - build/libpok3rlib.so
+      - build/rawhid/librawhid.so
+
+test:linux:
+  stage: test
+  dependencies:
+    - build:linux
+  variables:
+    GIT_STRATEGY: none
+  tags:
+    - linux
+  image: fedora
+  before_script:
+    - yum install -y libstdc++ libusb
+  script:
+    - cd build
+    - ./pok3rtool list
+
