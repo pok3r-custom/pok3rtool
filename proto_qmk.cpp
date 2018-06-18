@@ -25,7 +25,8 @@ bool ProtoQMK::isQMK() {
         return false;
     }
 
-    if(ZString(data.raw() + 4, 9) != "qmk_pok3r"){
+    ArZ info = ZString(data.raw() + 4, 56).explode(';');
+    if(info.size() < 1 || info[0] != "qmk_pok3r"){
         //dev->setStream(false);
         return false;
     }
@@ -33,6 +34,24 @@ bool ProtoQMK::isQMK() {
     zu16 pid = data.readleu16();
     zu16 ver = data.readleu16();
     DLOG("qmk info " << HEX(pid) << " " << ver);
+    return true;
+}
+
+bool ProtoQMK::qmkInfo(){
+    ZBinary data;
+    if(!sendRecvCmdQmk(CMD_CTRL, SUB_CT_INFO, data, true)){
+        return false;
+    }
+    //LOG(ZLog::RAW << data.dumpBytes(4, 8));
+
+    zu16 pid = data.readleu16();
+    zu16 ver = data.readleu16();
+    LOG("pid: " << HEX(pid) << ", ver: " << ver);
+
+    ArZ info = ZString(data.raw() + 4, 56).explode(';');
+    for(zsize i = 0; i < info.size(); ++i){
+        LOG(i << ": " << info[i]);
+    }
     return true;
 }
 
@@ -242,7 +261,7 @@ bool ProtoQMK::writeEEPROM(zu32 addr, ZBinary bin){
     ZBinary data;
     data.writeleu32(addr);
     data.write(bin);
-    if(!sendRecvCmdQmk(CMD_EEPROM, SUBB_EE_WRITE, data))
+    if(!sendRecvCmdQmk(CMD_EEPROM, SUB_EE_WRITE, data))
         return false;
     return true;
 }
@@ -294,6 +313,13 @@ bool ProtoQMK::commitKeymap(){
 bool ProtoQMK::reloadKeymap(){
     ZBinary data;
     if(!sendRecvCmdQmk(CMD_KEYMAP, SUB_KM_RELOAD, data))
+        return false;
+    return true;
+}
+
+bool ProtoQMK::resetKeymap(){
+    ZBinary data;
+    if(!sendRecvCmdQmk(CMD_KEYMAP, SUB_KM_RESET, data))
         return false;
     return true;
 }

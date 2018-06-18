@@ -92,6 +92,8 @@ private:
     zu32 baseFirmwareAddr() const;
     //! Send command
     bool sendCmd(zu8 cmd, zu8 a1, ZBinary data = ZBinary());
+    //! Recv command.
+    bool recvCmd(ZBinary &data);
     //! Send command and recv response.
     bool sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data);
 

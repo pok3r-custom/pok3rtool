@@ -16,28 +16,35 @@ using namespace LibChaos;
 class ProtoQMK : public KBProto {
 public:
     enum qmk_cmd {
-        CMD_CTRL        = 0x81,
-        SUB_CT_INFO     = 0,
-        SUB_CT_LAYOUT   = 1,
+        CMD_CTRL        = 0x81, //!< Control command.
+        SUB_CT_INFO     = 0,    //!< Firmware info.
+        SUB_CT_LAYOUT   = 1,    //!< Set layout.
 
-        CMD_EEPROM      = 0x82,
-        SUB_EE_INFO     = 0,
-        SUB_EE_READ     = 1,
-        SUBB_EE_WRITE   = 2,
-        SUB_EE_ERASE    = 3,
+        CMD_EEPROM      = 0x82, //!< EEPROM commands.
+        SUB_EE_INFO     = 0,    //!< EEPROM info (RDID SPI command).
+        SUB_EE_READ     = 1,    //!< Read EEPROM data.
+        SUB_EE_WRITE    = 2,    //!< Write EEPROM data.
+        SUB_EE_ERASE    = 3,    //!< Erase EEPROM page.
 
         CMD_KEYMAP      = 0x83, //!< Keymap commands.
         SUB_KM_INFO     = 0,    //!< Keymap info (layers, rows, cols, type size).
         SUB_KM_READ     = 1,    //!< Read keymap.
+        KM_PAGE_MATRIX  = 0,    //!< Matrix page.
+        KM_PAGE_LAYOUT  = 1,    //!< Layout page.
+        KM_PAGE_STRS    = 2,    //!< Layout string page.
         SUB_KM_WRITE    = 2,    //!< Write to keymap.
         SUB_KM_COMMIT   = 3,    //!< Commit keymap to EEPROM.
         SUB_KM_RELOAD   = 4,    //!< Load keymap from EEPROM.
+        SUB_KM_RESET    = 5,    //!< Load default keymap.
 
         CMD_BACKLIGHT   = 0x84, //!< Backlight commands.
         SUB_BL_INFO     = 0,    //!< Backlight map info (layers, rows, cols, type size).
         SUB_BL_READ     = 1,    //!< Read backlight map.
         SUB_BL_WRITE    = 2,    //!< Write to backlight map.
         SUB_BL_COMMIT   = 3,    //!< Commit backlight map to EEPROM.
+
+        CMD_FLASH_QMK   = 0x85, //!< Flash commands.
+        SUB_FL_READ     = 0,    //!< Read flash data.
     };
 
 protected:
@@ -47,6 +54,8 @@ public:
 
     virtual bool isBuiltin() = 0;
     bool isQMK();
+
+    bool qmkInfo();
 
     bool eepromTest();
 
@@ -67,6 +76,7 @@ public:
     bool writeKeymap(zu16 offset, ZBinary bin);
     bool commitKeymap();
     bool reloadKeymap();
+    bool resetKeymap();
 
 protected:
     virtual zu32 baseFirmwareAddr() const = 0;

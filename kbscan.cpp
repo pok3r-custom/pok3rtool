@@ -33,9 +33,9 @@
 #define CONSOLE_USAGE           0x0074
 
 static const ZMap<DeviceType, DeviceInfo> known_devices = {
-    { DEV_POK3R,            { "POK3R",              HOLTEK_VID, POK3R_PID,                  BOOT_PID | POK3R_PID,           PROTO_POK3R } },
-    { DEV_POK3R_RGB,        { "POK3R RGB",          HOLTEK_VID, POK3R_RGB_PID,              BOOT_PID | POK3R_RGB_PID,       PROTO_CYKB } },
-    { DEV_POK3R_RGB2,       { "POK3R RGB2",         HOLTEK_VID, POK3R_RGB2_PID,             BOOT_PID | POK3R_RGB2_PID,      PROTO_CYKB } },
+    { DEV_POK3R,            { "Vortex POK3R",       HOLTEK_VID, POK3R_PID,                  BOOT_PID | POK3R_PID,           PROTO_POK3R } },
+    { DEV_POK3R_RGB,        { "Vortex POK3R RGB",   HOLTEK_VID, POK3R_RGB_PID,              BOOT_PID | POK3R_RGB_PID,       PROTO_CYKB } },
+    { DEV_POK3R_RGB2,       { "Vortex POK3R RGB2",  HOLTEK_VID, POK3R_RGB2_PID,             BOOT_PID | POK3R_RGB2_PID,      PROTO_CYKB } },
     { DEV_VORTEX_CORE,      { "Vortex Core",        HOLTEK_VID, VORTEX_CORE_PID,            BOOT_PID | VORTEX_CORE_PID,     PROTO_CYKB } },
     { DEV_VORTEX_TESTER,    { "Vortex Tester",      HOLTEK_VID, VORTEX_TESTER_PID,          BOOT_PID | VORTEX_TESTER_PID,   PROTO_CYKB } },
     { DEV_VORTEX_RACE3,     { "Vortex Race 3",      HOLTEK_VID, VORTEX_RACE3_PID,           BOOT_PID | VORTEX_RACE3_PID,    PROTO_CYKB } },

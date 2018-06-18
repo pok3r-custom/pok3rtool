@@ -183,7 +183,7 @@ const ZArray<Keymap::Keycode> keycodes = {
 
     { KC_LCTRL,                 "KC_LCTRL",                 "LCTRL",    "Left Control" },
     { KC_LSHIFT,                "KC_LSHIFT",                "LSHIFT",   "Left Shift" },
-    { KC_LALT,                  "KC_LALT",                  "LAFT",     "Left Alt" },
+    { KC_LALT,                  "KC_LALT",                  "LALT",     "Left Alt" },
     { KC_LGUI,                  "KC_LGUI",                  "LGUI",     "Left GUI" },
     { KC_RCTRL,                 "KC_RCTRL",                 "RCTRL",    "Right Control" },
     { KC_RSHIFT,                "KC_RSHIFT",                "RSHIFT",   "Right Shift" },

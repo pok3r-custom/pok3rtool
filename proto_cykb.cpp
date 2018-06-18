@@ -10,7 +10,8 @@
 
 #define FLASH_LEN           0x10000
 
-#define WAIT_SLEEP          2
+#define WAIT_SLEEP          5
+#define ERASE_SLEEP         2
 
 #define HEX(A) (ZString::ItoS((zu64)(A), 16))
 
@@ -401,9 +402,13 @@ bool ProtoCYKB::eraseFlash(zu32 start, zu32 length){
     data.writeleu32(start - VER_ADDR);
     data.writeleu32(length);
 
-    if(!sendRecvCmd(FW, FW_ERASE, data))
+    if(!sendCmd(FW, FW_ERASE, data))
         return false;
-    return true;
+
+    // give time for erase
+    ZThread::sleep(ERASE_SLEEP);
+
+    return recvCmd(data);
 }
 
 bool ProtoCYKB::readFlash(zu32 addr, ZBinary &bin){
@@ -528,10 +533,7 @@ bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){
     return true;
 }
 
-bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
-    if(!sendCmd(cmd, a1, data))
-        return false;
-
+bool ProtoCYKB::recvCmd(ZBinary &data){
     // Recv packet
     data.resize(UPDATE_PKT_LEN);
     if(!dev->recv(data)){
@@ -539,13 +541,13 @@ bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
         return false;
     }
 
-    DLOG("recv:");
-    DLOG(ZLog::RAW << data.dumpBytes(4, 8));
-
     if(data.size() != UPDATE_PKT_LEN){
         DLOG("bad recv size");
         return false;
     }
+
+    DLOG("recv:");
+    DLOG(ZLog::RAW << data.dumpBytes(4, 8));
 
 //    data.seek(2);
 //    zu16 crc0 = data.readleu16();
@@ -565,6 +567,12 @@ bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
     data.rewind();
 
     return true;
+}
+
+bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
+    if(!sendCmd(cmd, a1, data))
+        return false;
+    return recvCmd(data);
 }
 
 // POK3R RGB XOR encryption/decryption key

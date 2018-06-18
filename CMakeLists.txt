@@ -8,6 +8,8 @@ add_subdirectory(rawhid)
 
 ### =================== SOURCES =================== ###
 
+set(GEN_KEYMAPS_HEADER ${CMAKE_CURRENT_BINARY_DIR}/gen_keymaps.h)
+
 set(POK3RLIB_SOURCES
     kbscan.h
     kbscan.cpp
@@ -27,10 +29,13 @@ set(POK3RLIB_SOURCES
 
     updatepackage.h
     updatepackage.cpp
+
+    ${GEN_KEYMAPS_HEADER}
 )
 
 set(POK3RTOOL_SOURCES
     main.cpp
+    ${GEN_KEYMAPS_HEADER}
 )
 
 set(FILES
@@ -46,14 +51,15 @@ add_custom_target(pok3rtool-dummy SOURCES ${FILES})
 # Pok3rLib
 add_library(pok3rlib SHARED ${POK3RLIB_SOURCES})
 set_property(TARGET pok3rlib PROPERTY CXX_STANDARD 11)
-target_include_directories(pok3rlib PRIVATE ${LIBUSB_1_INCLUDE_DIRECTORIES})
-target_compile_definitions(pok3rlib PRIVATE ${LIBUSB_1_DEFINITIONS})
 target_link_libraries(pok3rlib chaos-shared rawhid ${LIBUSB_1_LIBRARIES})
+target_include_directories(pok3rlib PRIVATE ${LIBUSB_1_INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_BINARY_DIR})
+target_compile_definitions(pok3rlib PRIVATE ${LIBUSB_1_DEFINITIONS})
 
 # Pok3rTool
 add_executable(pok3rtool ${POK3RTOOL_SOURCES})
 set_property(TARGET pok3rtool PROPERTY CXX_STANDARD 11)
 target_link_libraries(pok3rtool chaos-shared pok3rlib)
+target_include_directories(pok3rtool PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 if(WIN32)
     add_custom_command(TARGET pok3rtool POST_BUILD
@@ -119,4 +125,4 @@ function(create_resources dir output name)
     file(APPEND ${output} "const unsigned char *${name}[] = {${filenames}};\nconst unsigned ${name}_sizes[] = {${filename_sizes}};\nconst unsigned ${name}_size = sizeof(${name}_sizes);")
 endfunction()
 
-create_resources("keymaps" "gen_keymaps.h" "keymaps_json")
+create_resources("keymaps" "${GEN_KEYMAPS_HEADER}" "keymaps_json")

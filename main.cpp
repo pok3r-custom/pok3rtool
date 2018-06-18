@@ -67,10 +67,6 @@ const ZMap<ZString, DeviceType> devnames = {
     { "tex_yoda_2",         DEV_TEX_YODA_II },
     { "tex-yoda-ii",        DEV_TEX_YODA_II },
     { "tex_yoda_ii",        DEV_TEX_YODA_II },
-
-//  { "qmk_pok3r",          DEV_QMK_POK3R },
-//  { "qmk_pok3r_rgb",      DEV_QMK_POK3R_RGB },
-//  { "qmk_vortex_core",    DEV_QMK_VORTEX_CORE },
 };
 
 // Functions
@@ -170,7 +166,12 @@ int cmd_info(Param *param){
     // Get Info
     ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
-        LOG(kb->getInfo());
+        if(kb->isQMK()){
+            ProtoQMK *qmk = dynamic_cast<ProtoQMK *>(kb.get());
+            LOG(qmk->qmkInfo());
+        } else {
+            LOG(kb->getInfo());
+        }
         return 0;
     }
     return -1;
@@ -313,6 +314,13 @@ int cmd_eeprom(Param *param){
             LOG("Erase EEPROM Page 0x" << ZString::ItoS((zu64)addr, 16));
             LOG(qmk->eraseEEPROM(addr));
 
+        } else if(param->args[1] == "wipe"){
+            LOG("Wipe EEPROM");
+            for(zu32 i = 0; i < 128; ++i){
+                LOG(qmk->eraseEEPROM(i << 12));
+                ZThread::msleep(500);
+            }
+
         } else if(param->args[1] == "keymap"){
             if(param->args.size() != 2){
                 ELOG("Usage: pok3rtool eeprom keymap");
@@ -416,6 +424,14 @@ int cmd_keymap(Param *param){
             }
             LOG("Reload Keymap");
             LOG(qmk->reloadKeymap());
+
+        } else if(param->args[1] == "reset"){
+            if(param->args.size() != 2){
+                ELOG("Usage: pok3rtool keymap reset");
+                return -2;
+            }
+            LOG("Reset Keymap");
+            LOG(qmk->resetKeymap());
 
         } else {
             LOG("Usage: pok3rtool keymap");
