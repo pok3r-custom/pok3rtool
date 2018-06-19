@@ -10,7 +10,7 @@ pok3rtool:linux:
     - linux
   image: fedora
   before_script:
-    - yum install -y gcc gcc-c++ cmake make libusb-devel
+    - yum install -y gcc gcc-c++ cmake make openssl-devel libusb-devel
   script:
     - mkdir build
     - cd build
@@ -32,7 +32,7 @@ test:linux:
     - linux
   image: fedora
   before_script:
-    - yum install -y libstdc++ libusb
+    - yum install -y libstdc++ openssl libusb
   script:
     - cd build
     - ./pok3rtool list
