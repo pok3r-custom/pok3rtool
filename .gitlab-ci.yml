@@ -10,13 +10,14 @@ pok3rtool:linux:
     - linux
   image: fedora
   before_script:
-    - yum install -y gcc gcc-c++ cmake make openssl-devel libusb-devel
+    - dnf install -y gcc gcc-c++ cmake make openssl-devel libusb-devel
   script:
     - mkdir build
     - cd build
     - cmake -D CMAKE_BUILD_TYPE="Release" ..
     - make
   artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
     paths:
       - build/pok3rtool
       - build/libpok3rlib.so
@@ -33,7 +34,7 @@ test:linux:
     - linux
   image: fedora
   before_script:
-    - yum install -y libstdc++ openssl libusb
+    - dnf install -y libstdc++ openssl libusb
   script:
     - cd build
     - ./pok3rtool list

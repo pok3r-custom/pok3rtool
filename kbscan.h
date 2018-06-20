@@ -27,6 +27,7 @@ enum DeviceType {
 };
 
 struct DeviceInfo {
+    ZString slug;
     ZString name;
     zu16 vid;
     zu16 pid;
