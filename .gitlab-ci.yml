@@ -21,6 +21,7 @@ pok3rtool:linux:
       - build/pok3rtool
       - build/libpok3rlib.so
       - build/rawhid/librawhid.so
+      - build/libchaos/chaos/libchaos.so
 
 test:linux:
   stage: test
