@@ -51,14 +51,15 @@ add_custom_target(pok3rtool-dummy SOURCES ${FILES})
 # Pok3rLib
 add_library(pok3rlib SHARED ${POK3RLIB_SOURCES})
 set_property(TARGET pok3rlib PROPERTY CXX_STANDARD 11)
-target_link_libraries(pok3rlib chaos-shared rawhid ${LIBUSB_1_LIBRARIES})
+target_link_libraries(pok3rlib chaos rawhid ${LIBUSB_1_LIBRARIES})
+#set_property(TARGET chaos-static PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(pok3rlib PRIVATE ${LIBUSB_1_INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_BINARY_DIR})
 target_compile_definitions(pok3rlib PRIVATE ${LIBUSB_1_DEFINITIONS})
 
 # Pok3rTool
 add_executable(pok3rtool ${POK3RTOOL_SOURCES})
 set_property(TARGET pok3rtool PROPERTY CXX_STANDARD 11)
-target_link_libraries(pok3rtool chaos-shared pok3rlib)
+target_link_libraries(pok3rtool chaos pok3rlib)
 target_include_directories(pok3rtool PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 if(WIN32)
