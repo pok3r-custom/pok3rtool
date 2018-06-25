@@ -55,6 +55,20 @@ bool ProtoQMK::qmkInfo(){
     return true;
 }
 
+ZString ProtoQMK::qmkVersion(){
+    ZBinary data;
+    if(!sendRecvCmdQmk(CMD_CTRL, SUB_CT_INFO, data, true)){
+        return false;
+    }
+
+    ArZ info = ZString(data.raw() + 4, 56).explode(';');
+    if(info.size() < 2){
+        return "ERROR";
+    } else {
+        return info[1];
+    }
+}
+
 bool ProtoQMK::eepromTest(){
     // Send command
     ZBinary data;

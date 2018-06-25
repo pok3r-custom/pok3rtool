@@ -56,6 +56,7 @@ public:
     bool isQMK();
 
     bool qmkInfo();
+    ZString qmkVersion();
 
     bool eepromTest();
 

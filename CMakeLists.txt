@@ -6,6 +6,10 @@ project(Pok3rTool)
 add_subdirectory(libchaos)
 add_subdirectory(rawhid)
 
+set(JSON_BuildTests OFF CACHE BOOL "disable json tests")
+set(JSON_MultipleHeaders ON CACHE BOOL "enable json multiple headers")
+add_subdirectory(nlohmann_json)
+
 ### =================== SOURCES =================== ###
 
 set(GEN_KEYMAPS_HEADER ${CMAKE_CURRENT_BINARY_DIR}/gen_keymaps.h)
@@ -51,7 +55,7 @@ add_custom_target(pok3rtool-dummy SOURCES ${FILES})
 # Pok3rLib
 add_library(pok3rlib SHARED ${POK3RLIB_SOURCES})
 set_property(TARGET pok3rlib PROPERTY CXX_STANDARD 11)
-target_link_libraries(pok3rlib chaos rawhid ${LIBUSB_1_LIBRARIES})
+target_link_libraries(pok3rlib chaos rawhid nlohmann_json ${LIBUSB_1_LIBRARIES})
 #set_property(TARGET chaos-static PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(pok3rlib PRIVATE ${LIBUSB_1_INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_BINARY_DIR})
 target_compile_definitions(pok3rlib PRIVATE ${LIBUSB_1_DEFINITIONS})

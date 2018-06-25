@@ -4,7 +4,14 @@
 
 #include "zlog.h"
 #include "zmap.h"
-#include "zjson.h"
+
+#define USE_NLOHMANN_JSON 1
+
+#if USE_NLOHMANN_JSON
+    #include <nlohmann/json.hpp>
+#else
+    #include "zjson.h"
+#endif
 
 #define MIN(A, B) (A < B ? A : B)
 #define MAX(A, B) (A > B ? A : B)
@@ -363,6 +370,31 @@ void Keymap::loadLayout(ZString lname, ZBinary layout){
     for(zu64 i = 0; i < keymaps_json_size / sizeof(unsigned); ++i){
         zu64 len = keymaps_json_sizes[i];
         ZString str(keymaps_json[i], len);
+
+    #if USE_NLOHMANN_JSON
+        auto json = nlohmann::json::parse(str.str());
+        ZString name = json["name"].get<std::string>();
+        if(name == layout_name){
+            auto j1 = json["layout"];
+            for(auto it = j1.cbegin(); it != j1.cend(); ++it){
+                auto j2 = *it;
+                for(auto jt = j2.cbegin(); jt != j2.cend(); ++jt){
+                    int width = *jt;
+                    Key k;
+                    k.width = width & LAYOUT_MASK;
+                    k.space = width & LAYOUT_SP;
+                    if(!k.space){
+                        lkeys++;
+                        lkmap[lkeys] = wlayout.size();
+                    }
+                    wlayout.push(k);
+                }
+                wlayout[wlayout.size() - 1].newrow = true;
+            }
+            found = true;
+            break;
+        }
+    #else
         ZJSON json;
         zassert(json.decode(str), "layout json decode");
         zassert(json.type() == ZJSON::OBJECT, "layout json object");
@@ -392,6 +424,7 @@ void Keymap::loadLayout(ZString lname, ZBinary layout){
             found = true;
             break;
         }
+#endif
     }
     zassert(found, "layout not known");
 

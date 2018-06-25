@@ -2,3 +2,6 @@
 	path = libchaos
 	url = https://gitlab.com/ChaoticEnigma/libchaos.git
 	branch = patches/pok3r
+[submodule "nlohmann_json"]
+	path = nlohmann_json
+	url = https://github.com/nlohmann/json
