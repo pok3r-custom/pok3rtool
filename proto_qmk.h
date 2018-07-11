@@ -69,6 +69,11 @@ public:
     ZPointer<Keymap> loadKeymap();
     bool uploadKeymap(ZPointer<Keymap> keymap);
 
+    bool getKeymapInfo(ZBinary &info);
+
+    bool getLayouts(ZArray<ZString> &layouts);
+    bool setLayout(zu8 layout);
+
     bool readEEPROM(zu32 addr, ZBinary &bin);
     bool writeEEPROM(zu32 addr, ZBinary bin);
     bool eraseEEPROM(zu32 addr);

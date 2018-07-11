@@ -488,15 +488,15 @@ zu32 ProtoCYKB::crcFlash(zu32 addr, zu32 len){
     LOG("crc " << HEX(crc));
 
     // SUM command
-//    ZBinary data2;
-//    data2.writeleu32(addr - VER_ADDR);
-//    //data2.writeleu32(0);
-//    data2.writeleu32(len);
-//    if(!sendRecvCmd(FW, FW_SUM, data2))
-//        return 0;
-//    data2.seek(4);
-//    zu32 sum = data2.readleu32();
-//    LOG("sum " << HEX(sum));
+    ZBinary data2;
+    data2.writeleu32(addr - VER_ADDR);
+    //data2.writeleu32(0);
+    data2.writeleu32(len);
+    if(!sendRecvCmd(FW, FW_SUM, data2))
+        return 0;
+    data2.seek(4);
+    zu32 sum = data2.readleu32();
+    LOG("sum " << HEX(sum));
 
     return crc;
 }

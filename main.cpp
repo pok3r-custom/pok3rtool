@@ -361,7 +361,7 @@ int cmd_keymap(Param *param){
         if(param->args[1] == "dump"){
             qmk->keymapDump();
 
-        } else if(param->args[1] == "layouts"){
+        } else if(param->args[1] == "knownlayouts"){
             zu64 n = keymaps_json_size / sizeof(unsigned);
             for(zu64 i = 0; i < n; ++i){
                 zu64 len = keymaps_json_sizes[i];
@@ -432,6 +432,32 @@ int cmd_keymap(Param *param){
             }
             LOG("Reset Keymap");
             LOG(qmk->resetKeymap());
+
+        } else if(param->args[1] == "layouts"){
+            LOG("Layouts");
+            ZArray<ZString> layouts;
+            qmk->getLayouts(layouts);
+            for(zu8 i = 0; i < layouts.size(); ++i){
+                LOG(i << ": " << layouts[i]);
+            }
+
+        } else if(param->args[1] == "setlayout"){
+            if(param->args.size() != 3){
+                ELOG("Usage: pok3rtool keymap setlayout <layout>");
+                return -2;
+            }
+            ZString layout = param->args[2];
+            ZArray<ZString> layouts;
+            qmk->getLayouts(layouts);
+            for(zu8 i = 0; i < layouts.size(); ++i){
+                if(layouts[i] == layout){
+                    LOG("Set Layout " << layout);
+                    LOG(qmk->setLayout(i));
+                    return 0;
+                }
+            }
+            LOG("No Such Layout " << layout);
+            return -3;
 
         } else {
             LOG("Usage: pok3rtool keymap");

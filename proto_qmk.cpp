@@ -155,10 +155,8 @@ ZBinary ProtoQMK::getMatrix(){
 
 ZPointer<Keymap> ProtoQMK::loadKeymap(){
     DLOG("loadKeymap");
-    // Send command
     ZBinary data;
-    if(!sendRecvCmdQmk(CMD_KEYMAP, SUB_KM_INFO, data))
-        return nullptr;
+    getKeymapInfo(data);
 
     const zu8 layers = data[0];
     const zu8 rows = data[1];
@@ -170,26 +168,8 @@ ZPointer<Keymap> ProtoQMK::loadKeymap(){
     const zu16 ksize = rows * cols;
     const zu16 kmsize = kcsize * rows * cols;
 
-    // Read layout strs
-    ZBinary lstr;
-    for(zu32 off = 0; true; off += 60){
-        ZBinary dump;
-        if(!readKeymap(KM_READ_LSTRS + off, dump))
-            return nullptr;
-        lstr.write(dump);
-
-        bool nullt = false;
-        for(zu64 i = 0; i < dump.size(); ++i){
-            if(dump[i] == 0){
-                nullt = true;
-                break;
-            }
-        }
-        if(nullt)
-            break;
-    }
-    lstr.nullTerm();
-    ZArray<ZString> lstrs = ZString(lstr.asChar()).explode(',');
+    ZArray<ZString> lstrs;
+    getLayouts(lstrs);
     zassert(lstrs.size() == nlayout, "Layout string count does not match num layouts");
 
     // Read layouts
@@ -255,6 +235,44 @@ bool ProtoQMK::uploadKeymap(ZPointer<Keymap> keymap){
 
     // update cached matrix
     cachedMatrix = map;
+    return true;
+}
+
+bool ProtoQMK::getKeymapInfo(ZBinary &info){
+    if(!sendRecvCmdQmk(CMD_KEYMAP, SUB_KM_INFO, info))
+        return false;
+    return true;
+}
+
+bool ProtoQMK::getLayouts(ZArray<ZString> &layouts){
+    // Read layout strs
+    ZBinary lstr;
+    for(zu32 off = 0; true; off += 60){
+        ZBinary dump;
+        if(!readKeymap(KM_READ_LSTRS + off, dump))
+            return false;
+        lstr.write(dump);
+
+        bool nullt = false;
+        for(zu64 i = 0; i < dump.size(); ++i){
+            if(dump[i] == 0){
+                nullt = true;
+                break;
+            }
+        }
+        if(nullt)
+            break;
+    }
+    lstr.nullTerm();
+    layouts = ZString(lstr.asChar()).explode(',');
+    return true;
+}
+
+bool ProtoQMK::setLayout(zu8 layout){
+    ZBinary data;
+    data.writeu8(layout);
+    if(!sendRecvCmdQmk(CMD_CTRL, SUB_CT_LAYOUT, data))
+        return false;
     return true;
 }
 
