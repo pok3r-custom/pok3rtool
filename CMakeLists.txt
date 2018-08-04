@@ -31,14 +31,15 @@ set(POK3RLIB_SOURCES
     keymap.h
     keymap.cpp
 
-    updatepackage.h
-    updatepackage.cpp
-
     ${GEN_KEYMAPS_HEADER}
 )
 
 set(POK3RTOOL_SOURCES
     main.cpp
+
+    updatepackage.h
+    updatepackage.cpp
+
     ${GEN_KEYMAPS_HEADER}
 )
 
@@ -50,12 +51,12 @@ set(FILES
 
 ### =================== BUILD =================== ###
 
-add_custom_target(pok3rtool-dummy SOURCES ${FILES})
+#add_custom_target(pok3rtool-dummy SOURCES ${FILES})
 
 # Pok3rLib
-add_library(pok3rlib SHARED ${POK3RLIB_SOURCES})
+add_library(pok3rlib STATIC ${POK3RLIB_SOURCES})
 set_property(TARGET pok3rlib PROPERTY CXX_STANDARD 11)
-target_link_libraries(pok3rlib chaos rawhid nlohmann_json ${LIBUSB_1_LIBRARIES})
+target_link_libraries(pok3rlib chaos-static rawhid nlohmann_json ${LIBUSB_1_LIBRARIES})
 #set_property(TARGET chaos-static PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(pok3rlib PRIVATE ${LIBUSB_1_INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_BINARY_DIR})
 target_compile_definitions(pok3rlib PRIVATE ${LIBUSB_1_DEFINITIONS})
@@ -63,7 +64,7 @@ target_compile_definitions(pok3rlib PRIVATE ${LIBUSB_1_DEFINITIONS})
 # Pok3rTool
 add_executable(pok3rtool ${POK3RTOOL_SOURCES})
 set_property(TARGET pok3rtool PROPERTY CXX_STANDARD 11)
-target_link_libraries(pok3rtool chaos pok3rlib)
+target_link_libraries(pok3rtool pok3rlib)
 target_include_directories(pok3rtool PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 if(WIN32)
@@ -122,12 +123,12 @@ function(create_resources dir output name)
         # Convert hex data for C compatibility
         string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," filedata ${filedata})
         # Append data to output file
-        file(APPEND ${output} "const unsigned char ${filename}[] = {${filedata}};\nconst unsigned ${filename}_size = sizeof(${filename});\n")
+        file(APPEND ${output} "static const unsigned char ${filename}[] = {${filedata}};\nstatic const unsigned ${filename}_size = sizeof(${filename});\n")
         set(filenames "${filenames}${filename},")
         set(filename_sizes "${filename_sizes}${filename}_size,")
     endforeach()
 
-    file(APPEND ${output} "const unsigned char *${name}[] = {${filenames}};\nconst unsigned ${name}_sizes[] = {${filename_sizes}};\nconst unsigned ${name}_size = sizeof(${name}_sizes);")
+    file(APPEND ${output} "static const unsigned char *${name}[] = {${filenames}};\nstatic const unsigned ${name}_sizes[] = {${filename_sizes}};\nstatic const unsigned ${name}_size = sizeof(${name}_sizes);")
 endfunction()
 
 create_resources("keymaps" "${GEN_KEYMAPS_HEADER}" "keymaps_json")
