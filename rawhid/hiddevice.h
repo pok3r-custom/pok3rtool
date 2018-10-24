@@ -1,24 +1,25 @@
 #ifndef HIDDEVICE_H
 #define HIDDEVICE_H
 
+#include "hid.h"
 #include <functional>
 
 #include "zbinary.h"
 #include "zpointer.h"
 using namespace LibChaos;
 
-#define SEND_TIMEOUT    200
-#define RECV_TIMEOUT    200
+#define SEND_TIMEOUT        200
+#define RECV_TIMEOUT        200
+#define RECV_TIMEOUT_MAX    1000
 
 struct rawhid_detail;
-struct HIDDeviceData;
 
 class HIDDevice {
 public:
     typedef bool (*filter_func_type)(zu16 vid, zu16 pid, zu16 upage, zu16 usage);
 public:
     HIDDevice();
-    HIDDevice(void *hidt);
+    HIDDevice(hid_t *hidt);
 
     HIDDevice(const HIDDevice &other) = delete;
     ~HIDDevice();
@@ -32,10 +33,10 @@ public:
 
     static ZArray<ZPointer<HIDDevice>> openAll(zu16 vid, zu16 pid, zu16 usage_page, zu16 usage);
 
-    static zu32 openFilter(std::function<bool(const rawhid_detail *)> func);
+    static zu32 openFilter(std::function<bool(rawhid_detail *)> func);
 
 private:
-    HIDDeviceData *device;
+    hid_t *hid;
 };
 
 #endif // HIDDEVICE_H

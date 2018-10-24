@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <windows.h>
 #include <setupapi.h>
 #include <hidsdi.h>
@@ -348,6 +349,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
     int opencount = 0;
 
     struct rawhid_detail detail;
+    memset(&detail, 0, sizeof(struct rawhid_detail));
 
     if (!rx_event) {
         rx_event = CreateEvent(NULL, TRUE, TRUE, NULL);

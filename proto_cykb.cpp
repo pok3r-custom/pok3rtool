@@ -10,22 +10,23 @@
 
 #define FLASH_LEN           0x10000
 
-#define WAIT_SLEEP          2
+#define WAIT_SLEEP          5
+#define ERASE_SLEEP         2
 
 #define HEX(A) (ZString::ItoS((zu64)(A), 16))
 
 ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
-    builtin(false), debug(false), nop(false),
-    vid(vid_), pid(pid_), boot_pid(boot_pid_),
-    dev(new HIDDevice){
+    ProtoCYKB(vid_, pid_, boot_pid_, false, new HIDDevice)
+{
 
 }
 
 ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPointer<HIDDevice> dev_) :
+    ProtoQMK(PROTO_CYKB, dev_),
     builtin(builtin_), debug(false), nop(false),
-    vid(vid_), pid(pid_), boot_pid(boot_pid_),
-    dev(dev_){
-
+    vid(vid_), pid(pid_), boot_pid(boot_pid_)
+{
+    //dev->setStream(true);
 }
 
 ProtoCYKB::~ProtoCYKB(){
@@ -54,15 +55,15 @@ bool ProtoCYKB::isOpen() const {
     return dev->isOpen();
 }
 
-bool ProtoCYKB::isBuiltin() const {
+bool ProtoCYKB::isBuiltin(){
     return builtin;
 }
 
 bool ProtoCYKB::rebootFirmware(bool reopen){
-//    if(!builtin){
-////        LOG("In Firmware");
-//        return true;
-//    }
+    if(!builtin){
+//        LOG("In Firmware");
+        return true;
+    }
 
     LOG("Reset to Firmware");
     if(!sendCmd(RESET, RESET_FW))
@@ -84,10 +85,10 @@ bool ProtoCYKB::rebootFirmware(bool reopen){
 }
 
 bool ProtoCYKB::rebootBootloader(bool reopen){
-//    if(builtin){
-////        LOG("In Bootloader");
-//        return true;
-//    }
+    if(builtin){
+//        LOG("In Bootloader");
+        return true;
+    }
 
     LOG("Reset to Bootloader");
     if(!sendCmd(RESET, RESET_BL))
@@ -138,10 +139,10 @@ bool ProtoCYKB::getInfo(){
 }
 
 ZString ProtoCYKB::getVersion(){
-    ZBinary data;
+    DLOG("getVersion");
 
     // version 1
-    data.clear();
+    ZBinary data;
     if(!sendRecvCmd(READ, READ_VER1, data))
         return "ERROR";
 //    RLOG(data.dumpBytes(4, 8));
@@ -157,36 +158,39 @@ ZString ProtoCYKB::getVersion(){
         zu32 len = MIN(data.readleu32(), 60U);
         ver.parseUTF16((zu16 *)(data.raw() + 8), len);
     }
+    DLOG("version: " << ver);
 
     // version 2
-//    data.clear();
-//    if(!sendRecvCmd(READ, READ_VER2, data))
+//    ZBinary data2;
+//    if(!sendRecvCmd(READ, READ_VER2, data2))
 //        return "ERROR";
-//    RLOG(data.dumpBytes(4, 8));
+//    DLOG("ver2:");
+//    DLOG(ZLog::RAW << data2.getSub(4).dumpBytes(4, 8));
 
     return ver;
 }
 
-bool ProtoCYKB::clearVersion(){
+KBStatus ProtoCYKB::clearVersion(){
     DLOG("clearVersion");
     if(!rebootBootloader())
-        return false;
+        return ERR_FAIL;
 
     if(!eraseFlash(VER_ADDR, 0xB4))
-        return false;
+        return ERR_FAIL;
 
     ZBinary data;
     if(!sendRecvCmd(READ, READ_VER2, data))
-        return false;
+        return ERR_FAIL;
 
     ZBinary tst;
     tst.fill(0xFF, 60);
     if(data.getSub(4) != tst){
         ELOG("version not cleared");
-        return false;
+        ELOG(ZLog::RAW << data.dumpBytes(4, 8));
+        return ERR_FLASH;
     }
 
-    return true;
+    return SUCCESS;
 }
 
 const zu32 ver2[15] = {
@@ -196,12 +200,13 @@ const zu32 ver2[15] = {
     0xffffffff, 0xffffffff, 0x001c5aa5,
 };
 
-bool ProtoCYKB::setVersion(ZString version){
+KBStatus ProtoCYKB::setVersion(ZString version){
     DLOG("setVersion " << version);
-    if(!clearVersion())
-        return false;
+    auto status = clearVersion();
+    if(status != SUCCESS)
+        return status;
 
-    LOG("Write Version...");
+    LOG("Writing Version: " << version);
 
     // UTF-16 encoded version string
     zu16 str[256];
@@ -224,43 +229,51 @@ bool ProtoCYKB::setVersion(ZString version){
     // write version
     if(!writeFlash(VER_ADDR, vdata)){
         ELOG("write error");
-        return false;
+        return ERR_FAIL;
     }
 
     // check version
     ZBinary data;
     if(!sendRecvCmd(READ, READ_VER2, data))
-        return false;
+        return ERR_FAIL;
     ZBinary cdata(ver2, sizeof(ver2));
     if(data.getSub(4) != cdata){
         ELOG("failed to set version");
-        return false;
+        return ERR_FLASH;
     }
 
     ZString nver = getVersion();
-    LOG("New Version: " << nver);
+//    LOG("New Version: " << nver);
     if(nver != version){
         ELOG("failed to set version string");
-        return false;
+        return ERR_FLASH;
     }
 
-    return true;
+    return SUCCESS;
 }
 
 ZBinary ProtoCYKB::dumpFlash(){
     ZBinary dump;
+    /*
     for(zu16 i = 0; i < FLASH_LEN - 60; i += 60){
         if(!readFlash(i, dump))
             return dump;
     }
+    */
 
     // readable flash is not a multiple of 60,
     // so read the last little bit for a full dump
-
+    /*
     ZBinary tmp;
     if(!readFlash(FLASH_LEN - 60, tmp))
         return dump;
     dump.write(tmp.raw() + 44, 16);
+    */
+
+    for(zu16 i = 0; i < FLASH_LEN - 60; i += 60){
+        if(!readFlash(i, dump))
+            return dump;
+    }
 
     return dump;
 }
@@ -269,8 +282,10 @@ bool ProtoCYKB::writeFirmware(const ZBinary &fwbinin){
     ZBinary fwbin = fwbinin;
     // Encode the firmware for the POK3R RGB
     encode_firmware(fwbin);
+    zu32 crc0 = ZHash<ZBinary, ZHashBase::CRC32>(fwbinin).hash();
+    LOG("Firmware CRC D: " << ZString::ItoS((zu64)crc0, 16, 8));
     zu32 crc1 = ZHash<ZBinary, ZHashBase::CRC32>(fwbin).hash();
-    LOG("Firmware CRC: " << ZString::ItoS((zu64)crc1, 16, 8));
+    LOG("Firmware CRC E: " << ZString::ItoS((zu64)crc1, 16, 8));
 
 //    zu32 ccrc = crcFlash(FW_ADDR, 0xc000);
     zu32 ccrc = crcFlash(FW_ADDR, fwbin.size());
@@ -296,29 +311,6 @@ bool ProtoCYKB::writeFirmware(const ZBinary &fwbinin){
     }
 
     return true;
-}
-
-bool ProtoCYKB::update(ZString version, const ZBinary &fwbin){
-    // Reset to bootloader
-    if(!rebootBootloader())
-        return false;
-
-    LOG("Current Version: " << getVersion());
-
-    if(!clearVersion())
-        return false;
-
-    if(!writeFirmware(fwbin))
-        return false;
-
-    if(!setVersion(version))
-        return false;
-
-    // Reset to firmware
-    if(!rebootFirmware())
-        return false;
-    return true;
-
 }
 
 bool ProtoCYKB::eraseAndCheck(){
@@ -400,7 +392,7 @@ void ProtoCYKB::test(){
 }
 
 bool ProtoCYKB::eraseFlash(zu32 start, zu32 length){
-    DLOG("eraseFlash 0x" << HEX(start) << " 0x" << HEX(length));
+    DLOG("eraseFlash 0x" << HEX(start) << " " << length);
     if(start < VER_ADDR){
         ELOG("bad address");
         return false;
@@ -410,10 +402,13 @@ bool ProtoCYKB::eraseFlash(zu32 start, zu32 length){
     data.writeleu32(start - VER_ADDR);
     data.writeleu32(length);
 
-    if(!sendRecvCmd(FW, FW_ERASE, data))
+    if(!sendCmd(FW, FW_ERASE, data))
         return false;
 
-    return true;
+    // give time for erase
+    ZThread::sleep(ERASE_SLEEP);
+
+    return recvCmd(data);
 }
 
 bool ProtoCYKB::readFlash(zu32 addr, ZBinary &bin){
@@ -422,7 +417,6 @@ bool ProtoCYKB::readFlash(zu32 addr, ZBinary &bin){
     data.writeleu32(addr);
     if(!sendRecvCmd(READ, READ_ADDR, data))
         return false;
-
     bin.write(data.raw() + 4, 60);
     return true;
 }
@@ -453,12 +447,22 @@ bool ProtoCYKB::writeFlash(zu32 addr, ZBinary bin){
     }
 
     // Write
+    zu16 pos = addr - VER_ADDR;
     bin.rewind();
     while(!bin.atEnd()){
         ZBinary data;
         bin.read(data, 52);
+        //bin.read(data, 60);
+        zu8 sz = data.size();
+        DLOG("write " << HEX(VER_ADDR + pos) << ", " << sz << " bytes");
         if(!sendRecvCmd(WRITE, data.size(), data))
             return false;
+        data.seek(4);
+        zu16 next = data.readleu16();
+        pos += sz;
+        if(next != pos){
+            ELOG("write sequence error " << HEX(next) << " " << HEX(pos));
+        }
     }
 
     return true;
@@ -472,16 +476,33 @@ zu32 ProtoCYKB::crcFlash(zu32 addr, zu32 len){
 
     DLOG("crcFlash 0x" << HEX(addr) << " 0x" << HEX(len));
 
-    ZBinary data;
-    data.writeleu32(addr - VER_ADDR);
-    data.writeleu32(len);
-
     // CRC command
-    if(!sendRecvCmd(FW, FW_CRC, data))
+    ZBinary data1;
+    data1.writeleu32(addr - VER_ADDR);
+    //data1.writeleu32(0);
+    data1.writeleu32(len);
+    if(!sendRecvCmd(FW, FW_CRC, data1))
         return 0;
+    data1.seek(4);
+    zu32 crc = data1.readleu32();
+    LOG("crc " << HEX(crc));
 
-    data.seek(4);
-    return data.readleu32();
+    // SUM command
+    ZBinary data2;
+    data2.writeleu32(addr - VER_ADDR);
+    //data2.writeleu32(0);
+    data2.writeleu32(len);
+    if(!sendRecvCmd(FW, FW_SUM, data2))
+        return 0;
+    data2.seek(4);
+    zu32 sum = data2.readleu32();
+    LOG("sum " << HEX(sum));
+
+    return crc;
+}
+
+zu32 ProtoCYKB::baseFirmwareAddr() const {
+    return FW_ADDR;
 }
 
 bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){
@@ -497,6 +518,10 @@ bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){
     packet.seek(4);
     packet.write(data);     // data
 
+//    packet.seek(2);
+//    zu16 crc = ZHash<ZBinary, ZHashBase::CRC16>(packet).hash();
+//    packet.writeleu16(crc); // CRC
+
     DLOG("send:");
     DLOG(ZLog::RAW << packet.dumpBytes(4, 8));
 
@@ -508,10 +533,7 @@ bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){
     return true;
 }
 
-bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
-    if(!sendCmd(cmd, a1, data))
-        return false;
-
+bool ProtoCYKB::recvCmd(ZBinary &data){
     // Recv packet
     data.resize(UPDATE_PKT_LEN);
     if(!dev->recv(data)){
@@ -519,19 +541,38 @@ bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
         return false;
     }
 
+    if(data.size() != UPDATE_PKT_LEN){
+        DLOG("bad recv size");
+        return false;
+    }
+
     DLOG("recv:");
     DLOG(ZLog::RAW << data.dumpBytes(4, 8));
+
+//    data.seek(2);
+//    zu16 crc0 = data.readleu16();
+//    data.seek(2);
+//    data.writeleu16(0);
+//    data.rewind();
+//    zu16 crc1 = ZHash<ZBinary, ZHashBase::CRC16>(data).hash();
+//    DLOG("crc: " << HEX(crc0) << " " << HEX(crc1));
 
     // Check error
     data.rewind();
     if(data.readleu16() == UPDATE_ERROR){
-        ELOG("error response: " << HEX(data[4]) << " " << HEX(data[5]));
-        ELOG(ZLog::RAW << data.dumpBytes(4, 8));
+        DLOG("error response: " << HEX(data[4]) << " " << HEX(data[5]));
+        DLOG(ZLog::RAW << data.dumpBytes(4, 8));
         return false;
     }
     data.rewind();
 
     return true;
+}
+
+bool ProtoCYKB::sendRecvCmd(zu8 cmd, zu8 a1, ZBinary &data){
+    if(!sendCmd(cmd, a1, data))
+        return false;
+    return recvCmd(data);
 }
 
 // POK3R RGB XOR encryption/decryption key

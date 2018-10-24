@@ -1,17 +1,17 @@
 #include "kbscan.h"
 #include "proto_pok3r.h"
 #include "proto_cykb.h"
+#include "keymap.h"
 #include "updatepackage.h"
+#include "gen_keymaps.h"
 
 #include "zlog.h"
 #include "zfile.h"
 #include "zpointer.h"
 #include "zmap.h"
 #include "zoptions.h"
+#include "zjson.h"
 using namespace LibChaos;
-
-#define UPDATE_USAGE_PAGE   0xff00
-#define UPDATE_USAGE        0x01
 
 #include <iostream>
 
@@ -21,71 +21,80 @@ using namespace LibChaos;
 struct Param {
     bool ok;
     ZArray<ZString> args;
-    Device device;
+    DeviceType device;
 };
 
 // Constants
 // ////////////////////////////////
 
-const ZMap<ZString, Device> devnames = {
-    { "pok3r",          DEV_POK3R },
+const ZMap<ZString, DeviceType> devnames = {
+    { "pok3r",              DEV_POK3R },
 
-    { "pok3r-rgb",      DEV_POK3R_RGB },
-    { "pok3r_rgb",      DEV_POK3R_RGB },
+    { "rgb",                DEV_POK3R_RGB },
+    { "pok3r-rgb",          DEV_POK3R_RGB },
+    { "pok3r_rgb",          DEV_POK3R_RGB },
 
-    { "core",           DEV_VORTEX_CORE },
-    { "vortex-core",    DEV_VORTEX_CORE },
-    { "vortex_core",    DEV_VORTEX_CORE },
+    { "rgb2",               DEV_POK3R_RGB2 },
+    { "pok3r-rgb2",         DEV_POK3R_RGB2 },
+    { "pok3r_rgb2",         DEV_POK3R_RGB2 },
+
+    { "core",               DEV_VORTEX_CORE },
+    { "vortex-core",        DEV_VORTEX_CORE },
+    { "vortex_core",        DEV_VORTEX_CORE },
     
-    { "race3",          DEV_VORTEX_RACE3 },
-    { "vortex-race3",   DEV_VORTEX_RACE3 },
-    { "vortex_race3",   DEV_VORTEX_RACE3 },
+    { "race3",              DEV_VORTEX_RACE3 },
+    { "vortex-race3",       DEV_VORTEX_RACE3 },
+    { "vortex_race3",       DEV_VORTEX_RACE3 },
 
-    { "tester",         DEV_VORTEX_TESTER },
-    { "vortex-tester",  DEV_VORTEX_TESTER },
-    { "vortex_tester",  DEV_VORTEX_TESTER },
+    { "tester",             DEV_VORTEX_TESTER },
+    { "vortex-tester",      DEV_VORTEX_TESTER },
+    { "vortex_tester",      DEV_VORTEX_TESTER },
 
-    { "vibe",           DEV_VORTEX_VIBE },
-    { "vortex-vibe",    DEV_VORTEX_VIBE },
-    { "vortex_vibe",    DEV_VORTEX_VIBE },
+    { "vibe",               DEV_VORTEX_VIBE },
+    { "vortex-vibe",        DEV_VORTEX_VIBE },
+    { "vortex_vibe",        DEV_VORTEX_VIBE },
 
-    { "kbpv60",         DEV_KBP_V60 },
-    { "kbp-v60",        DEV_KBP_V60 },
-    { "kbp_v60",        DEV_KBP_V60 },
+    { "kbpv60",             DEV_KBP_V60 },
+    { "kbp-v60",            DEV_KBP_V60 },
+    { "kbp_v60",            DEV_KBP_V60 },
 
-    { "kbpv80",         DEV_KBP_V80 },
-    { "kbp-v80",        DEV_KBP_V80 },
-    { "kbp_v80",        DEV_KBP_V80 },
+    { "kbpv80",             DEV_KBP_V80 },
+    { "kbp-v80",            DEV_KBP_V80 },
+    { "kbp_v80",            DEV_KBP_V80 },
 
-    { "yoda2",          DEV_TEX_YODA_II },
-    { "tex-yoda-2",     DEV_TEX_YODA_II },
-    { "tex_yoda_2",     DEV_TEX_YODA_II },
-    { "tex-yoda-ii",    DEV_TEX_YODA_II },
-    { "tex_yoda_ii",    DEV_TEX_YODA_II },
-
-    { "pok3r_qmk",      DEV_POK3R_QMK },
+    { "yoda2",              DEV_TEX_YODA_II },
+    { "tex-yoda-2",         DEV_TEX_YODA_II },
+    { "tex_yoda_2",         DEV_TEX_YODA_II },
+    { "tex-yoda-ii",        DEV_TEX_YODA_II },
+    { "tex_yoda_ii",        DEV_TEX_YODA_II },
 };
 
 // Functions
 // ////////////////////////////////
 
-ZPointer<UpdateInterface> openDevice(Device dev){
+ZPointer<KBProto> openDevice(DeviceType dev){
     KBScan scanner;
-    if(!scanner.find(dev))
+    if(!scanner.find(dev)){
+        LOG("No device found, check connection and permissions");
         return nullptr;
+    }
 
     auto devs = scanner.open();
-    for (auto it = devs.begin(); it.more(); ++it){
-        auto kb = it.get();
+    if(devs.size() == 1){
+        auto kb = devs.front();
         if(kb.iface->isOpen()){
-            if(kb.iface->isBuiltin()){
-                LOG("Opened " << kb.info.name << " (bootloader)");
-            } else {
-                LOG("Opened " << kb.info.name);
-            }
+            LOG("Opened " << kb.info.name <<
+                (kb.iface->isBuiltin() ? " (bootloader)" : "") <<
+                (kb.iface->isQMK() ? " [QMK]" : "")
+            );
             return kb.iface;
+        } else {
+            ELOG("Device found but not opened: " << kb.info.name);
         }
-        return nullptr;
+    } else if(devs.size() > 1){
+        ELOG("Multiple identical devices found, disconnect devices other than target");
+    } else {
+        ELOG("No device to open?");
     }
     return nullptr;
 }
@@ -115,7 +124,10 @@ int cmd_list(Param *param){
     scanner.scan();
     auto devs = scanner.open();
     for (auto it = devs.begin(); it.more(); ++it){
-        LOG(it.get().info.name << (it.get().iface->isBuiltin() ? " (bootloader)" : "") <<": " << it.get().iface->getVersion());
+        LOG(it.get().info.name <<
+            (it.get().iface->isBuiltin() ? " (bootloader)" : "") <<
+            (it.get().iface->isQMK() ? " [QMK]" : "") <<
+            ": " << it.get().iface->getVersion());
     }
 
     return 0;
@@ -123,7 +135,7 @@ int cmd_list(Param *param){
 
 int cmd_version(Param *param){
     // Read Version
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG("Version: " << kb->getVersion());
         return 0;
@@ -137,7 +149,7 @@ int cmd_setversion(Param *param){
 
     ZString version = param->args[1];
     // Set Version
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG("Old Version: " << kb->getVersion());
         LOG(kb->setVersion(version));
@@ -152,9 +164,14 @@ int cmd_info(Param *param){
         warning();
 
     // Get Info
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
-        LOG(kb->getInfo());
+        if(kb->isQMK()){
+            ProtoQMK *qmk = dynamic_cast<ProtoQMK *>(kb.get());
+            LOG(qmk->qmkInfo());
+        } else {
+            LOG(kb->getInfo());
+        }
         return 0;
     }
     return -1;
@@ -162,11 +179,11 @@ int cmd_info(Param *param){
 
 int cmd_reboot(Param *param){
     // Reset to Firmware
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
-        LOG(kb->rebootFirmware());
+        LOG(kb->rebootFirmware(false));
         // Read version
-        LOG("Version: " << kb->getVersion());
+//        LOG("Version: " << kb->getVersion());
         return 0;
     }
     return -1;
@@ -174,11 +191,11 @@ int cmd_reboot(Param *param){
 
 int cmd_bootloader(Param *param){
     // Reset to Bootloader
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
-        LOG(kb->rebootBootloader());
+        LOG(kb->rebootBootloader(false));
         // Read version
-        LOG("Version: " << kb->getVersion());
+//        LOG("Version: " << kb->getVersion());
         return 0;
     }
     return -1;
@@ -190,12 +207,12 @@ int cmd_dump(Param *param){
 
     ZPath out = param->args[1];
     // Dump Flash
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG("Dump Flash");
         ZBinary bin = kb->dumpFlash();
-        RLOG(bin.dumpBytes(4, 8));
-        LOG("Out: " << out);
+//        RLOG(bin.dumpBytes(4, 8));
+        LOG("Out: " << out << ", " << bin.size() << " bytes");
         ZFile::writeBinary(out, bin);
         return 0;
     }
@@ -213,7 +230,7 @@ int cmd_flash(Param *param){
         LOG("Please specifiy a device");
         return 2;
     }
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG("Update Firmware: " << firmware);
         ZBinary fwbin;
@@ -241,7 +258,7 @@ int cmd_wipe(Param *param){
         LOG("Please specifiy a device");
         return 2;
     }
-    ZPointer<UpdateInterface> kb = openDevice(param->device);
+    ZPointer<KBProto> kb = openDevice(param->device);
     if(kb.get()){
         LOG("Erase Firmware");
         bool ret = kb->eraseAndCheck();
@@ -268,6 +285,209 @@ int cmd_decode(Param *param){
     return 0;
 }
 
+int cmd_eeprom(Param *param){
+    ZPointer<KBProto> kb = openDevice(param->device);
+    if(kb.get()){
+        if(!kb->isQMK()){
+            ELOG("Not a QMK keyboard!");
+            return -2;
+        }
+        ProtoQMK *qmk = dynamic_cast<ProtoQMK *>(kb.get());
+
+        if(param->args[1] == "dump"){
+            if(param->args.size() != 3){
+                ELOG("Usage: pok3rtool eeprom dump <out file>");
+                return -2;
+            }
+            ZPath out = param->args[2];
+            LOG("Dump EEPROM");
+            ZBinary bin = qmk->dumpEEPROM();
+            LOG("Out: " << out << ", " << bin.size() << " bytes");
+            ZFile::writeBinary(out, bin);
+
+        } else if(param->args[1] == "erase"){
+            if(param->args.size() != 3){
+                ELOG("Usage: pok3rtool eeprom erase <addr>");
+                return -2;
+            }
+            zu32 addr = param->args[2].toUint(16);
+            LOG("Erase EEPROM Page 0x" << ZString::ItoS((zu64)addr, 16));
+            LOG(qmk->eraseEEPROM(addr));
+
+        } else if(param->args[1] == "wipe"){
+            LOG("Wipe EEPROM");
+            for(zu32 i = 0; i < 128; ++i){
+                LOG(qmk->eraseEEPROM(i << 12));
+                ZThread::msleep(500);
+            }
+
+        } else if(param->args[1] == "keymap"){
+            if(param->args.size() != 2){
+                ELOG("Usage: pok3rtool eeprom keymap");
+                return -2;
+            }
+            LOG("EEPROM Keymap");
+            ZBinary eebin;
+            for(zu32 addr = QMK_EE_KEYM_PAGE; addr < QMK_EE_KEYM_PAGE + QMK_EE_PAGE_SIZE; addr += 60){
+                if(!qmk->readEEPROM(addr, eebin))
+                    break;
+            }
+            zassert(eebin.size() > QMK_EE_PAGE_SIZE);
+            eebin.resize(QMK_EE_PAGE_SIZE);
+            RLOG(eebin.dumpBytes(4, 8, QMK_EE_KEYM_PAGE));
+
+        } else if(param->args[1] == "test"){
+            LOG("EEPROM Test");
+            bool ret = qmk->eepromTest();
+            LOG(ret);
+
+        } else {
+            LOG("Usage: pok3rtool eeprom");
+        }
+        return 0;
+    }
+    return -1;
+}
+
+int cmd_keymap(Param *param){
+    ZPointer<KBProto> kb = openDevice(param->device);
+    if(kb.get()){
+        if(!kb->isQMK()){
+            ELOG("Not a QMK keyboard!");
+            return -2;
+        }
+        ProtoQMK *qmk = dynamic_cast<ProtoQMK *>(kb.get());
+
+        if(param->args[1] == "dump"){
+            qmk->keymapDump();
+
+        } else if(param->args[1] == "knownlayouts"){
+            zu64 n = keymaps_json_size / sizeof(unsigned);
+            for(zu64 i = 0; i < n; ++i){
+                zu64 len = keymaps_json_sizes[i];
+                ZString str(keymaps_json[i], len);
+                ZJSON json;
+                zassert(json.decode(str), "layout json decode");
+                zassert(json.type() == ZJSON::OBJECT, "layout json object");
+                zassert(json.object().contains("name"), "layout json name");
+                zassert(json["name"].type() == ZJSON::STRING, "layout json name type");
+                LOG(i << " " << len << " " << json["name"].string());
+            }
+
+        } else if(param->args[1] == "set"){
+            if(param->args.size() != 5 && param->args.size() != 6){
+                ELOG("Usage: pok3rtool keymap set <layer> [<key_row> <key_col> | <key>] <keycode>");
+                return -2;
+            }
+
+            auto keymap = qmk->loadKeymap();
+            if(!keymap.get()){
+                ELOG("Unable to load keymap");
+                return -3;
+            }
+
+            zu8 layer;
+            zu16 kp;
+            ZString keycode;
+            if(param->args.size() == 5){
+                layer = param->args[2].toUint();
+                kp = param->args[3].toUint();
+                keycode = param->args[4];
+            } else if(param->args.size() == 6){
+                layer = param->args[2].toUint();
+                kp = keymap->layoutRC2K(param->args[3].toUint(), param->args[4].toUint());
+                keycode = param->args[5];
+            } else {
+                return -4;
+            }
+
+            Keymap::keycode kc = keymap->toKeycode(keycode);
+
+            LOG("Keymap Set: layer " << layer << ", key " << kp << " -> " << keymap->keycodeName(kc));
+
+            keymap->set(layer, kp, kc);
+            //keymap->printLayers();
+            LOG(qmk->uploadKeymap(keymap));
+
+        } else if(param->args[1] == "commit"){
+            if(param->args.size() != 2){
+                ELOG("Usage: pok3rtool keymap commit");
+                return -2;
+            }
+            LOG("Commit Keymap");
+            LOG(qmk->commitKeymap());
+
+        } else if(param->args[1] == "reload"){
+            if(param->args.size() != 2){
+                ELOG("Usage: pok3rtool keymap reload");
+                return -2;
+            }
+            LOG("Reload Keymap");
+            LOG(qmk->reloadKeymap());
+
+        } else if(param->args[1] == "reset"){
+            if(param->args.size() != 2){
+                ELOG("Usage: pok3rtool keymap reset");
+                return -2;
+            }
+            LOG("Reset Keymap");
+            LOG(qmk->resetKeymap());
+
+        } else if(param->args[1] == "layouts"){
+            LOG("Layouts");
+            ZArray<ZString> layouts;
+            qmk->getLayouts(layouts);
+            for(zu8 i = 0; i < layouts.size(); ++i){
+                LOG(i << ": " << layouts[i]);
+            }
+
+        } else if(param->args[1] == "setlayout"){
+            if(param->args.size() != 3){
+                ELOG("Usage: pok3rtool keymap setlayout <layout>");
+                return -2;
+            }
+            ZString layout = param->args[2];
+            ZArray<ZString> layouts;
+            qmk->getLayouts(layouts);
+            for(zu8 i = 0; i < layouts.size(); ++i){
+                if(layouts[i] == layout){
+                    LOG("Set Layout " << layout);
+                    LOG(qmk->setLayout(i));
+                    return 0;
+                }
+            }
+            LOG("No Such Layout " << layout);
+            return -3;
+
+        } else {
+            LOG("Usage: pok3rtool keymap");
+        }
+        return 0;
+    }
+    return -1;
+}
+
+int cmd_console(Param *param){
+    while(true){
+        ZPointer<HIDDevice> con = KBScan::openConsole(param->device);
+        if(con.get()){
+            LOG("Opened console");
+
+            ZBinary bin;
+            while(true){
+                if(con->recv(bin)){
+                    RLOG(bin.asChar());
+                } else {
+                    ELOG("Error");
+                    break;
+                }
+            }
+
+            return 0;
+        }
+    }
+}
+
 // Main
 // ////////////////////////////////
 
@@ -284,21 +504,25 @@ const ZArray<ZOptions::OptDef> optdef = {
 typedef int (*cmd_func)(Param *);
 struct CmdEntry {
     cmd_func func;
-    unsigned argn;
+    unsigned argmin;
+    unsigned argmax;
     ZString usage;
 };
 
 const ZMap<ZString, CmdEntry> cmds = {
-    { "list",       { cmd_list,         0, "list" } },
-    { "version",    { cmd_version,      0, "version" } },
-    { "setversion", { cmd_setversion,   1, "setversion <version>" } },
-    { "info",       { cmd_info,         0, "info" } },
-    { "reboot",     { cmd_reboot,       0, "reboot" } },
-    { "bootloader", { cmd_bootloader,   0, "bootloader" } },
-    { "dump",       { cmd_dump,         1, "dump <output file>" } },
-    { "flash",      { cmd_flash,        2, "flash <version> <firmware>" } },
-    { "wipe",       { cmd_wipe,        	0, "wipe" } },
-    { "decode",     { cmd_decode,       2, "decode <path to updater> <output file>" } },
+    { "list",       { cmd_list,         0, 0, "list" } },
+    { "version",    { cmd_version,      0, 0, "version" } },
+    { "setversion", { cmd_setversion,   1, 1, "setversion <version>" } },
+    { "info",       { cmd_info,         0, 0, "info" } },
+    { "reboot",     { cmd_reboot,       0, 0, "reboot" } },
+    { "bootloader", { cmd_bootloader,   0, 0, "bootloader" } },
+    { "dump",       { cmd_dump,         1, 1, "dump <flash dump>" } },
+    { "flash",      { cmd_flash,        2, 2, "flash <version> <firmware>" } },
+    { "wipe",       { cmd_wipe,        	0, 0, "wipe" } },
+    { "decode",     { cmd_decode,       2, 2, "decode <path to updater> <output file>" } },
+    { "eeprom",     { cmd_eeprom,       1, 2, "eeprom <cmd> [arg]" } },
+    { "keymap",     { cmd_keymap,       1, 5, "keymap <cmd> [arg]" } },
+    { "console",    { cmd_console,      0, 0, "console" } },
 };
 
 void printUsage(){
@@ -315,9 +539,9 @@ void printUsage(){
 int main(int argc, char **argv){
     // Log files
     ZPath lgf = ZPath("logs") + ZLog::genLogFileName("pok3rtool_");
-    ZLog::logLevelFile(ZLog::INFO, lgf, "[%clock%] N %log%");
+    ZLog::logLevelFile(ZLog::INFO, lgf, "[%clock%] %thread% N %log%");
     ZLog::logLevelFile(ZLog::DEBUG, lgf, "[%clock%] %thread% D [%function%|%file%:%line%] %log%");
-    ZLog::logLevelFile(ZLog::ERRORS, lgf, "[%clock%] E [%function%|%file%:%line%] %log%");
+    ZLog::logLevelFile(ZLog::ERRORS, lgf, "[%clock%] %thread% E [%function%|%file%:%line%] %log%");
 
     ZString optbuf;
     for(int i = 0; i < argc; ++i){
@@ -331,10 +555,13 @@ int main(int argc, char **argv){
         return -2;
 
     // Console log
-    ZLog::logLevelStdOut(ZLog::INFO, "[%clock%] N %log%");
-    ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "[%clock%] E %log%" TERM_RESET);
     if(options.getOpts().contains(OPT_VERBOSE)){
+        ZLog::logLevelStdOut(ZLog::INFO, "[%clock%] N %log%");
         ZLog::logLevelStdOut(ZLog::DEBUG, TERM_PURPLE "[%clock%] D %log%" TERM_RESET);
+        ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "[%clock%] E %log%" TERM_RESET);
+    } else {
+        ZLog::logLevelStdOut(ZLog::INFO, "%log%");
+        ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "%log%" TERM_RESET);
     }
 
     Param param;
@@ -352,13 +579,18 @@ int main(int argc, char **argv){
         ZString cmstr = param.args[0];
         if(cmds.contains(cmstr)){
             CmdEntry cmd = cmds[cmstr];
-            if(param.args.size() == cmd.argn + 1){
+            if((param.args.size() >= cmd.argmin + 1) && (param.args.size() <= cmd.argmax + 1)){
                 try {
                     return cmd.func(&param);
-                } catch(ZException e){
+                } catch(const ZException &e){
                     ELOG("ERROR: " << e.what());
                     ELOG("Trace: " << e.traceStr());
+#if 1
+                } catch(const zexception &e){
+                    ELOG("FATAL: " << e.what);
+#endif
                 }
+                return -2;
             } else {
                 LOG("Usage: pok3rtool " << cmd.usage);
                 return -1;

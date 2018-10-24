@@ -1,0 +1,41 @@
+stages:
+  - build
+  - test
+
+pok3rtool:linux:
+  stage: build
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  tags:
+    - linux
+  image: fedora
+  before_script:
+    - dnf install -y gcc gcc-c++ cmake make openssl-devel libusb-devel
+  script:
+    - mkdir build
+    - cd build
+    - cmake -D CMAKE_BUILD_TYPE="Release" ..
+    - make
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - build/pok3rtool
+      - build/libpok3rlib.so
+      - build/rawhid/librawhid.so
+      - build/libchaos/chaos/libchaos.so
+
+test:linux:
+  stage: test
+  dependencies:
+    - pok3rtool:linux
+  variables:
+    GIT_STRATEGY: none
+  tags:
+    - linux
+  image: fedora
+  before_script:
+    - dnf install -y libstdc++ openssl libusb
+  script:
+    - cd build
+    - ./pok3rtool list
+

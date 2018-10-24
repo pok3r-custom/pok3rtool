@@ -10,6 +10,7 @@
 typedef int (*decodeFunc)(ZFile *, ZBinary &);
 int decode_maajonsn(ZFile *file, ZBinary &fw_out);
 int decode_maav102(ZFile *file, ZBinary &fw_out);
+int decode_maav105(ZFile *file, ZBinary &fw_out);
 int decode_kbp_v60(ZFile *file, ZBinary &fw_out);
 int decode_kbp_v80(ZFile *file, ZBinary &fw_out);
 
@@ -17,6 +18,7 @@ enum PackType {
     PACKAGE_NONE = 0,
     MAAJONSN,   // .maajonsn
     MAAV102,    // .maaV102
+    MAAV105,    // .maaV105
     KBPV60,
     KBPV80,
 };
@@ -38,6 +40,7 @@ const ZMap<zu64, PackType> packages = {
     { 0x51BFA86A7FAF4EEA,   MAAV102 },  // V1.04.01   v1.4.1
     { 0x0582733413943655,   MAAV102 },  // V1.04.03   v1.4.3
     { 0x61F73244FA73079F,   MAAV102 },  // V1.04.05   v1.4.5
+    { 0xAD80988AE986097B,   MAAV105 },  // V1.04.06     CORE by HWP
 
     // Vortex Tester (200) !!
     // none :(
@@ -73,6 +76,7 @@ const ZMap<PackType, decodeFunc> types = {
     { MAAV102,  decode_maav102 },
     { KBPV60,   decode_kbp_v60 },
     { KBPV80,   decode_kbp_v80 },
+    { MAAV105,  decode_maav105 },
 };
 
 UpdatePackage::UpdatePackage(){
@@ -128,7 +132,7 @@ void decode_package_data(ZBinary &bin){
 
     // y = ((x - 7) << 4) + (x >> 4)
     for(zu64 i = 0; i < bin.size(); ++i){
-        bin[i] = ((bin[i] - 7) << 4) + (bin[i] >> 4);
+        bin[i] = (((bin[i] - 7) << 4) + (bin[i] >> 4)) & 0xFF;
     }
 }
 
@@ -138,7 +142,7 @@ void decode_package_data(ZBinary &bin){
 void encode_package_data(ZBinary &bin){
     // x = (y >> 4 + 7 & 0xF) | (x << 4)
     for(zu64 i = 0; i < bin.size(); ++i){
-        bin[i] = (((bin[i] >> 4) + 7) & 0xF) | (bin[i] << 4);
+        bin[i] = ((((bin[i] >> 4) + 7) & 0xF) | (bin[i] << 4)) & 0xFF;
     }
 
     // Swap bytes in each set of two bytes
@@ -158,6 +162,15 @@ void encode_package_data(ZBinary &bin){
     }
 }
 
+ZBinary pkg_file_read(ZFile *file, zu64 pos, zu64 len){
+    ZBinary data;
+    if(file->seek(pos) != pos)
+        throw ZException("File too short - seek");
+    if(file->read(data, len) != len)
+        throw ZException("File too short - read");
+    return data;
+}
+
 /*  Decode the updater for the POK3R.
  */
 int decode_maajonsn(ZFile *file, ZBinary &fw_out){
@@ -173,15 +186,7 @@ int decode_maajonsn(ZFile *file, ZBinary &fw_out){
     zu64 strings_start = exelen - strings_len;
 
     // Read strings
-    ZBinary strs;
-    if(file->seek(strings_start) != strings_start){
-        LOG("File too short - seek");
-        return -4;
-    }
-    if(file->read(strs, strings_len) != strings_len){
-        LOG("File too short - read");
-        return -5;
-    }
+    ZBinary strs = pkg_file_read(file, strings_start, strings_len);
     // Decrypt strings
     decode_package_data(strs);
 
@@ -225,16 +230,7 @@ int decode_maajonsn(ZFile *file, ZBinary &fw_out){
     LOG("Length: 0x" << ZString::ItoS(sec_len, 16));
 
     // Read section
-    ZBinary sec;
-    if(file->seek(sec_start) != sec_start){
-        LOG("File too short - seek");
-        return -2;
-    }
-    if(file->read(sec, sec_len) != sec_len){
-        LOG("File too short - read");
-        return -3;
-    }
-
+    ZBinary sec = pkg_file_read(file, sec_start, sec_len);
     // Decode section
     decode_package_data(sec);
 
@@ -267,15 +263,7 @@ int decode_maav102(ZFile *file, ZBinary &fw_out){
     zu64 offset_sig = 0xb19;
 
     // Read strings
-    ZBinary strs;
-    if(file->seek(strings_start) != strings_start){
-        LOG("File too short - seek");
-        return -4;
-    }
-    if(file->read(strs, strings_len) != strings_len){
-        LOG("File too short - read");
-        return -5;
-    }
+    ZBinary strs = pkg_file_read(file, strings_start, strings_len);
     // Decrypt strings
     decode_package_data(strs);
 
@@ -345,16 +333,7 @@ int decode_maav102(ZFile *file, ZBinary &fw_out){
         LOG("  Length: " << sec_len);
 
         // Read section
-        ZBinary sec;
-        if(file->seek(sec_start) != sec_start){
-            LOG("File too short - seek");
-            return -2;
-        }
-        if(file->read(sec, sec_len) != sec_len){
-            LOG("File too short - read");
-            return -3;
-        }
-
+        ZBinary sec = pkg_file_read(file, sec_start, sec_len);
         sec_start += sec_len;
 
         // Decode section
@@ -380,8 +359,102 @@ int decode_maav102(ZFile *file, ZBinary &fw_out){
     return 0;
 }
 
-void kbp_decrypt(zbyte *data, zu64 size, zu32 key)
-{
+int decode_maav105(ZFile *file, ZBinary &fw_out){
+    zu64 exelen = file->fileSize();
+    zu64 strings_start = 0x1FD480 + 180;
+
+    zu64 offset_desc = 0x23de - 180;
+    zu64 offset_company = offset_desc + 0x208;
+    zu64 offset_product = offset_company + 0x208;
+    zu64 offset_version = offset_product + 0x208;
+    zu64 offset_sig = exelen - strings_start - 13;
+
+    // Read strings
+    ZBinary strs = pkg_file_read(file, strings_start, exelen - strings_start);
+    // Decrypt strings
+    decode_package_data(strs);
+
+    zu64 pos = 0x0;
+    for(int i = 0; i < 20; ++i){
+        zu32 d = ZBinary::decleu32(strs.raw() + pos); // Firmware length
+        LOG(ZString::ItoS((zu64)d, 16));
+        pos += 4;
+    }
+
+    RLOG(strs.dumpBytes(4, 8));
+
+    ZString pkgdesc;
+    ZString company;
+    ZString product;
+    ZString pkgver;
+
+    // Description
+    pkgdesc.parseUTF16((const zu16 *)(strs.raw() + offset_desc), 0x200);
+    // Company name
+    company.parseUTF16((const zu16 *)(strs.raw() + offset_company), 0x200);
+    // Product name
+    product.parseUTF16((const zu16 *)(strs.raw() + offset_product), 0x200);
+    // Version
+    pkgver.parseUTF16((const zu16 *)(strs.raw() + offset_version), 0x200);
+
+    LOG("==============================");
+    LOG("Description: " << pkgdesc);
+    LOG("Company:     " << company);
+    LOG("Product:     " << product);
+    LOG("Version:     " << pkgver);
+    LOG("Signature:   " << ZString(strs.raw() + offset_sig, 13));
+
+    zu64 fw_start = 0x1F1600;
+
+    zu64 list_pos = 0xc8;
+    for(int i = 0; i < 2; ++i){
+        zu64 desc_start = list_pos;
+        zu64 version_start = desc_start + 0x208;
+        zu64 addr_pos = version_start + 0x208;
+        zu64 layout_start = addr_pos + 8;
+
+        // Product name
+        ZString desc;
+        desc.parseUTF16((const zu16 *)(strs.raw() + desc_start), 0x200);
+        // Version
+        ZString version;
+        version.parseUTF16((const zu16 *)(strs.raw() + version_start), 0x200);
+        // Layout
+        ZString layout;
+        layout.parseUTF16((const zu16 *)(strs.raw() + layout_start), 0x200);
+
+        zu32 fwl = ZBinary::decleu32(strs.raw() + addr_pos); // Firmware length
+        zu32 strl = ZBinary::decleu32(strs.raw() + addr_pos + 4); // Info length
+
+        // Read firmware
+        ZBinary fw = pkg_file_read(file, fw_start, fwl);
+        fw_start += fwl;
+        // Decrypt firmware
+        decode_package_data(fw);
+        ProtoCYKB::decode_firmware(fw);
+
+        // Read info
+        ZBinary info = pkg_file_read(file, fw_start, strl);
+        fw_start += strl;
+        // Decrypt info
+        decode_package_data(info);
+
+        LOG("==============================");
+        LOG("Description: " << desc);
+        LOG("Version:     " << version);
+        LOG("Layout:      " << layout);
+        LOG("Firmware:    " << fwl);
+        RLOG(fw.dumpBytes(4, 8));
+        LOG("Info:");
+        RLOG(info.dumpBytes(4, 8));
+
+        list_pos = layout_start + 0x2c8;
+    }
+
+    return 0;
+}
+
+void kbp_decrypt(zbyte *data, zu64 size, zu32 key){
     zbyte xor_key[4];
     ZBinary::encbeu32(xor_key, key);
     for(zu64 i = 0; i < size; ++i){

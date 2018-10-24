@@ -17,38 +17,35 @@ struct HIDDeviceData {
 };
 
 HIDDevice::HIDDevice(){
-    device = new HIDDeviceData;
-    device->hid = NULL;
+    hid = NULL;
 }
 
-HIDDevice::HIDDevice(void *hidt){
-    device = new HIDDeviceData;
-    device->hid = (hid_t *)hidt;
+HIDDevice::HIDDevice(hid_t *hidt){
+    hid = hidt;
 }
 
 HIDDevice::~HIDDevice(){
     close();
-    delete device;
 }
 
 bool HIDDevice::open(zu16 vid, zu16 pid, zu16 usage_page, zu16 usage){
-    device->hid = rawhid_open(vid, pid, usage_page, usage);
-    return (device->hid != NULL);
+    hid = rawhid_open(vid, pid, usage_page, usage);
+    return (hid != NULL);
 }
 
 void HIDDevice::close(){
-    rawhid_close(device->hid);
-    device->hid = NULL;
+    rawhid_close(hid);
+    hid = NULL;
 }
 
 bool HIDDevice::isOpen() const {
-    return !!(device->hid);
+    return !!(hid);
 }
 
 bool HIDDevice::send(const ZBinary &data, bool tolerate_dc){
     if(!isOpen())
         return false;
-    int ret = rawhid_send(device->hid, data.raw(), data.size(), SEND_TIMEOUT);
+    int ret = rawhid_send(hid, data.raw(), data.size(), SEND_TIMEOUT);
     if(ret < 0){
 #if LIBCHAOS_PLATFORM == _PLATFORM_WINDOWS
         zu32 err = ZError::getSystemErrorCode();
@@ -82,11 +79,17 @@ bool HIDDevice::recv(ZBinary &data){
     if(data.size() == 0)
         return false;
 
+    ZClock clock;
     int ret;
     do {
-        ret = rawhid_recv(device->hid, data.raw(), data.size(), RECV_TIMEOUT);
-    } while(ret == 0);
+        ret = rawhid_recv(hid, data.raw(), data.size(), RECV_TIMEOUT);
+    } while(ret == 0 && !clock.passedMs(RECV_TIMEOUT_MAX));
+//    } while(ret == 0);
 
+    //if(ret == 0){
+    //    ELOG("hid recv timeout");
+    //    return false;
+    //} else
     if(ret < 0){
 #if LIBCHAOS_PLATFORM == _PLATFORM_LINUX
         ELOG("hid recv error: " << ret << ": " << usb_strerror());
@@ -114,11 +117,11 @@ ZArray<ZPointer<HIDDevice> > HIDDevice::openAll(zu16 vid, zu16 pid, zu16 usage_p
     return devs;
 }
 
-int open_cb(void *user, const rawhid_detail *detail){
-    auto *func = (std::function<bool(const rawhid_detail *)> *)user;
+int open_cb(void *user, rawhid_detail *detail){
+    auto *func = (std::function<bool(rawhid_detail *)> *)user;
     return (int)(*func)(detail);
 }
 
-zu32 HIDDevice::openFilter(std::function<bool(const rawhid_detail *)> func){
+zu32 HIDDevice::openFilter(std::function<bool(rawhid_detail *)> func){
     return rawhid_openall_filter(open_cb, (void *)&func);
 }

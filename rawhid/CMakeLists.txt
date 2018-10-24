@@ -41,9 +41,14 @@ ENDIF()
 
 ADD_CUSTOM_TARGET(rawhid-dummy SOURCES ${FILES})
 
-ADD_LIBRARY(rawhid SHARED ${SOURCES})
+ADD_LIBRARY(rawhid STATIC ${SOURCES})
 SET_PROPERTY(TARGET rawhid PROPERTY CXX_STANDARD 11)
 TARGET_LINK_LIBRARIES(rawhid chaos)
+TARGET_COMPILE_OPTIONS(rawhid PRIVATE
+    $<$<COMPILE_LANGUAGE:C>:
+        -std=gnu99
+    >
+)
 
 IF(CMAKE_SYSTEM_NAME MATCHES "Windows")
     # Windows
@@ -55,3 +60,6 @@ ELSE()
     # Linux/BSD
     TARGET_LINK_LIBRARIES(rawhid usb)
 ENDIF()
+
+# install
+install(TARGETS rawhid DESTINATION lib)

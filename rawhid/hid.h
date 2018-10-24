@@ -31,6 +31,10 @@ struct rawhid_detail {
     unsigned char ifclass;      // not on windows or macosx
     unsigned char subclass;     // not on windows or macosx
     unsigned char protocol;     // not on windows or macosx
+    unsigned char ep_in;        // not on windows or macosx
+    unsigned char epin_size;    // not on windows or macosx
+    unsigned char ep_out;       // not on windows or macosx
+    unsigned char epout_size;   // not on windows or macosx
     // report desc
     const unsigned char *report_desc;   // not on windows
     unsigned short rdesc_len;           // not on windows
@@ -40,7 +44,7 @@ struct rawhid_detail {
     hid_t *hid;
 };
 
-typedef int (*rawhid_filter_cb)(void *user, const struct rawhid_detail *detail);
+typedef int (*rawhid_filter_cb)(void *user, struct rawhid_detail *detail);
 
 hid_t *rawhid_open(int vid, int pid, int usage_page, int usage);
 void rawhid_close(hid_t *hid);

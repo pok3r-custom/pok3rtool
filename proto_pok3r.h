@@ -1,23 +1,15 @@
 #ifndef PROTO_POK3R_H
 #define PROTO_POK3R_H
 
-#include "updateinterface.h"
+#include "kbproto.h"
+#include "proto_qmk.h"
 #include "rawhid/hiddevice.h"
 
 #include "zstring.h"
 #include "zbinary.h"
 using namespace LibChaos;
 
-#define POK3R_PID           0x0141
-#define POK3R_BOOT_PID      0x1141
-
-#define KBP_V60_PID         0x0112
-#define KBP_V60_BOOT_PID    0x1112
-
-#define KBP_V80_PID         0x0129
-#define KBP_V80_BOOT_PID    0x1129
-
-class ProtoPOK3R : public UpdateInterface {
+class ProtoPOK3R : public ProtoQMK {
 public:
     enum pok3r_cmd {
         ERASE_CMD               = 0,    //! Erase pages of flash
@@ -55,14 +47,14 @@ public:
     ProtoPOK3R(zu16 vid, zu16 pid, zu16 boot_pid, bool builtin, ZPointer<HIDDevice> dev);
 
     ProtoPOK3R(const ProtoPOK3R &) = delete;
-    ~ProtoPOK3R();
+    ~ProtoPOK3R(){}
 
     //! Find and open POK3R device.
     bool open();
     void close();
     bool isOpen() const;
 
-    bool isBuiltin() const;
+    bool isBuiltin();
 
     //! Reset and re-open device.
     bool rebootFirmware(bool reopen = true);
@@ -74,32 +66,33 @@ public:
     //! Read the firmware version from the keyboard.
     ZString getVersion();
 
-    bool clearVersion();
-
-    bool setVersion(ZString version);
+    KBStatus clearVersion();
+    KBStatus setVersion(ZString version);
 
     //! Dump the contents of flash.
     ZBinary dumpFlash();
+
     //! Update the firmware.
     bool writeFirmware(const ZBinary &fwbin);
 
-    bool update(ZString version, const ZBinary &fwbin);
-
-    //! Erase flash pages starting at \a start, ending on the page of \a end.
-    bool eraseFlash(zu32 start, zu32 end);
     //! Read 64 bytes at \a addr.
     bool readFlash(zu32 addr, ZBinary &bin);
     //! Write 52 bytes at \a addr.
     bool writeFlash(zu32 addr, ZBinary bin);
     //! Check 52 bytes at \a addr.
     bool checkFlash(zu32 addr, ZBinary bin);
+    //! Erase flash pages starting at \a start, ending on the page of \a end.
+    bool eraseFlash(zu32 start, zu32 end);
 
     //! Send CRC command.
     zu16 crcFlash(zu32 addr, zu32 len);
 
 private:
+    zu32 baseFirmwareAddr() const;
     //! Send command
-    bool sendCmd(zu8 cmd, zu8 subcmd, zu32 a1, zu32 a2, const zbyte *data = 0, zu8 len = 0);
+    bool sendCmd(zu8 cmd, zu8 subcmd, ZBinary bin = ZBinary());
+    //! Send command and recv response.
+    bool sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data);
 
 public:
     static void decode_firmware(ZBinary &bin);
@@ -112,8 +105,6 @@ private:
     zu16 vid;
     zu16 pid;
     zu16 boot_pid;
-
-    ZPointer<HIDDevice> dev;
 };
 
 #endif // PROTO_POK3R_H
