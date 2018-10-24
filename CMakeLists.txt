@@ -54,6 +54,9 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "$<TARGET_FILE:chaos-shared>"
             "$<TARGET_FILE_DIR:pok3rtool>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:rawhid>"
+            "$<TARGET_FILE_DIR:pok3rtool>"
     )
 endif()
 

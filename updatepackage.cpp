@@ -29,9 +29,6 @@ const ZMap<zu64, PackType> packages = {
     { 0xA28E5EFB3F796181,   MAAJONSN }, // V1.1.6
     { 0xEA55CB190C35505F,   MAAJONSN }, // V1.1.7
 
-    // TEX Yoda II (163)
-    { 0xF5A3714FA9A3CA40,   MAAV102 },  // V1.01.01   v1.1.1
-
     // POK3R RGB (167)
     { 0x882CB0E4ECE25454,   MAAV102 },  // V1.02.04   v1.2.4
     { 0x6CFF0BB4F4086C2F,   MAAV102 },  // V1.03.00   v1.3.0
@@ -42,7 +39,7 @@ const ZMap<zu64, PackType> packages = {
     { 0x0582733413943655,   MAAV102 },  // V1.04.03   v1.4.3
     { 0x61F73244FA73079F,   MAAV102 },  // V1.04.05   v1.4.5
 
-    // Vortex Tester (200)
+    // Vortex Tester (200) !!
     // none :(
 
     // Vortex RACE3 (New 75) (192)
@@ -60,6 +57,15 @@ const ZMap<zu64, PackType> packages = {
 
     // KBP V80 (129)
     { 0xBCF4C9830D800D8C,   KBPV80 },   // V1.0.7
+
+    // TEX Yoda II (163)
+    { 0xF5A3714FA9A3CA40,   MAAV102 },  // V1.01.01   v1.1.1
+
+    // Mistel Boroco MD200 (200) !!
+    { 0x58B42FF4B1C57C09,   MAAV102 },  // V1.01.02
+
+    // Mistel Boroco MD600 (143)
+    { 0xFA5DF5F231700316,   MAAV102 },  // V1.04.08
 };
 
 const ZMap<PackType, decodeFunc> types = {
