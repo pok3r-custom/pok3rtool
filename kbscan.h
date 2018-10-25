@@ -15,11 +15,13 @@ enum DeviceType {
     DEV_POK3R_RGB2,     //!< Vortex POK3R RGB (PCB v2)
     DEV_VORTEX_CORE,    //!< Vortex Core
     DEV_VORTEX_RACE3,   //!< Vortex Race 3
-    DEV_VORTEX_TESTER,  //!< Vortex 22-Key Switch Tester
+//  DEV_VORTEX_TESTER,  //!< Vortex 22-Key Switch Tester (same as MD200)
     DEV_VORTEX_VIBE,    //!< Vortex ViBE
     DEV_KBP_V60,        //!< KBParadise v60 Mini
     DEV_KBP_V80,        //!< KBParadise v80
     DEV_TEX_YODA_II,    //!< Tex Yoda II
+    DEV_MISTEL_MD600,   //!< Mistel Barocco MD600
+    DEV_MISTEL_MD200,   //!< Mistel Freeboard MD200
 
     DEV_QMK_POK3R,
     DEV_QMK_POK3R_RGB,

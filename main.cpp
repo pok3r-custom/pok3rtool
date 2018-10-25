@@ -46,10 +46,6 @@ const ZMap<ZString, DeviceType> devnames = {
     { "vortex-race3",       DEV_VORTEX_RACE3 },
     { "vortex_race3",       DEV_VORTEX_RACE3 },
 
-    { "tester",             DEV_VORTEX_TESTER },
-    { "vortex-tester",      DEV_VORTEX_TESTER },
-    { "vortex_tester",      DEV_VORTEX_TESTER },
-
     { "vibe",               DEV_VORTEX_VIBE },
     { "vortex-vibe",        DEV_VORTEX_VIBE },
     { "vortex_vibe",        DEV_VORTEX_VIBE },
@@ -67,6 +63,12 @@ const ZMap<ZString, DeviceType> devnames = {
     { "tex_yoda_2",         DEV_TEX_YODA_II },
     { "tex-yoda-ii",        DEV_TEX_YODA_II },
     { "tex_yoda_ii",        DEV_TEX_YODA_II },
+
+    { "md600",              DEV_MISTEL_MD600 },
+    { "barocco",            DEV_MISTEL_MD600 },
+
+    { "md200",              DEV_MISTEL_MD200 },
+    { "freeboard",          DEV_MISTEL_MD200 },
 };
 
 // Functions
