@@ -541,9 +541,9 @@ void printUsage(){
 int main(int argc, char **argv){
     // Log files
     ZPath lgf = ZPath("logs") + ZLog::genLogFileName("pok3rtool_");
-    ZLog::logLevelFile(ZLog::INFO, lgf, "[%clock%] %thread% N %log%");
-    ZLog::logLevelFile(ZLog::DEBUG, lgf, "[%clock%] %thread% D [%function%|%file%:%line%] %log%");
-    ZLog::logLevelFile(ZLog::ERRORS, lgf, "[%clock%] %thread% E [%function%|%file%:%line%] %log%");
+    ZLog::defaultWorker()->logLevelFile(ZLog::INFO, lgf, "[%clock%] %thread% N %log%");
+    ZLog::defaultWorker()->logLevelFile(ZLog::DEBUG, lgf, "[%clock%] %thread% D [%function%|%file%:%line%] %log%");
+    ZLog::defaultWorker()->logLevelFile(ZLog::ERRORS, lgf, "[%clock%] %thread% E [%function%|%file%:%line%] %log%");
 
     ZString optbuf;
     for(int i = 0; i < argc; ++i){
@@ -558,12 +558,12 @@ int main(int argc, char **argv){
 
     // Console log
     if(options.getOpts().contains(OPT_VERBOSE)){
-        ZLog::logLevelStdOut(ZLog::INFO, "[%clock%] N %log%");
-        ZLog::logLevelStdOut(ZLog::DEBUG, TERM_PURPLE "[%clock%] D %log%" TERM_RESET);
-        ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "[%clock%] E %log%" TERM_RESET);
+        ZLog::defaultWorker()->logLevelStdOut(ZLog::INFO, "[%clock%] N %log%");
+        ZLog::defaultWorker()->logLevelStdOut(ZLog::DEBUG, TERM_PURPLE "[%clock%] D %log%" TERM_RESET);
+        ZLog::defaultWorker()->logLevelStdErr(ZLog::ERRORS, TERM_RED "[%clock%] E %log%" TERM_RESET);
     } else {
-        ZLog::logLevelStdOut(ZLog::INFO, "%log%");
-        ZLog::logLevelStdErr(ZLog::ERRORS, TERM_RED "%log%" TERM_RESET);
+        ZLog::defaultWorker()->logLevelStdOut(ZLog::INFO, "%log%");
+        ZLog::defaultWorker()->logLevelStdErr(ZLog::ERRORS, TERM_RED "%log%" TERM_RESET);
     }
 
     Param param;
