@@ -29,45 +29,47 @@ const ZMap<zu64, PackType> packages = {
     { 0xFE37430DB1FFCF5F,   MAAJONSN }, // V1.1.4
     { 0x8986F7893143E9F7,   MAAJONSN }, // V1.1.5
     { 0xA28E5EFB3F796181,   MAAJONSN }, // V1.1.6
-    { 0xEA55CB190C35505F,   MAAJONSN }, // V1.1.7
+    { 0xEA55CB190C35505F,   MAAJONSN }, // V1.1.7       pok3r/v117
 
     // POK3R RGB (167)
-    { 0x882CB0E4ECE25454,   MAAV102 },  // V1.02.04   v1.2.4
-    { 0x6CFF0BB4F4086C2F,   MAAV102 },  // V1.03.00   v1.3.0
-    { 0xA6EE37F856CD24C1,   MAAV102 },  // V1.04.00   v1.4.0
+    { 0x882CB0E4ECE25454,   MAAV102 },  // V1.02.04
+    { 0x6CFF0BB4F4086C2F,   MAAV102 },  // V1.03.00     pok3r_rgb/v130
+    { 0xA6EE37F856CD24C1,   MAAV102 },  // V1.04.00     pok3r_rgb/v140
 
     // Vortex CORE (175)
-    { 0x51BFA86A7FAF4EEA,   MAAV102 },  // V1.04.01   v1.4.1
-    { 0x0582733413943655,   MAAV102 },  // V1.04.03   v1.4.3
-    { 0x61F73244FA73079F,   MAAV102 },  // V1.04.05   v1.4.5
-    { 0xAD80988AE986097B,   MAAV105 },  // V1.04.06   CORE by HWP
-
+    { 0x51BFA86A7FAF4EEA,   MAAV102 },  // V1.04.01
+    { 0x0582733413943655,   MAAV102 },  // V1.04.03
+    { 0x61F73244FA73079F,   MAAV102 },  // V1.04.05     core/v145
+    { 0xAD80988AE986097B,   MAAV105 },  // V1.04.06     CORE by HWP
 
     // Vortex RACE3 (New 75) (192)
-    { 0xB542D0D86B9A85C3,   MAAV102 },  // V1.02.01   v1.2.1
-    { 0xFBF40BEE5D0A3C70,   MAAV102 },  // V1.02.04   v1.2.4
+    { 0xB542D0D86B9A85C3,   MAAV102 },  // V1.02.01
+    { 0xFBF40BEE5D0A3C70,   MAAV102 },  // V1.02.04     race/v124
+
+    // Vortex Cypher (282)
+    { 0xC259BB38A57783D,    MAAV102 },  // V1.03.06     cypher/v136
 
     // POK3R RGB V2 (207)
-    { 0x8AA1AEA217DA685B,   MAAV102 },  // V1.00.05   v1.0.5
+    { 0x8AA1AEA217DA685B,   MAAV102 },  // V1.00.05     pok3r_rgb2/v105
 
     // Vortex ViBE (216)
-    { 0xCE7C8EAA3D28B10D,   MAAV102 },  // V1.01.03
+    { 0xCE7C8EAA3D28B10D,   MAAV102 },  // V1.01.03     vibe/v113
 
     // KBP V60 (112)
-    { 0x6064D8C4EE74BE18,   KBPV60 },   // V1.0.7
+    { 0x6064D8C4EE74BE18,   KBPV60 },   // V1.0.7       kbpv60
 
     // KBP V80 (129)
-    { 0xBCF4C9830D800D8C,   KBPV80 },   // V1.0.7
+    { 0xBCF4C9830D800D8C,   KBPV80 },   // V1.0.7       kbpv80
 
     // TEX Yoda II (163)
-    { 0xF5A3714FA9A3CA40,   MAAV102 },  // V1.01.01   v1.1.1
+    { 0xF5A3714FA9A3CA40,   MAAV102 },  // V1.01.01
 
     // Mistel Barocco MD600 (143)
-    { 0xFA5DF5F231700316,   MAAV102 },  // V1.04.08
+    { 0xFA5DF5F231700316,   MAAV102 },  // V1.04.08     md600/v148
 
     // Mistel Freeboard MD200 (200)
     // Vortex Tester (200)
-    { 0x58B42FF4B1C57C09,   MAAV102 },  // V1.01.02
+    { 0x58B42FF4B1C57C09,   MAAV102 },  // V1.01.02     md200/v112
 };
 
 const ZMap<PackType, decodeFunc> types = {
