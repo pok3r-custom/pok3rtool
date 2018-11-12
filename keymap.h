@@ -67,6 +67,7 @@ public:
     ZString keycodeDesc(keycode kc) const;
 
     static const ZArray<Keycode> &getAllKeycodes();
+    static ZArray<ZString> getKnownLayouts();
 
 private:
     //! Matrix rows, columns.

@@ -3,7 +3,6 @@
 #include "proto_cykb.h"
 #include "keymap.h"
 #include "updatepackage.h"
-#include "gen_keymaps.h"
 
 #include "zlog.h"
 #include "zfile.h"
@@ -364,16 +363,8 @@ int cmd_keymap(Param *param){
             qmk->keymapDump();
 
         } else if(param->args[1] == "knownlayouts"){
-            zu64 n = keymaps_json_size / sizeof(unsigned);
-            for(zu64 i = 0; i < n; ++i){
-                zu64 len = keymaps_json_sizes[i];
-                ZString str(keymaps_json[i], len);
-                ZJSON json;
-                zassert(json.decode(str), "layout json decode");
-                zassert(json.type() == ZJSON::OBJECT, "layout json object");
-                zassert(json.object().contains("name"), "layout json name");
-                zassert(json["name"].type() == ZJSON::STRING, "layout json name type");
-                LOG(i << " " << len << " " << json["name"].string());
+            for(auto it = Keymap::getKnownLayouts().cbegin(); it.more(); ++it){
+                LOG(it.get());
             }
 
         } else if(param->args[1] == "set"){

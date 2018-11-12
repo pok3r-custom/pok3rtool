@@ -1,6 +1,5 @@
 #include "keymap.h"
 #include "keycodes.h"
-#include "gen_keymaps.h"
 
 #include "zlog.h"
 #include "zmap.h"
@@ -12,6 +11,9 @@
 #else
     #include "zjson.h"
 #endif
+
+// only include in this file
+#include "gen_keymaps.h"
 
 #define MIN(A, B) (A < B ? A : B)
 #define MAX(A, B) (A > B ? A : B)
@@ -689,4 +691,18 @@ ZString Keymap::keycodeDesc(keycode kc) const {
 
 const ZArray<Keymap::Keycode> &Keymap::getAllKeycodes(){
     return keycodes;
+}
+
+ZArray<ZString> Keymap::getKnownLayouts()
+{
+    ZArray<ZString> list;
+    zu64 n = keymaps_json_size / sizeof(unsigned);
+    for(zu64 i = 0; i < n; ++i){
+        zu64 len = keymaps_json_sizes[i];
+        ZString str(keymaps_json[i], len);
+        auto json = nlohmann::json::parse(str.str());
+//        LOG(i << " " << len << " " << json["name"].get<std::string>());
+        list.push(json["name"].get<std::string>());
+    }
+    return list;
 }
