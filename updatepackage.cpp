@@ -40,11 +40,14 @@ const ZMap<zu64, PackType> packages = {
     { 0x51BFA86A7FAF4EEA,   MAAV102 },  // V1.04.01
     { 0x0582733413943655,   MAAV102 },  // V1.04.03
     { 0x61F73244FA73079F,   MAAV102 },  // V1.04.05     core/v145
-    { 0xAD80988AE986097B,   MAAV105 },  // V1.04.06     CORE by HWP
+    { 0xAD80988AE986097B,   MAAV105 },  // contains two firmwares:
+                                        // CORE by HWP (V1.04.05), the original firmware, programmable by keyboard controls
+                                        // CORE by MPC (V1.04.06), the new firmware, programmable by web UI-generated keymaps (http://www.vortexgear.tw/mpc/index.html)
 
     // Vortex RACE3 (New 75) (192)
     { 0xB542D0D86B9A85C3,   MAAV102 },  // V1.02.01
     { 0xFBF40BEE5D0A3C70,   MAAV102 },  // V1.02.04     race/v124
+    { 0xAD8B210C77D9D90F,   MAAV102 },  // V1.02.05
 
     // Vortex Cypher (282)
     { 0xC259BB38A57783D,    MAAV102 },  // V1.03.06     cypher/v136
