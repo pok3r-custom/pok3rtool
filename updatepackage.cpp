@@ -44,6 +44,9 @@ const ZMap<zu64, PackType> packages = {
                                         // CORE by HWP (V1.04.05), the original firmware, programmable by keyboard controls
                                         // CORE by MPC (V1.04.06), the new firmware, programmable by web UI-generated keymaps (http://www.vortexgear.tw/mpc/index.html)
 
+    // Vortex CORE RGB (product 293, pid 175?)
+    { 0xA85878CBD05591A1,   MAAV102 },  // V1.04.06
+
     // Vortex RACE3 (New 75) (192)
     { 0xB542D0D86B9A85C3,   MAAV102 },  // V1.02.01
     { 0xFBF40BEE5D0A3C70,   MAAV102 },  // V1.02.04     race/v124
@@ -57,6 +60,15 @@ const ZMap<zu64, PackType> packages = {
 
     // Vortex ViBE (216)
     { 0xCE7C8EAA3D28B10D,   MAAV102 },  // V1.01.03     vibe/v113
+
+    // Vortex Tab 60 (304)
+    { 0xF5ED2438D4445703,   MAAV102 },  // V1.01.13     tab60/v1113
+
+    // Vortex Tab 75 (344)
+    { 0x4399C7232F89BBDD,   MAAV105 },  // V1.00.04     tab75/v104
+
+    // Vortex Tab 90 (346)
+    { 0xBFCCB61A61996BB3,   MAAV105 },  // V1.00.04     tab90/v104
 
     // KBP V60 (112)
     { 0x6064D8C4EE74BE18,   KBPV60 },   // V1.0.7       kbpv60
@@ -365,9 +377,11 @@ int decode_maav102(ZFile *file, ZBinary &fw_out){
 
 int decode_maav105(ZFile *file, ZBinary &fw_out){
     zu64 exelen = file->fileSize();
-    zu64 strings_start = 0x1FD480 + 180;
+    zu64 strings_len = 0x2b58;   // from decompiled FUN_4049d0 of TAB_75_V100
+    zu64 strings_start = exelen - strings_len;
 
-    zu64 offset_desc = 0x23de - 180;
+//    zu64 offset_desc = 0x23de - 180;
+    zu64 offset_desc = 0x232a;
     zu64 offset_company = offset_desc + 0x208;
     zu64 offset_product = offset_company + 0x208;
     zu64 offset_version = offset_product + 0x208;
@@ -378,14 +392,15 @@ int decode_maav105(ZFile *file, ZBinary &fw_out){
     // Decrypt strings
     decode_package_data(strs);
 
-    zu64 pos = 0x0;
-    for(int i = 0; i < 20; ++i){
-        zu32 d = ZBinary::decleu32(strs.raw() + pos); // Firmware length
-        LOG(ZString::ItoS((zu64)d, 16));
-        pos += 4;
-    }
+//    zu64 pos = 0x0;
+//    for(int i = 0; i < 20; ++i){
+//        zu32 d = ZBinary::decleu32(strs.raw() + pos); // Firmware length
+//        LOG(ZString::ItoS((zu64)d, 16));
+//        pos += 4;
+//    }
 
     RLOG(strs.dumpBytes(4, 8));
+    ZFile::writeBinary("manifest.bin", strs);
 
     ZString pkgdesc;
     ZString company;
@@ -408,14 +423,16 @@ int decode_maav105(ZFile *file, ZBinary &fw_out){
     LOG("Version:     " << pkgver);
     LOG("Signature:   " << ZString(strs.raw() + offset_sig, 13));
 
-    zu64 fw_start = 0x1F1600;
+    zu64 section_start = 0x1F1600;
 
     zu64 list_pos = 0xc8;
-    for(int i = 0; i < 2; ++i){
+    for(int i = 0; i < 4; ++i){
         zu64 desc_start = list_pos;
         zu64 version_start = desc_start + 0x208;
         zu64 addr_pos = version_start + 0x208;
         zu64 layout_start = addr_pos + 8;
+
+        LOG("==============================");
 
         // Product name
         ZString desc;
@@ -423,36 +440,48 @@ int decode_maav105(ZFile *file, ZBinary &fw_out){
         // Version
         ZString version;
         version.parseUTF16((const zu16 *)(strs.raw() + version_start), 0x200);
-        // Layout
-        ZString layout;
-        layout.parseUTF16((const zu16 *)(strs.raw() + layout_start), 0x200);
+
+        LOG("Description: " << desc);
+        LOG("Version:     " << version);
+
+        list_pos = layout_start + 0x2c8;
+
+        while(strs[layout_start]){
+            // Layout
+            ZString layout;
+            layout.parseUTF16((const zu16 *)(strs.raw() + layout_start), 0x200);
+            zu16 a1 = ZBinary::decleu16(strs.raw() + layout_start + 60);
+            zu16 a2 = ZBinary::decleu16(strs.raw() + layout_start + 62);
+            zu16 a3 = ZBinary::decleu16(strs.raw() + layout_start + 64);
+            LOG("Layout:      " << layout << " " << a1 << " " << a2 << " " << a3);
+            layout_start += 80;
+        }
 
         zu32 fwl = ZBinary::decleu32(strs.raw() + addr_pos); // Firmware length
         zu32 strl = ZBinary::decleu32(strs.raw() + addr_pos + 4); // Info length
 
         // Read firmware
-        ZBinary fw = pkg_file_read(file, fw_start, fwl);
-        fw_start += fwl;
+        ZBinary fw = pkg_file_read(file, section_start, fwl);
+        section_start += fwl;
         // Decrypt firmware
         decode_package_data(fw);
         ProtoCYKB::decode_firmware(fw);
 
         // Read info
-        ZBinary info = pkg_file_read(file, fw_start, strl);
-        fw_start += strl;
+        ZBinary info = pkg_file_read(file, section_start, strl);
+        section_start += strl;
         // Decrypt info
         decode_package_data(info);
 
-        LOG("==============================");
-        LOG("Description: " << desc);
-        LOG("Version:     " << version);
-        LOG("Layout:      " << layout);
-        LOG("Firmware:    " << fwl);
-        RLOG(fw.dumpBytes(4, 8));
-        LOG("Info:");
-        RLOG(info.dumpBytes(4, 8));
+        if(fw.size())
+            fw_out = fw;
 
-        list_pos = layout_start + 0x2c8;
+        LOG("Firmware:    " << fwl);
+//        RLOG(fw.dumpBytes(4, 8));
+        LOG("Info:        " << strl);
+        if(info.size())
+            RLOG(info.dumpBytes(4, 8));
+
     }
 
     return 0;
