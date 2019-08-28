@@ -23,6 +23,10 @@
 //#define VORTEX_TESTER_PID       0x0200
 #define VORTEX_RACE3_PID        0x0192
 #define VORTEX_VIBE_PID         0x0216
+#define VORTEX_CYPHER_PID       0x0282
+#define VORTEX_TAB60_PID        0x0304
+#define VORTEX_TAB75_PID        0x0344
+#define VORTEX_TAB90_PID        0x0346
 #define KBP_V60_PID             0x0112
 #define KBP_V80_PID             0x0129
 //#define KBP_V100_PID            0x0
@@ -41,6 +45,10 @@ static const ZMap<DeviceType, DeviceInfo> known_devices = {
 //  { DEV_VORTEX_TESTER,    { "vortex/tester",      "Vortex Tester",            HOLTEK_VID, VORTEX_TESTER_PID,  BOOT_PID | VORTEX_TESTER_PID,   PROTO_CYKB } }, // same as MD200
     { DEV_VORTEX_RACE3,     { "vortex/race3",       "Vortex Race 3",            HOLTEK_VID, VORTEX_RACE3_PID,   BOOT_PID | VORTEX_RACE3_PID,    PROTO_CYKB } },
     { DEV_VORTEX_VIBE,      { "vortex/vibe",        "Vortex ViBE",              HOLTEK_VID, VORTEX_VIBE_PID,    BOOT_PID | VORTEX_VIBE_PID,     PROTO_CYKB } },
+    { DEV_VORTEX_CYPHER,    { "vortex/cypher",      "Vortex Cypher",            HOLTEK_VID, VORTEX_CYPHER_PID,  BOOT_PID | VORTEX_CYPHER_PID,   PROTO_CYKB } },
+    { DEV_VORTEX_TAB60,     { "vortex/tab60",       "Vortex Tab 60",            HOLTEK_VID, VORTEX_TAB60_PID,   BOOT_PID | VORTEX_TAB60_PID,    PROTO_CYKB } },
+    { DEV_VORTEX_TAB75,     { "vortex/tab75",       "Vortex Tab 75",            HOLTEK_VID, VORTEX_TAB75_PID,   BOOT_PID | VORTEX_TAB75_PID,    PROTO_CYKB } },
+    { DEV_VORTEX_TAB90,     { "vortex/tab90",       "Vortex Tab 90",            HOLTEK_VID, VORTEX_TAB90_PID,   BOOT_PID | VORTEX_TAB90_PID,    PROTO_CYKB } },
     { DEV_KBP_V60,          { "kbp/v60",            "KBP V60",                  HOLTEK_VID, KBP_V60_PID,        BOOT_PID | KBP_V60_PID,         PROTO_POK3R } },
     { DEV_KBP_V80,          { "kbp/v80",            "KBP V80",                  HOLTEK_VID, KBP_V80_PID,        BOOT_PID | KBP_V80_PID,         PROTO_POK3R } },
 //  { DEV_KBP_V100,         { "kbp/100",            "KBP V100",                 HOLTEK_VID, KBP_V100_PID,       BOOT_PID | KBP_V100_PID,        PROTO_POK3R } },

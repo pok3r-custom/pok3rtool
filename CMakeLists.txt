@@ -85,8 +85,8 @@ install(TARGETS pok3rlib DESTINATION lib)
 if(MINGW)
     # Apparently Qt's mingw doesn't come with some static libraries
     get_filename_component(MINGW_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
-    set(MINGW_LIBS_DIR "${MINGW_DIR}/../i686-w64-mingw32/lib")
-    set(MINGW_LIBGCC "${MINGW_LIBS_DIR}/libgcc_s_dw2-1.dll")
+    set(MINGW_LIBS_DIR "${MINGW_DIR}/../x86_64-w64-mingw32/lib")
+    set(MINGW_LIBGCC "${MINGW_LIBS_DIR}/libgcc_s_seh-1.dll")
     set(MINGW_LIBSTD "${MINGW_LIBS_DIR}/libstdc++-6.dll")
     set(MINGW_LIBWPT "${MINGW_LIBS_DIR}/libwinpthread-1.dll")
 

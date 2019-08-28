@@ -17,6 +17,10 @@ enum DeviceType {
     DEV_VORTEX_RACE3,   //!< Vortex Race 3
 //  DEV_VORTEX_TESTER,  //!< Vortex 22-Key Switch Tester (same as MD200)
     DEV_VORTEX_VIBE,    //!< Vortex ViBE
+    DEV_VORTEX_CYPHER,  //!< Vortex Cypher
+    DEV_VORTEX_TAB60,   //!< Vortex Tab 60
+    DEV_VORTEX_TAB75,   //!< Vortex Tab 75
+    DEV_VORTEX_TAB90,   //!< Vortex Tab 90
     DEV_KBP_V60,        //!< KBParadise v60 Mini
     DEV_KBP_V80,        //!< KBParadise v80
     DEV_TEX_YODA_II,    //!< Tex Yoda II
