@@ -49,6 +49,12 @@ const ZMap<ZString, DeviceType> devnames = {
     { "vortex-vibe",        DEV_VORTEX_VIBE },
     { "vortex_vibe",        DEV_VORTEX_VIBE },
 
+    { "cypher",             DEV_VORTEX_CYPHER },
+
+    { "tab60",              DEV_VORTEX_TAB60 },
+    { "tab75",              DEV_VORTEX_TAB75 },
+    { "tab90",              DEV_VORTEX_TAB90 },
+
     { "kbpv60",             DEV_KBP_V60 },
     { "kbp-v60",            DEV_KBP_V60 },
     { "kbp_v60",            DEV_KBP_V60 },

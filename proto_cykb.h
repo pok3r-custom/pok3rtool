@@ -44,7 +44,7 @@ public:
     //! Construct unopened device.
     ProtoCYKB(zu16 vid, zu16 pid, zu16 boot_pid);
     //! Construct open device from open HIDDevice.
-    ProtoCYKB(zu16 vid, zu16 pid, zu16 boot_pid, bool builtin, ZPointer<HIDDevice> dev);
+    ProtoCYKB(zu16 vid, zu16 pid, zu16 boot_pid, bool builtin, ZPointer<HIDDevice> dev, zu32 fw_addr);
 
     ProtoCYKB(const ProtoCYKB &) = delete;
     ~ProtoCYKB();
@@ -110,6 +110,7 @@ private:
     zu16 vid;
     zu16 pid;
     zu16 boot_pid;
+    zu32 fw_addr;
 };
 
 #endif // PROTO_CYKB_H

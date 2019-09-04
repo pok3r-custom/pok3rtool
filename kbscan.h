@@ -39,6 +39,7 @@ struct DeviceInfo {
     zu16 pid;
     zu16 boot_pid;
     KBType type;
+    zu32 fw_addr;
 };
 
 struct ListDevice {

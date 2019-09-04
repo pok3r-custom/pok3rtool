@@ -6,7 +6,6 @@
 #define UPDATE_ERROR        0xaaff
 
 #define VER_ADDR            0x3000
-#define FW_ADDR             0x3400
 
 #define FLASH_LEN           0x10000
 
@@ -16,15 +15,16 @@
 #define HEX(A) (ZString::ItoS((zu64)(A), 16))
 
 ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_) :
-    ProtoCYKB(vid_, pid_, boot_pid_, false, new HIDDevice)
+    ProtoCYKB(vid_, pid_, boot_pid_, false, new HIDDevice, 0)
 {
 
 }
 
-ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPointer<HIDDevice> dev_) :
+ProtoCYKB::ProtoCYKB(zu16 vid_, zu16 pid_, zu16 boot_pid_, bool builtin_, ZPointer<HIDDevice> dev_, zu32 fw_addr_) :
     ProtoQMK(PROTO_CYKB, dev_),
     builtin(builtin_), debug(false), nop(false),
-    vid(vid_), pid(pid_), boot_pid(boot_pid_)
+    vid(vid_), pid(pid_), boot_pid(boot_pid_),
+    fw_addr(fw_addr_)
 {
     //dev->setStream(true);
 }
@@ -287,22 +287,22 @@ bool ProtoCYKB::writeFirmware(const ZBinary &fwbinin){
     zu32 crc1 = ZHash<ZBinary, ZHashBase::CRC32>(fwbin).hash();
     LOG("Firmware CRC E: " << ZString::ItoS((zu64)crc1, 16, 8));
 
-//    zu32 ccrc = crcFlash(FW_ADDR, 0xc000);
-    zu32 ccrc = crcFlash(FW_ADDR, fwbin.size());
+//    zu32 ccrc = crcFlash(fw_addr, 0xc000);
+    zu32 ccrc = crcFlash(fw_addr, fwbin.size());
     LOG("Current CRC: " << ZString::ItoS((zu64)ccrc, 16, 8));
 
     LOG("Erase...");
-    if(!eraseFlash(FW_ADDR, fwbin.size()))
-//    if(!eraseFlash(FW_ADDR, FLASH_LEN - FW_ADDR))
+    if(!eraseFlash(fw_addr, fwbin.size()))
+//    if(!eraseFlash(fw_addr, FLASH_LEN - fw_addr))
         return false;
 
     ZThread::sleep(WAIT_SLEEP);
 
     LOG("Write...");
-    if(!writeFlash(FW_ADDR, fwbin))
+    if(!writeFlash(fw_addr, fwbin))
         return false;
 
-    zu32 crc2 = crcFlash(FW_ADDR, fwbin.size());
+    zu32 crc2 = crcFlash(fw_addr, fwbin.size());
     LOG("New CRC: " << ZString::ItoS((zu64)crc2, 16, 8));
 
     if(crc2 != crc1){
@@ -502,7 +502,7 @@ zu32 ProtoCYKB::crcFlash(zu32 addr, zu32 len){
 }
 
 zu32 ProtoCYKB::baseFirmwareAddr() const {
-    return FW_ADDR;
+    return fw_addr;
 }
 
 bool ProtoCYKB::sendCmd(zu8 cmd, zu8 a1, ZBinary data){

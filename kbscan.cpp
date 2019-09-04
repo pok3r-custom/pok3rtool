@@ -34,27 +34,31 @@
 #define MISTEL_MD600_PID        0x0143
 #define MISTEL_MD200_PID        0x0200
 
+#define FW_ADDR_2C00            0x2c00
+#define FW_ADDR_3200            0x3200
+#define FW_ADDR_3400            0x3400
+
 #define CONSOLE_USAGE_PAGE      0xff31
 #define CONSOLE_USAGE           0x0074
 
 static const ZMap<DeviceType, DeviceInfo> known_devices = {
-    { DEV_POK3R,            { "vortex/pok3r",       "Vortex POK3R",             HOLTEK_VID, POK3R_PID,          BOOT_PID | POK3R_PID,           PROTO_POK3R } },
-    { DEV_POK3R_RGB,        { "vortex/pok3r_rgb",   "Vortex POK3R RGB",         HOLTEK_VID, POK3R_RGB_PID,      BOOT_PID | POK3R_RGB_PID,       PROTO_CYKB } },
-    { DEV_POK3R_RGB2,       { "vortex/pok3r_rgb2",  "Vortex POK3R RGB2",        HOLTEK_VID, POK3R_RGB2_PID,     BOOT_PID | POK3R_RGB2_PID,      PROTO_CYKB } },
-    { DEV_VORTEX_CORE,      { "vortex/core",        "Vortex Core",              HOLTEK_VID, VORTEX_CORE_PID,    BOOT_PID | VORTEX_CORE_PID,     PROTO_CYKB } },
-//  { DEV_VORTEX_TESTER,    { "vortex/tester",      "Vortex Tester",            HOLTEK_VID, VORTEX_TESTER_PID,  BOOT_PID | VORTEX_TESTER_PID,   PROTO_CYKB } }, // same as MD200
-    { DEV_VORTEX_RACE3,     { "vortex/race3",       "Vortex Race 3",            HOLTEK_VID, VORTEX_RACE3_PID,   BOOT_PID | VORTEX_RACE3_PID,    PROTO_CYKB } },
-    { DEV_VORTEX_VIBE,      { "vortex/vibe",        "Vortex ViBE",              HOLTEK_VID, VORTEX_VIBE_PID,    BOOT_PID | VORTEX_VIBE_PID,     PROTO_CYKB } },
-    { DEV_VORTEX_CYPHER,    { "vortex/cypher",      "Vortex Cypher",            HOLTEK_VID, VORTEX_CYPHER_PID,  BOOT_PID | VORTEX_CYPHER_PID,   PROTO_CYKB } },
-    { DEV_VORTEX_TAB60,     { "vortex/tab60",       "Vortex Tab 60",            HOLTEK_VID, VORTEX_TAB60_PID,   BOOT_PID | VORTEX_TAB60_PID,    PROTO_CYKB } },
-    { DEV_VORTEX_TAB75,     { "vortex/tab75",       "Vortex Tab 75",            HOLTEK_VID, VORTEX_TAB75_PID,   BOOT_PID | VORTEX_TAB75_PID,    PROTO_CYKB } },
-    { DEV_VORTEX_TAB90,     { "vortex/tab90",       "Vortex Tab 90",            HOLTEK_VID, VORTEX_TAB90_PID,   BOOT_PID | VORTEX_TAB90_PID,    PROTO_CYKB } },
-    { DEV_KBP_V60,          { "kbp/v60",            "KBP V60",                  HOLTEK_VID, KBP_V60_PID,        BOOT_PID | KBP_V60_PID,         PROTO_POK3R } },
-    { DEV_KBP_V80,          { "kbp/v80",            "KBP V80",                  HOLTEK_VID, KBP_V80_PID,        BOOT_PID | KBP_V80_PID,         PROTO_POK3R } },
-//  { DEV_KBP_V100,         { "kbp/100",            "KBP V100",                 HOLTEK_VID, KBP_V100_PID,       BOOT_PID | KBP_V100_PID,        PROTO_POK3R } },
-    { DEV_TEX_YODA_II,      { "tex/yoda",           "Tex Yoda II",              HOLTEK_VID, TEX_YODA_II_PID,    BOOT_PID | TEX_YODA_II_PID,     PROTO_CYKB } },
-    { DEV_MISTEL_MD600,     { "mistel/md600",       "Mistel Barocco MD600",     HOLTEK_VID, MISTEL_MD600_PID,   BOOT_PID | MISTEL_MD600_PID,    PROTO_CYKB } },
-    { DEV_MISTEL_MD200,     { "mistel/md200",       "Mistel Freeboard MD200",   HOLTEK_VID, MISTEL_MD200_PID,   BOOT_PID | MISTEL_MD200_PID,    PROTO_CYKB } },
+    { DEV_POK3R,            { "vortex/pok3r",       "Vortex POK3R",             HOLTEK_VID, POK3R_PID,          BOOT_PID | POK3R_PID,           PROTO_POK3R,    FW_ADDR_2C00 } },
+    { DEV_POK3R_RGB,        { "vortex/pok3r_rgb",   "Vortex POK3R RGB",         HOLTEK_VID, POK3R_RGB_PID,      BOOT_PID | POK3R_RGB_PID,       PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_POK3R_RGB2,       { "vortex/pok3r_rgb2",  "Vortex POK3R RGB2",        HOLTEK_VID, POK3R_RGB2_PID,     BOOT_PID | POK3R_RGB2_PID,      PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_VORTEX_CORE,      { "vortex/core",        "Vortex Core",              HOLTEK_VID, VORTEX_CORE_PID,    BOOT_PID | VORTEX_CORE_PID,     PROTO_CYKB,     FW_ADDR_3400 } },
+//  { DEV_VORTEX_TESTER,    { "vortex/tester",      "Vortex Tester",            HOLTEK_VID, VORTEX_TESTER_PID,  BOOT_PID | VORTEX_TESTER_PID,   PROTO_CYKB,     FW_ADDR_3400 } }, // same as MD200
+    { DEV_VORTEX_RACE3,     { "vortex/race3",       "Vortex Race 3",            HOLTEK_VID, VORTEX_RACE3_PID,   BOOT_PID | VORTEX_RACE3_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_VORTEX_VIBE,      { "vortex/vibe",        "Vortex ViBE",              HOLTEK_VID, VORTEX_VIBE_PID,    BOOT_PID | VORTEX_VIBE_PID,     PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_VORTEX_CYPHER,    { "vortex/cypher",      "Vortex Cypher",            HOLTEK_VID, VORTEX_CYPHER_PID,  BOOT_PID | VORTEX_CYPHER_PID,   PROTO_CYKB,     FW_ADDR_3200 } },
+    { DEV_VORTEX_TAB60,     { "vortex/tab60",       "Vortex Tab 60",            HOLTEK_VID, VORTEX_TAB60_PID,   BOOT_PID | VORTEX_TAB60_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_VORTEX_TAB75,     { "vortex/tab75",       "Vortex Tab 75",            HOLTEK_VID, VORTEX_TAB75_PID,   BOOT_PID | VORTEX_TAB75_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_VORTEX_TAB90,     { "vortex/tab90",       "Vortex Tab 90",            HOLTEK_VID, VORTEX_TAB90_PID,   BOOT_PID | VORTEX_TAB90_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_KBP_V60,          { "kbp/v60",            "KBP V60",                  HOLTEK_VID, KBP_V60_PID,        BOOT_PID | KBP_V60_PID,         PROTO_POK3R,    FW_ADDR_2C00 } },
+    { DEV_KBP_V80,          { "kbp/v80",            "KBP V80",                  HOLTEK_VID, KBP_V80_PID,        BOOT_PID | KBP_V80_PID,         PROTO_POK3R,    FW_ADDR_2C00 } },
+//  { DEV_KBP_V100,         { "kbp/100",            "KBP V100",                 HOLTEK_VID, KBP_V100_PID,       BOOT_PID | KBP_V100_PID,        PROTO_POK3R,    FW_ADDR_2C00 } },
+    { DEV_TEX_YODA_II,      { "tex/yoda",           "Tex Yoda II",              HOLTEK_VID, TEX_YODA_II_PID,    BOOT_PID | TEX_YODA_II_PID,     PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_MISTEL_MD600,     { "mistel/md600",       "Mistel Barocco MD600",     HOLTEK_VID, MISTEL_MD600_PID,   BOOT_PID | MISTEL_MD600_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_MISTEL_MD200,     { "mistel/md200",       "Mistel Freeboard MD200",   HOLTEK_VID, MISTEL_MD200_PID,   BOOT_PID | MISTEL_MD200_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
 };
 
 static ZMap<zu32, DeviceType> known_ids;
@@ -228,7 +232,7 @@ ZList<KBDevice> KBScan::open(){
             if(ldev.dev.type == PROTO_POK3R){
                 iface = new ProtoPOK3R(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid);
             } else if(ldev.dev.type == PROTO_CYKB){
-                iface = new ProtoCYKB(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid);
+                iface = new ProtoCYKB(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid, ldev.dev.fw_addr);
             } else {
                 ELOG("Unknown protocol");
                 continue;
