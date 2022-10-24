@@ -26,6 +26,8 @@ set(POK3RLIB_SOURCES
     proto_cykb.cpp
     proto_qmk.h
     proto_qmk.cpp
+    proto_cmmk.h
+    proto_cmmk.cpp
 
     keycodes.h
     keymap.h

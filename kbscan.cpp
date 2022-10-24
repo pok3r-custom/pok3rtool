@@ -1,6 +1,7 @@
 #include "kbscan.h"
 #include "proto_pok3r.h"
 #include "proto_cykb.h"
+#include "proto_cmmk.h"
 
 #include <functional>
 
@@ -13,6 +14,7 @@
 #define INTERFACE_PROTOCOL_NONE 0
 
 #define HOLTEK_VID              0x04d9
+#define CM_VID                  0x2516
 
 #define BOOT_PID                0x1000
 
@@ -33,6 +35,8 @@
 #define TEX_YODA_II_PID         0x0163
 #define MISTEL_MD600_PID        0x0143
 #define MISTEL_MD200_PID        0x0200
+#define CM_PRO_S_RGB_PID        0x003c
+#define CM_PRO_S_RGB_BOOT_PID   0x003d
 
 #define FW_ADDR_2C00            0x2c00
 #define FW_ADDR_3200            0x3200
@@ -59,6 +63,7 @@ static const ZMap<DeviceType, DeviceInfo> known_devices = {
     { DEV_TEX_YODA_II,      { "tex/yoda",           "Tex Yoda II",              HOLTEK_VID, TEX_YODA_II_PID,    BOOT_PID | TEX_YODA_II_PID,     PROTO_CYKB,     FW_ADDR_3400 } },
     { DEV_MISTEL_MD600,     { "mistel/md600",       "Mistel Barocco MD600",     HOLTEK_VID, MISTEL_MD600_PID,   BOOT_PID | MISTEL_MD600_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
     { DEV_MISTEL_MD200,     { "mistel/md200",       "Mistel Freeboard MD200",   HOLTEK_VID, MISTEL_MD200_PID,   BOOT_PID | MISTEL_MD200_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_CM_PRO_S_RGB,     { "cm/prosrgb",         "MasterKeys Pro S RGB",     CM_VID,     CM_PRO_S_RGB_PID,   CM_PRO_S_RGB_BOOT_PID,          PROTO_CMMK,     FW_ADDR_3400 } },
 };
 
 static ZMap<zu32, DeviceType> known_ids;
@@ -246,6 +251,8 @@ ZList<KBDevice> KBScan::open(){
                 iface = new ProtoPOK3R(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid);
             } else if(ldev.dev.type == PROTO_CYKB){
                 iface = new ProtoCYKB(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid, ldev.dev.fw_addr);
+            } else if(ldev.dev.type == PROTO_CMMK){
+                iface = new ProtoCMMK(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid, ldev.dev.fw_addr);
             } else {
                 ELOG("Unknown protocol");
                 continue;

@@ -74,6 +74,8 @@ const ZMap<ZString, DeviceType> devnames = {
 
     { "md200",              DEV_MISTEL_MD200 },
     { "freeboard",          DEV_MISTEL_MD200 },
+
+    { "prosrgb",            DEV_CM_PRO_S_RGB },
 };
 
 // Functions
