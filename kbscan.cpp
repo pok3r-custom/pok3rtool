@@ -62,19 +62,20 @@ static const ZMap<DeviceType, DeviceInfo> known_devices = {
 };
 
 static ZMap<zu32, DeviceType> known_ids;
+static ZMap<zu32, DeviceType> known_bids;
 
 KBScan::KBScan(){
-    if(!known_ids.size()){
+    if(!known_ids.size() && !known_bids.size()){
         for(auto it = known_devices.begin(); it.more(); ++it){
             DeviceInfo info = known_devices[it.get()];
             zu32 id = zu32(info.pid | (info.vid << 16));
             zu32 bid = zu32(info.boot_pid | (info.vid << 16));
             if(known_ids.contains(id))
                 LOG("Duplicate known id");
-            if(known_ids.contains(bid))
+            if(known_bids.contains(bid))
                 LOG("Duplicate known boot id");
             known_ids.add(id, it.get());
-            known_ids.add(bid, it.get());
+            known_bids.add(bid, it.get());
         }
     }
 }
@@ -101,7 +102,8 @@ zu32 KBScan::find(DeviceType devtype){
             case RAWHID_STEP_OPEN:
                 DLOG("OPEN " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
                 ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
-                devices.push({ devtype, dev, ptr, !!(detail->pid & 0x1000) });
+                zu32 id = detail->pid | (detail->vid << 16);
+                devices.push({ devtype, dev, ptr, known_bids.contains(id) });
                 // if hid pointer is taken, MUST return true here or it WILL double-free
                 return true;
         }
@@ -122,7 +124,7 @@ zu32 KBScan::scan(){
 //                DLOG("DEV " << detail->bus << " " << detail->device << " " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
                 DLOG("DEV " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
 //                return true;
-                return known_ids.contains(id);
+                return known_ids.contains(id) || known_bids.contains(id);
 
             case RAWHID_STEP_IFACE:
                 DLOG("IFACE " << detail->ifnum << ": " <<
@@ -153,16 +155,27 @@ zu32 KBScan::scan(){
                     ZString::ItoS((zu64)detail->pid, 16, 4) << " " <<
                     detail->ifnum
                 );
-                if(!known_ids.contains(id))
-                    return false;
                 // make high-level wrapper object
-                ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
-                devices.push({
-                    known_ids[id],
-                    known_devices[known_ids[id]],
-                    ptr,
-                    !!(detail->pid & 0x1000)
-                });
+                if (known_ids.contains(id)) {
+                    ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
+                    devices.push({
+                        known_ids[id],
+                        known_devices[known_ids[id]],
+                        ptr,
+                        false
+                    });
+                } else if(known_bids.contains(id)) {
+                    ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
+                    devices.push({
+                        known_bids[id],
+                        known_devices[known_bids[id]],
+                        ptr,
+                        true
+                    });
+                } else {
+                    ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
+                    return false;
+                }
                 // if hid pointer is taken, MUST return true here or it WILL double-free
                 return true;
             }
@@ -181,7 +194,7 @@ void KBScan::dbgScan(){
         zu32 id = detail->pid | (detail->vid << 16);
         switch(detail->step){
             case RAWHID_STEP_DEV:
-                if(known_ids.contains(id)){
+                if(known_ids.contains(id) || known_bids.contains(id)){
                     LOG("DEV " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
                     return true;
                 }
@@ -207,7 +220,7 @@ void KBScan::dbgScan(){
                     ZString::ItoS((zu64)detail->pid, 16, 4) << " " <<
                     detail->ifnum
                 );
-                if(!known_ids.contains(id))
+                if(!known_ids.contains(id) && !known_bids.contains(id))
                     return false;
                 return false;
             }
