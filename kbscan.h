@@ -26,6 +26,7 @@ enum DeviceType {
     DEV_TEX_YODA_II,    //!< Tex Yoda II
     DEV_MISTEL_MD600,   //!< Mistel Barocco MD600
     DEV_MISTEL_MD200,   //!< Mistel Freeboard MD200
+    DEV_CM_PRO_S_RGB,   //!< Cooler Master MasterKeys Pro S RGB
 
     DEV_QMK_POK3R,
     DEV_QMK_POK3R_RGB,

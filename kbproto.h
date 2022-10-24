@@ -11,6 +11,7 @@ using namespace LibChaos;
 enum KBType {
     PROTO_POK3R,    //!< Used in the POK3R and KBP keyboards.
     PROTO_CYKB,     //!< Used in Vortex keyboards marked with CYKB.
+    PROTO_CMMK,       //!< Used in CoolerMaster keyboards.
 };
 
 enum KBStatus {

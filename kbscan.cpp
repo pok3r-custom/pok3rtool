@@ -1,6 +1,7 @@
 #include "kbscan.h"
 #include "proto_pok3r.h"
 #include "proto_cykb.h"
+#include "proto_cmmk.h"
 
 #include <functional>
 
@@ -13,6 +14,7 @@
 #define INTERFACE_PROTOCOL_NONE 0
 
 #define HOLTEK_VID              0x04d9
+#define CM_VID                  0x2516
 
 #define BOOT_PID                0x1000
 
@@ -33,6 +35,8 @@
 #define TEX_YODA_II_PID         0x0163
 #define MISTEL_MD600_PID        0x0143
 #define MISTEL_MD200_PID        0x0200
+#define CM_PRO_S_RGB_PID        0x003c
+#define CM_PRO_S_RGB_BOOT_PID   0x003d
 
 #define FW_ADDR_2C00            0x2c00
 #define FW_ADDR_3200            0x3200
@@ -59,22 +63,24 @@ static const ZMap<DeviceType, DeviceInfo> known_devices = {
     { DEV_TEX_YODA_II,      { "tex/yoda",           "Tex Yoda II",              HOLTEK_VID, TEX_YODA_II_PID,    BOOT_PID | TEX_YODA_II_PID,     PROTO_CYKB,     FW_ADDR_3400 } },
     { DEV_MISTEL_MD600,     { "mistel/md600",       "Mistel Barocco MD600",     HOLTEK_VID, MISTEL_MD600_PID,   BOOT_PID | MISTEL_MD600_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
     { DEV_MISTEL_MD200,     { "mistel/md200",       "Mistel Freeboard MD200",   HOLTEK_VID, MISTEL_MD200_PID,   BOOT_PID | MISTEL_MD200_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_CM_PRO_S_RGB,     { "cm/prosrgb",         "MasterKeys Pro S RGB",     CM_VID,     CM_PRO_S_RGB_PID,   CM_PRO_S_RGB_BOOT_PID,          PROTO_CMMK,     FW_ADDR_3400 } },
 };
 
 static ZMap<zu32, DeviceType> known_ids;
+static ZMap<zu32, DeviceType> known_bids;
 
 KBScan::KBScan(){
-    if(!known_ids.size()){
+    if(!known_ids.size() && !known_bids.size()){
         for(auto it = known_devices.begin(); it.more(); ++it){
             DeviceInfo info = known_devices[it.get()];
             zu32 id = zu32(info.pid | (info.vid << 16));
             zu32 bid = zu32(info.boot_pid | (info.vid << 16));
             if(known_ids.contains(id))
                 LOG("Duplicate known id");
-            if(known_ids.contains(bid))
+            if(known_bids.contains(bid))
                 LOG("Duplicate known boot id");
             known_ids.add(id, it.get());
-            known_ids.add(bid, it.get());
+            known_bids.add(bid, it.get());
         }
     }
 }
@@ -101,7 +107,8 @@ zu32 KBScan::find(DeviceType devtype){
             case RAWHID_STEP_OPEN:
                 DLOG("OPEN " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
                 ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
-                devices.push({ devtype, dev, ptr, !!(detail->pid & 0x1000) });
+                zu32 id = detail->pid | (detail->vid << 16);
+                devices.push({ devtype, dev, ptr, known_bids.contains(id) });
                 // if hid pointer is taken, MUST return true here or it WILL double-free
                 return true;
         }
@@ -122,7 +129,7 @@ zu32 KBScan::scan(){
 //                DLOG("DEV " << detail->bus << " " << detail->device << " " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
                 DLOG("DEV " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
 //                return true;
-                return known_ids.contains(id);
+                return known_ids.contains(id) || known_bids.contains(id);
 
             case RAWHID_STEP_IFACE:
                 DLOG("IFACE " << detail->ifnum << ": " <<
@@ -153,16 +160,27 @@ zu32 KBScan::scan(){
                     ZString::ItoS((zu64)detail->pid, 16, 4) << " " <<
                     detail->ifnum
                 );
-                if(!known_ids.contains(id))
-                    return false;
                 // make high-level wrapper object
-                ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
-                devices.push({
-                    known_ids[id],
-                    known_devices[known_ids[id]],
-                    ptr,
-                    !!(detail->pid & 0x1000)
-                });
+                if (known_ids.contains(id)) {
+                    ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
+                    devices.push({
+                        known_ids[id],
+                        known_devices[known_ids[id]],
+                        ptr,
+                        false
+                    });
+                } else if(known_bids.contains(id)) {
+                    ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
+                    devices.push({
+                        known_bids[id],
+                        known_devices[known_bids[id]],
+                        ptr,
+                        true
+                    });
+                } else {
+                    ZPointer<HIDDevice> ptr = new HIDDevice(detail->hid);
+                    return false;
+                }
                 // if hid pointer is taken, MUST return true here or it WILL double-free
                 return true;
             }
@@ -181,7 +199,7 @@ void KBScan::dbgScan(){
         zu32 id = detail->pid | (detail->vid << 16);
         switch(detail->step){
             case RAWHID_STEP_DEV:
-                if(known_ids.contains(id)){
+                if(known_ids.contains(id) || known_bids.contains(id)){
                     LOG("DEV " << ZString::ItoS((zu64)detail->vid, 16, 4) << " " << ZString::ItoS((zu64)detail->pid, 16, 4));
                     return true;
                 }
@@ -207,7 +225,7 @@ void KBScan::dbgScan(){
                     ZString::ItoS((zu64)detail->pid, 16, 4) << " " <<
                     detail->ifnum
                 );
-                if(!known_ids.contains(id))
+                if(!known_ids.contains(id) && !known_bids.contains(id))
                     return false;
                 return false;
             }
@@ -233,6 +251,8 @@ ZList<KBDevice> KBScan::open(){
                 iface = new ProtoPOK3R(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid);
             } else if(ldev.dev.type == PROTO_CYKB){
                 iface = new ProtoCYKB(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid, ldev.dev.fw_addr);
+            } else if(ldev.dev.type == PROTO_CMMK){
+                iface = new ProtoCMMK(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid, ldev.dev.fw_addr);
             } else {
                 ELOG("Unknown protocol");
                 continue;
