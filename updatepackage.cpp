@@ -9,6 +9,7 @@
 
 typedef int (*decodeFunc)(ZFile *, ZBinary &);
 int decode_maajonsn(ZFile *file, ZBinary &fw_out);
+int decode_maav101(ZFile *file, ZBinary &fw_out);
 int decode_maav102(ZFile *file, ZBinary &fw_out);
 int decode_maav105(ZFile *file, ZBinary &fw_out);
 int decode_kbp_v60(ZFile *file, ZBinary &fw_out);
@@ -17,6 +18,7 @@ int decode_kbp_v80(ZFile *file, ZBinary &fw_out);
 enum PackType {
     PACKAGE_NONE = 0,
     MAAJONSN,   // .maajonsn
+    MAAV101,    // .maaV101
     MAAV102,    // .maaV102
     MAAV105,    // .maaV105
     KBPV60,
@@ -92,13 +94,22 @@ const ZMap<zu64, PackType> packages = {
     // Cooler Master Masterkeys Pro M White
     { 0x12fbf4668bdfe188,   MAAV102 },  // V1.06.00
 
+    // Cooler Master Masterkeys Pro S RGB
+    { 0x91d591ac1a77b2d,    MAAV101 },  // 1.2.1        cmprosrgb/v121
+    { 0x836c83cc7d4e9f1,    MAAV101 },  // 1.2.2        cmprosrgb/v122
+
     // Cooler Master Masterkeys Pro M RGB
     { 0xfdf7ac5b93d67ead,   MAAV102 },  // V1.04.00
     { 0x2f69c079f9d53765,   MAAV102 },  // V1.04.01
+
+    // Cooler Master Masterkeys Pro L RGB
+    { 0x57ca9d8e07d0c95a,   MAAV101 },  // 1.2.1
+    { 0x2adc9b96d5cf26c7,   MAAV101 },  // 1.2.2
 };
 
 const ZMap<PackType, decodeFunc> types = {
     { MAAJONSN, decode_maajonsn },
+    { MAAV101,  decode_maav101 },
     { MAAV102,  decode_maav102 },
     { KBPV60,   decode_kbp_v60 },
     { KBPV80,   decode_kbp_v80 },
@@ -208,6 +219,82 @@ int decode_maajonsn(ZFile *file, ZBinary &fw_out){
     zu64 offset_product = offset_company + 0x208; // 0x218
     zu64 offset_version = 0x460;
     zu64 offset_sig = 0x4AE;
+
+    zu64 strings_start = exelen - strings_len;
+
+    // Read strings
+    ZBinary strs = pkg_file_read(file, strings_start, strings_len);
+    // Decrypt strings
+    decode_package_data(strs);
+
+    ZString company;
+    ZString product;
+    ZString version;
+
+    // Company name
+    company.parseUTF16((const zu16 *)(strs.raw() + offset_company), 0x200);
+    // Product name
+    product.parseUTF16((const zu16 *)(strs.raw() + offset_product), 0x200);
+    // Version
+    version = ZString(strs.raw() + offset_version, 12);
+
+    LOG("Company:     " << company);
+    LOG("Product:     " << product);
+    LOG("Version:     " << version);
+
+    LOG("Signature:   " << ZString(strs.raw() + offset_sig, strings_len - offset_sig));
+
+//    LOG("String Dump:");
+//    RLOG(strs.dumpBytes(4, 8));
+
+    // Decode other encrypted sections
+
+    zu64 total = strings_len;
+    ZArray<zu64> sections;
+
+    zu64 sec_len = ZBinary::decleu32(strs.raw() + 0x420); // Firmware length
+
+    ZString layout;
+    layout.parseUTF16((const zu16 *)(strs.raw() + 0x424), 0x20);
+    LOG("Layout: " << layout);
+
+    total += sec_len;
+    sections.push(sec_len);
+
+    zu64 sec_start = exelen - total;
+
+    LOG("Offset: 0x" << ZString::ItoS(sec_start, 16));
+    LOG("Length: 0x" << ZString::ItoS(sec_len, 16));
+
+    // Read section
+    ZBinary sec = pkg_file_read(file, sec_start, sec_len);
+    // Decode section
+    decode_package_data(sec);
+
+    // Decrypt firmware
+    ProtoPOK3R::decode_firmware(sec);
+
+//    LOG("Section Dump:");
+//    RLOG(sec.dumpBytes(4, 8, 0));
+
+    // Write firmware
+    fw_out = sec;
+
+    return 0;
+
+}
+
+/*  Decode the updater for the CM MK Pro S/L RGB
+ */
+int decode_maav101(ZFile *file, ZBinary &fw_out){
+    zu64 exelen = file->fileSize();
+
+    zu64 strings_len = 0x4BC;
+
+    zu64 offset_company = 0x10;
+    zu64 offset_product = 0x218;
+    zu64 offset_version = 0x461;
+    zu64 offset_sig = 0x4AF;
 
     zu64 strings_start = exelen - strings_len;
 
