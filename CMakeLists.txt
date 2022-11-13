@@ -83,29 +83,7 @@ install(TARGETS pok3rtool DESTINATION bin)
 install(TARGETS pok3rlib DESTINATION lib)
 
 if(MINGW)
-    # Apparently Qt's mingw doesn't come with some static libraries
-    get_filename_component(MINGW_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
-    set(MINGW_LIBS_DIR "${MINGW_DIR}/../x86_64-w64-mingw32/lib")
-    set(MINGW_LIBGCC "${MINGW_LIBS_DIR}/libgcc_s_seh-1.dll")
-    set(MINGW_LIBSTD "${MINGW_LIBS_DIR}/libstdc++-6.dll")
-    set(MINGW_LIBWPT "${MINGW_LIBS_DIR}/libwinpthread-1.dll")
-
-    add_custom_command(TARGET pok3rtool POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MINGW_LIBGCC}"
-            "$<TARGET_FILE_DIR:pok3rtool>"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MINGW_LIBSTD}"
-            "$<TARGET_FILE_DIR:pok3rtool>"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MINGW_LIBWPT}"
-            "$<TARGET_FILE_DIR:pok3rtool>"
-    )
-
-    # intall mingw libraries
-    install(FILES "${MINGW_LIBGCC}" DESTINATION lib)
-    install(FILES "${MINGW_LIBSTD}" DESTINATION lib)
-    install(FILES "${MINGW_LIBWPT}" DESTINATION lib)
+    set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
 endif()
 
 # Creates C resources file from files in given directory
