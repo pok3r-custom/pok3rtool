@@ -8,7 +8,7 @@
 #if LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_WINDOWS
     #include <windows.h>
 #elif LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_LINUX
-    #include <usb.h>
+    #include <libusb.h>
     #include <errno.h>
 #endif
 
@@ -62,7 +62,7 @@ bool HIDDevice::send(const ZBinary &data, bool tolerate_dc){
             // ignore some errors when devices may disconnect
             return true;
         }
-        ELOG("hid send error: " << ret << ": " << usb_strerror());
+        ELOG("hid send error: " << ret << ": " << libusb_strerror(ret));
 #else
         ELOG("hid send error: " << ret);
 #endif
@@ -92,7 +92,7 @@ bool HIDDevice::recv(ZBinary &data){
     //} else
     if(ret < 0){
 #if LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_LINUX
-        ELOG("hid recv error: " << ret << ": " << usb_strerror());
+        ELOG("hid recv error: " << ret << ": " << libusb_strerror(ret));
 #else
         ELOG("hid recv error: " << ret);
 #endif

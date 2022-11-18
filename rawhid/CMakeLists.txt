@@ -10,7 +10,7 @@ SET(SOURCES
 )
 
 SET(FILES
-    hid_LINUX.c
+    hid_libusb.c
     hid_MACOSX.c
     hid_WINDOWS.c
 )
@@ -25,9 +25,13 @@ ELSEIF(CMAKE_SYSTEM_NAME MATCHES "Darwin")
     )
 ELSE()
     SET(SOURCES ${SOURCES}
-        hid_LINUX.c
+        hid_libusb.c
     )
 ENDIF()
+
+INCLUDE(
+    ../FindLibUSB-1.0.cmake
+)
 
 ### =================== CONFIG =================== ###
 
@@ -58,7 +62,8 @@ ELSEIF(CMAKE_SYSTEM_NAME MATCHES "Darwin")
     TARGET_LINK_LIBRARIES(rawhid ${IOKIT_LIBRARY} ${COREFOUNDATION_LIBRARY})
 ELSE()
     # Linux/BSD
-    TARGET_LINK_LIBRARIES(rawhid usb)
+    TARGET_INCLUDE_DIRECTORIES(rawhid PRIVATE ${LIBUSB_1_INCLUDE_DIRS})
+    TARGET_LINK_LIBRARIES(rawhid PRIVATE ${LIBUSB_1_LIBRARIES})
 ENDIF()
 
 # install
