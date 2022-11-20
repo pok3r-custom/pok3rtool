@@ -391,7 +391,7 @@ bool ProtoPOK3R::sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data){
     DLOG("recv:");
     DLOG(ZLog::RAW << data.dumpBytes(4, 8));
 
-    if(data.size() != UPDATE_PKT_LEN){
+    if(data.size() < UPDATE_PKT_LEN){
         DLOG("bad recv size");
         return false;
     }

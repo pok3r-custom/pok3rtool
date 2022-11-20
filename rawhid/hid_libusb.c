@@ -347,7 +347,8 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
             // unbind kernel drivers from interface
             if (libusb_kernel_driver_active(handle, ifnum) != 0) {
                 printf("\t\tin use by a kernel driver\n");
-                if (libusb_detach_kernel_driver(handle, ifnum) < 0) {
+                rc = libusb_detach_kernel_driver(handle, ifnum);
+                if (rc != LIBUSB_ERROR_NOT_SUPPORTED && rc < 0) {
                     printf("\t\tunable to detach from kernel\n");
                     continue;
                 }

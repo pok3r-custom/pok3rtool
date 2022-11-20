@@ -55,6 +55,8 @@ else (LIBUSB_1_LIBRARIES AND LIBUSB_1_INCLUDE_DIRS)
         /usr/local/include
         /opt/local/include
         /sw/include
+        /mingw64/include
+        /mingw32/include
         ${LIBUSB_HINT_INCLUDE_DIR}
         PATH_SUFFIXES
         libusb-1.0
@@ -70,6 +72,8 @@ else (LIBUSB_1_LIBRARIES AND LIBUSB_1_INCLUDE_DIRS)
         /usr/local/lib
         /opt/local/lib
         /sw/lib
+        /mingw64/lib
+        /mingw32/lib
         ${LIBUSB_HINT_LIBRARY_DIR}
         )
 

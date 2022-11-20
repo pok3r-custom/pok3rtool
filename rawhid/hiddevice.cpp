@@ -5,11 +5,8 @@
 
 #include "hid.h"
 
-#if LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_WINDOWS
-    #include <windows.h>
-#elif LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_LINUX
+#if LIBCHAOS_PLATFORM != LIBCHAOS_PLATFORM_MACOSX
     #include <libusb.h>
-    #include <errno.h>
 #endif
 
 struct HIDDeviceData {
@@ -47,18 +44,8 @@ bool HIDDevice::send(const ZBinary &data, bool tolerate_dc){
         return false;
     int ret = rawhid_send(hid, data.raw(), data.size(), SEND_TIMEOUT);
     if(ret < 0){
-#if LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_WINDOWS
-        zu32 err = ZError::getSystemErrorCode();
-        if(tolerate_dc && (
-            err == ERROR_GEN_FAILURE ||
-            err == ERROR_DEVICE_NOT_CONNECTED
-        )){
-            // ignore some errors when devices may disconnect
-            return true;
-        }
-        ELOG("hid send win32 error: " << err);
-#elif LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_LINUX
-        if(tolerate_dc && (ret == -EPIPE || ret == -ENXIO)){
+#if LIBCHAOS_PLATFORM != LIBCHAOS_PLATFORM_MACOSX
+        if(tolerate_dc && (ret == LIBUSB_ERROR_PIPE || ret == LIBUSB_ERROR_NO_DEVICE)){
             // ignore some errors when devices may disconnect
             return true;
         }
@@ -68,7 +55,7 @@ bool HIDDevice::send(const ZBinary &data, bool tolerate_dc){
 #endif
         return false;
     }
-    if((zu64)ret != data.size())
+    if((zu64)ret < data.size())
         return false;
     return true;
 }
@@ -91,7 +78,7 @@ bool HIDDevice::recv(ZBinary &data){
     //    return false;
     //} else
     if(ret < 0){
-#if LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_LINUX
+#if LIBCHAOS_PLATFORM != LIBCHAOS_PLATFORM_MACOSX
         ELOG("hid recv error: " << ret << ": " << libusb_strerror(ret));
 #else
         ELOG("hid recv error: " << ret);

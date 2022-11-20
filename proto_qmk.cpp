@@ -400,7 +400,7 @@ bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data, bool quiet){
     DLOG("recv:");
     DLOG(ZLog::RAW << pkt_in.dumpBytes(4, 8));
 
-    if(pkt_in.size() != UPDATE_PKT_LEN){
+    if(pkt_in.size() < UPDATE_PKT_LEN){
         DLOG("bad recv size");
         return false;
     }

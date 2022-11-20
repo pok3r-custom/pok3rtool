@@ -541,7 +541,7 @@ bool ProtoCYKB::recvCmd(ZBinary &data){
         return false;
     }
 
-    if(data.size() != UPDATE_PKT_LEN){
+    if(data.size() < UPDATE_PKT_LEN){
         DLOG("bad recv size");
         return false;
     }
