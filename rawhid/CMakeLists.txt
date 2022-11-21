@@ -5,20 +5,9 @@ PROJECT(rawhid)
 
 SET(SOURCES
     hid.h
+    hid_libusb.c
     hiddevice.h
     hiddevice.cpp
-)
-
-SET(FILES
-    hid_libusb.c
-)
-
-SET(SOURCES ${SOURCES}
-    hid_libusb.c
-)
-
-INCLUDE(
-    ../FindLibUSB-1.0.cmake
 )
 
 ### =================== CONFIG =================== ###
@@ -29,7 +18,13 @@ IF(CMAKE_SYSTEM_NAME MATCHES "Darwin")
     FIND_LIBRARY(COREFOUNDATION_LIBRARY CoreFoundation REQUIRED)
 ENDIF()
 
+SET(LIBUSB_1_FIND_REQUIRED TRUE)
+
 ### =================== BUILD =================== ###
+
+INCLUDE(
+    ../FindLibUSB-1.0.cmake
+)
 
 ADD_CUSTOM_TARGET(rawhid-dummy SOURCES ${FILES})
 
@@ -44,7 +39,7 @@ TARGET_COMPILE_OPTIONS(rawhid PRIVATE
 
 IF(CMAKE_SYSTEM_NAME MATCHES "Darwin")
     # Mac OS
-    TARGET_LINK_LIBRARIES(rawhid ${IOKIT_LIBRARY} ${COREFOUNDATION_LIBRARY})
+    TARGET_LINK_LIBRARIES(rawhid PRIVATE ${IOKIT_LIBRARY} ${COREFOUNDATION_LIBRARY})
 ENDIF()
 
 # Linux/BSD/Windows/macOS
