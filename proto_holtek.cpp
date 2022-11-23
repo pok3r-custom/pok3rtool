@@ -155,18 +155,29 @@ KBStatus ProtoHoltek::setVersion(ZString version){
 }
 
 ZBinary ProtoHoltek::dumpFlash(){
+    zu32 flash_size = HT32F1654_FLASH_LEN;
+
+    // get flash size from info
+    ZBinary info;
+    sendRecvCmd(INFO_CMD, 0, info);
+    info.seek(6);
+    zu16 page_size = info.readleu16();
+    info.seek(8);
+    flash_size = page_size * info.readleu16();
+    LOG("dumpFlash: " << flash_size);
+
     ZBinary dump;
-    zu32 cp = HT32F1654_FLASH_LEN / 10;
+    zu32 cp = flash_size / 10;
     int perc = 0;
     RLOG(perc << "%...");
-    for(zu32 addr = 0; addr < HT32F1654_FLASH_LEN; addr += 64){
+    for(zu32 addr = 0; addr < flash_size; addr += 64){
         if(!readFlash(addr, dump))
             break;
 
         if(addr >= cp){
             perc += 10;
             RLOG(perc << "%...");
-            cp += HT32F1654_FLASH_LEN / 10;
+            cp += flash_size / 10;
         }
     }
     RLOG("100%" << ZLog::NEWLN);
