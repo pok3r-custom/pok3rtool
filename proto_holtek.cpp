@@ -4,6 +4,7 @@
 #define UPDATE_PKT_LEN          64
 
 #define FW_ADDR                 0x0000
+#define OB_ADDR                 0x1ff00000
 
 #define HT32F52352_FLASH_LEN    0x20000
 #define HT32F1654_FLASH_LEN     0x10000
@@ -120,7 +121,16 @@ bool ProtoHoltek::getInfo(){
     zu32 flash_size = page_size * data.readleu16();
     LOG("flash size in bytes: " << flash_size);
 
-    // TODO Read Flash Security and Protection
+    // Read Flash Security and Protection
+    ZBinary ob;
+    if(!readFlash(OB_ADDR, ob)) {
+        ELOG("Cannot read Option Bytes");
+    } else {
+        ob.seek(16);
+        zu8 ob_cp = ob.readu8();
+        LOG("flash security: " << ((ob_cp & 1) == 0));
+        LOG("flash protection: " << ((ob_cp & 2) == 0));
+    }
 
     // check status
     LOG("status: " << getCmdStatus());
