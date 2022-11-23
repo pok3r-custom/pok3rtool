@@ -95,11 +95,11 @@ bool ProtoHoltek::getInfo(){
 
     zu32 model;
     switch(ver){
-        case 257: // v101
+        case 0x101: // v101
             data.seek(16);
             model = data.readleu32();
             break;
-        case 256: // v100
+        case 0x100: // v100
             data.rewind();
             model = (zu32)data.readleu16();
             break;
