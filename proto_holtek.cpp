@@ -130,6 +130,13 @@ bool ProtoHoltek::getInfo(){
         zu8 ob_cp = ob.readu8();
         LOG("flash security: " << ((ob_cp & 1) == 0));
         LOG("flash protection: " << ((ob_cp & 2) == 0));
+        RLOG("flash page protection:");
+        for(int i = 0; i < 4; i++){
+            ob.seek(i*4);
+            zu32 ob_pp = ob.readleu32();
+            RLOG(" " << HEX(ob_pp));
+        }
+        RLOG(ZLog::NEWLN);
     }
 
     // check status
