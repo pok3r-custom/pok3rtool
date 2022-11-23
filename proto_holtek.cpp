@@ -129,7 +129,7 @@ bool ProtoHoltek::getInfo(){
         ob.seek(16);
         zu8 ob_cp = ob.readu8();
         LOG("flash security: " << ((ob_cp & 1) == 0));
-        LOG("flash protection: " << ((ob_cp & 2) == 0));
+        LOG("option byte protection: " << ((ob_cp & 2) == 0));
         RLOG("flash page protection:");
         for(int i = 0; i < 4; i++){
             ob.seek(i*4);
