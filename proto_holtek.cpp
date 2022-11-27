@@ -206,7 +206,14 @@ ZBinary ProtoHoltek::dumpFlash(){
 bool ProtoHoltek::writeFirmware(const ZBinary &fwbinin){
     ZBinary fwbin = fwbinin;
 
-    // TODO check page and flash size with info command
+    // clear status
+    ZBinary status(64);
+    getCmdStatus(status);
+
+    zu16 crc = crcFlash(FW_ADDR, fwbin.size());
+    LOG("Current CRC: " << HEX(crc));
+    zu16 fw_crc = ZHash<ZBinary, ZHashBase::CRC16>(fwbin).hash();
+    LOG("Firmware CRC: " << HEX(fw_crc));
 
     LOG("Mass Erase...");
     if(!massEraseFlash()){
@@ -222,7 +229,6 @@ bool ProtoHoltek::writeFirmware(const ZBinary &fwbinin){
         return false;
 
     // clear status
-    ZBinary status(64);
     getCmdStatus(status);
 
     // Write firmware
@@ -247,6 +253,10 @@ bool ProtoHoltek::writeFirmware(const ZBinary &fwbinin){
             return false;
         }
     }
+
+    crc = crcFlash(FW_ADDR, fwbin.size());
+    LOG("Final CRC: " << HEX(crc));
+
     return true;
 }
 
@@ -310,7 +320,12 @@ bool ProtoHoltek::checkFlash(zu32 addr, ZBinary bin){
     arg.write(bin);
     if(!sendCmd(FLASH_CMD, FLASH_CHECK_SUBCMD, arg))
         return false;
-    return true;
+
+    ZThread::usleep(500);
+
+    ZBinary status(64);
+    zu32 count = getCmdStatus(status);
+    return count > 0;
 }
 
 bool ProtoHoltek::massEraseFlash(){
@@ -343,7 +358,7 @@ zu16 ProtoHoltek::crcFlash(zu32 addr, zu32 len){
     arg.writeleu32(len);
     sendCmd(CRC_CMD, 0, arg);
 
-    ZThread::usleep(500);
+    ZThread::usleep(5000);
 
     // get crc from status buffer
     ZBinary status(64);
