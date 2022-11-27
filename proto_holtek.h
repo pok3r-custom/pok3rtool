@@ -91,7 +91,7 @@ private:
     //! Send command and recv response.
     bool sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data);
     //! Get number of successful command status entries
-    zu32 getCmdStatus();
+    zu32 getCmdStatus(ZBinary &data);
 
 private:
     bool builtin;

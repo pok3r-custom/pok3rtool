@@ -140,7 +140,8 @@ bool ProtoHoltek::getInfo(){
     }
 
     // check status
-    LOG("status: " << getCmdStatus());
+    ZBinary status(64);
+    LOG("status: " << getCmdStatus(status));
 
     return true;
 }
@@ -221,7 +222,8 @@ bool ProtoHoltek::writeFirmware(const ZBinary &fwbinin){
         return false;
 
     // clear status
-    getCmdStatus();
+    ZBinary status(64);
+    getCmdStatus(status);
 
     // Write firmware
     LOG("Write...");
@@ -269,7 +271,7 @@ bool ProtoHoltek::readFlash(zu32 addr, ZBinary &bin){
     // Send command
     ZBinary data;
     data.writeleu32(addr);
-    data.writeleu32(addr + 64);
+    data.writeleu32(addr + UPDATE_PKT_LEN - 1);
     if(!sendRecvCmd(FLASH_CMD, FLASH_READ_SUBCMD, data))
         return false;
     bin.write(data);
@@ -289,8 +291,9 @@ bool ProtoHoltek::writeFlash(zu32 addr, ZBinary bin){
         return false;
 
     zu32 count;
+    ZBinary status(64);
     do {
-        count = getCmdStatus();
+        count = getCmdStatus(status);
     }while(count < 1);
 
     return true;
@@ -315,9 +318,7 @@ bool ProtoHoltek::massEraseFlash(){
     // Send command
     ZBinary arg;
     arg.writeleu32(0);
-    //arg.writeleu32(0xfbff);
     arg.writeleu32(0);
-    //if(!sendCmd(ERASE_CMD, ERASE_PAGE_SUBCMD, arg))
     if(!sendCmd(ERASE_CMD, ERASE_MASS_SUBCMD, arg))
         return false;
     return true;
@@ -335,12 +336,22 @@ bool ProtoHoltek::eraseFlash(zu32 start, zu32 end){
 }
 
 zu16 ProtoHoltek::crcFlash(zu32 addr, zu32 len){
+    DLOG("crcFlash " << HEX(addr) << " " << len);
     // Send command
     ZBinary arg;
     arg.writeleu32(addr);
     arg.writeleu32(len);
     sendCmd(CRC_CMD, 0, arg);
-    return 0;
+
+    ZThread::usleep(500);
+
+    // get crc from status buffer
+    ZBinary status(64);
+    getCmdStatus(status);
+    status.seek(0);
+    zu16 crc = status.readleu16();
+    DLOG("CRC: " << HEX(crc));
+    return crc;
 }
 
 zu32 ProtoHoltek::baseFirmwareAddr() const {
@@ -398,12 +409,13 @@ bool ProtoHoltek::sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data){
     return true;
 }
 
-zu32 ProtoHoltek::getCmdStatus(){
-    ZBinary data(64);
+zu32 ProtoHoltek::getCmdStatus(ZBinary &data){
+    //ZBinary data(64);
     data.fill(0);
     int rc = dev->xferControl(0xa1, 0x01, 0x100, 0, data);
     if(rc < 0){
         DLOG("xferControl error");
+        return 0;
     }
 
     DLOG("status:");
@@ -415,7 +427,6 @@ zu32 ProtoHoltek::getCmdStatus(){
         data.seek(i);
         zu8 val = data.readu8();
         if(val == 0x4f) count++;
-        if(val == 0) break;
     }
     return count;
 }
