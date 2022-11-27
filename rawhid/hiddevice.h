@@ -30,7 +30,6 @@ public:
 
     bool send(const ZBinary &data, bool tolerate_dc = false);
     bool recv(ZBinary &data);
-    int xferControl(zu8 bmRequest, zu8 bRequest, zu16 wValue, zu16 wIndex, ZBinary &data);
 
     static ZArray<ZPointer<HIDDevice>> openAll(zu16 vid, zu16 pid, zu16 usage_page, zu16 usage);
 
