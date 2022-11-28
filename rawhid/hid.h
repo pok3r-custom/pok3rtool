@@ -36,8 +36,6 @@ struct rawhid_detail {
     unsigned char ep_out;
     unsigned char epout_size;
     // report desc
-    const unsigned char *report_desc;
-    unsigned short rdesc_len;
     unsigned short usage_page;
     unsigned short usage;
     // open
