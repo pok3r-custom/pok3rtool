@@ -396,6 +396,8 @@ bool ProtoQMK::sendRecvCmdQmk(zu8 cmd, zu8 subcmd, ZBinary &data, bool quiet){
         ELOG("recv error");
         return false;
     }
+    // truncate to 64 bytes
+    pkt_in.resize(UPDATE_PKT_LEN);
 
     DLOG("recv:");
     DLOG(ZLog::RAW << pkt_in.dumpBytes(4, 8));

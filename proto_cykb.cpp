@@ -545,6 +545,8 @@ bool ProtoCYKB::recvCmd(ZBinary &data){
         DLOG("bad recv size");
         return false;
     }
+    // truncate to 64 bytes
+    data.resize(UPDATE_PKT_LEN);
 
     DLOG("recv:");
     DLOG(ZLog::RAW << data.dumpBytes(4, 8));

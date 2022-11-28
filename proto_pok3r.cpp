@@ -387,6 +387,8 @@ bool ProtoPOK3R::sendRecvCmd(zu8 cmd, zu8 subcmd, ZBinary &data){
         ELOG("recv error");
         return false;
     }
+    // truncate to 64 bytes
+    data.resize(UPDATE_PKT_LEN);
 
     DLOG("recv:");
     DLOG(ZLog::RAW << data.dumpBytes(4, 8));
