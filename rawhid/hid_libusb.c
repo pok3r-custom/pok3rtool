@@ -35,6 +35,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <libusb.h>
+#include <hidapi.h>
 
 #include "hid.h"
 
@@ -56,25 +57,7 @@ struct hid_struct {
     int ep_out;
 };
 
-struct __attribute__((__packed__)) hid_descriptor_extra {
-    uint8_t     bDescriptorType;
-    uint16_t    wDescriptorLength;
-};
-
-struct __attribute((__packed__)) hid_descriptor {
-    uint8_t                     bLength;
-    uint8_t                     bDescriptorType;
-    uint16_t                    bcdHID;
-    uint8_t                     bCountryCode;
-    uint8_t                     bNumDescriptors;
-    struct hid_descriptor_extra extra[1];
-};
-
 static int count = 0;
-
-// private functions, not intended to be used from outside this file
-static void hid_close(hid_t *hid);
-static int hid_parse_item(uint32_t *val, uint8_t **data, const uint8_t *end);
 
 //  rawhid_recv - receive a packet
 //    Inputs:
@@ -203,7 +186,6 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
 {
     int rc;
     int opencount = 0;
-    uint8_t buf[1024];
     struct rawhid_detail detail;
     memset(&detail, 0, sizeof(struct rawhid_detail));
 
@@ -304,36 +286,6 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
                 continue;
             }
 
-            int len = 1024;
-            const struct hid_descriptor *hid_desc;
-            const struct hid_descriptor_extra *hid_desc_extra;
-
-            // Find HID Report descriptor length from interface descriptor
-            if (desc->extra_length >= (int)sizeof(struct hid_descriptor)) {
-                hid_desc = (const struct hid_descriptor *)desc->extra;
-                if (hid_desc->bDescriptorType == LIBUSB_DT_HID) {
-                    // For each extra HID descriptor entry
-                    for (hid_desc_extra = hid_desc->extra;
-                         hid_desc_extra <
-                            hid_desc->extra + hid_desc->bNumDescriptors &&
-                         (uint8_t *)hid_desc_extra <
-                            (uint8_t *)hid_desc + hid_desc->bLength &&
-                         (unsigned char *)hid_desc_extra <
-                            desc->extra +
-                            desc->extra_length;
-                         hid_desc_extra++) {
-                        // If this is a report descriptor entry
-                        if (hid_desc_extra->bDescriptorType ==
-                                LIBUSB_DT_REPORT)
-                        {
-                            len = hid_desc_extra->wDescriptorLength;
-                            printf("\t\tHID Report Descriptor length=%d\n", len);
-                            break;
-                        }
-                    }
-                }
-            }
-
             if (!ep_in) continue;
             // open device if not already open
             if (!handle) {
@@ -358,38 +310,22 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
                 continue;
             }
 
-            // hid report descriptor request
-            rc = libusb_control_transfer(handle,
-                    LIBUSB_ENDPOINT_IN | LIBUSB_RECIPIENT_INTERFACE,
-                    LIBUSB_REQUEST_GET_DESCRIPTOR,
-                    (LIBUSB_DT_REPORT << 8),
-                    ifnum,
-                    (unsigned char *)buf,
-                    len,
-                    5000);
-            if (rc < 2) {
-                libusb_release_interface(handle, ifnum);
-                continue;
+            uint32_t parsed_usage_page = 0, parsed_usage = 0;
+            struct hid_device_info *devs, *cur_dev;
+            devs = hid_enumerate(detail.vid, detail.pid);
+            cur_dev = devs;
+            while (cur_dev) {
+                if (cur_dev->interface_number == ifnum) {
+                    parsed_usage_page = cur_dev->usage_page;
+                    parsed_usage = cur_dev->usage;
+                    break;
+                }
+                cur_dev = cur_dev->next;
             }
-
-            uint8_t *p = buf;
-            uint32_t val = 0, parsed_usage_page = 0, parsed_usage = 0;
-            int tag;
-            while ((tag = hid_parse_item(&val, &p, buf + rc)) >= 0) {
-                printf("\t\t\ttag: 0x%X, val 0x%X\n", tag, val);
-                if (tag == TAG_USAGE_PAGE) parsed_usage_page = val;
-                if (tag == TAG_USAGE) parsed_usage = val;
-                if (parsed_usage_page && parsed_usage) break;
-            }
-            if ((!parsed_usage_page) || (!parsed_usage)) {
-                libusb_release_interface(handle, ifnum);
-                continue;
-            }
+            hid_free_enumeration(devs);
 
             // call user callback with hid info
             detail.step = RAWHID_STEP_REPORT;
-            detail.report_desc = buf;
-            detail.rdesc_len = len;
             detail.usage_page = parsed_usage_page;
             detail.usage = parsed_usage;
             if (!cb(user, &detail)) {
@@ -444,53 +380,10 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user)
 void rawhid_close(hid_t *hid)
 {
     if (!hid || !hid->open) return;
-    hid_close(hid);
-    free(hid);
-}
-
-static void hid_close(hid_t *hid)
-{
-    hid_t *p;
-
     libusb_release_interface(hid->usb, hid->iface);
     libusb_close(hid->usb);
 
     count--;
     hid->usb = NULL;
-}
-
-// Chuck Robey wrote a real HID report parser
-// (chuckr@telenix.org) chuckr@chuckr.org
-// http://people.freebsd.org/~chuckr/code/python/uhidParser-0.2.tbz
-// this tiny thing only needs to extract the top-level usage page
-// and usage, and even then is may not be truly correct, but it does
-// work with the Teensy Raw HID example.
-static int hid_parse_item(uint32_t *val, uint8_t **data, const uint8_t *end)
-{
-    const uint8_t *p = *data;
-    uint8_t tag;
-    int table[4] = {0, 1, 2, 4};
-    int len;
-
-    if (p >= end) return -1;
-    if (p[0] == 0xFE) {
-        // long item, HID 1.11, 6.2.2.3, page 27
-        if (p + 5 >= end || p + p[1] >= end) return -1;
-        tag = p[2];
-        *val = 0;
-        len = p[1] + 5;
-    } else {
-        // short item, HID 1.11, 6.2.2.2, page 26
-        tag = p[0] & 0xFC;
-        len = table[p[0] & 0x03];
-        if (p + len + 1 >= end) return -1;
-        switch (p[0] & 0x03) {
-          case 3: *val = p[1] | (p[2] << 8) | (p[3] << 16) | (p[4] << 24); break;
-          case 2: *val = p[1] | (p[2] << 8); break;
-          case 1: *val = p[1]; break;
-          case 0: *val = 0; break;
-        }
-    }
-    *data += len + 1;
-    return tag;
+    free(hid);
 }
