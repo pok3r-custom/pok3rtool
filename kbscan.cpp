@@ -140,6 +140,8 @@ zu32 KBScan::scan(){
             case RAWHID_STEP_REPORT: {
                 DLOG("USAGE " << ZString::ItoS((zu64)detail->usage_page, 16, 4) << " " << ZString::ItoS((zu64)detail->usage, 16, 2));
                 if(detail->usage_page == UPDATE_USAGE_PAGE && detail->usage == UPDATE_USAGE){
+                    ZBinary rdesc(detail->report_desc, detail->rdesc_len);
+                    DLOG("REPORT " << detail->rdesc_len << ": " << rdesc.strBytes(1));
                     return true;
                 }
                 return false;
