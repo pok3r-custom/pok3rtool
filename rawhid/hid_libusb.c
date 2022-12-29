@@ -129,8 +129,8 @@ int rawhid_send(hid_t *hid, const void *buf, int len, int timeout)
 //      bRequest = request
 //      wValue = value
 //      wIndex = Index
-//      buf = buffer containing packet to send
-//      len = number of bytes to transmit
+//      buf = destination buffer
+//      len = number of bytes to receive
 //      timeout = time to wait, in milliseconds
 //    Output:
 //      number of bytes sent, or -1 on error
