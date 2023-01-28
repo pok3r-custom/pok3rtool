@@ -54,6 +54,7 @@ int rawhid_openall_filter(rawhid_filter_cb cb, void *user);
 
 int rawhid_recv(hid_t *hid, void *buf, int len, int timeout);
 int rawhid_send(hid_t *hid, const void *buf, int len, int timeout);
+int rawhid_get_report(hid_t *hid, unsigned short wIndex, void *buf, unsigned short wLength, int timeout);
 
 #ifdef __cplusplus
 }

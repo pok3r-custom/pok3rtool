@@ -100,6 +100,28 @@ bool HIDDevice::recv(ZBinary &data){
     return true;
 }
 
+int HIDDevice::getReport(zu16 wIndex, ZBinary &data){
+    if(!isOpen())
+        return -1;
+    if(data.size() == 0)
+        return -1;
+
+    ZClock clock;
+    int ret;
+    do {
+        ret = rawhid_get_report(hid, wIndex, data.raw(), data.size(), RECV_TIMEOUT);
+    } while(ret == 0 && !clock.passedMs(RECV_TIMEOUT_MAX));
+    if (ret < 0) {
+#if LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_WINDOWS
+        DLOG("control recv error: " << ret);
+#else
+        DLOG("control recv error: " << ret << ": " << libusb_strerror(ret));
+#endif
+        return ret;
+    }
+    return ret;
+}
+
 ZArray<ZPointer<HIDDevice> > HIDDevice::openAll(zu16 vid, zu16 pid, zu16 usage_page, zu16 usage){
     ZArray<ZPointer<HIDDevice>> devs;
     hid_t *hid[128];

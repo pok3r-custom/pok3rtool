@@ -7,6 +7,7 @@
  *  rawhid_open - open 1 or more devices
  *  rawhid_recv - receive a packet
  *  rawhid_send - send a packet
+ *  rawhid_get_report - GET_REPORT control transfer
  *  rawhid_close - close a device
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -119,6 +120,32 @@ int rawhid_send(hid_t *hid, const void *buf, int len, int timeout)
     } else {
         return libusb_control_transfer(hid->usb, 0x21, LIBUSB_REQUEST_SET_CONFIGURATION, 0, hid->iface, (void *)buf, len, timeout);
     }
+}
+
+//  rawhid_get_report - GET_REPORT control transfer
+//    Inputs:
+//      hid = device to transmit to
+//      wIndex = interface number
+//      buf = buffer to receive packet
+//      len = buffer's size
+//      timeout = time to wait, in milliseconds
+//    Output:
+//      number of bytes received, or -1 on error
+//
+int rawhid_get_report(hid_t *hid, unsigned short wIndex, void *buf, unsigned short wLength, int timeout)
+{
+    int rc;
+    if (!hid || !hid->open) return -1;
+    // See 7.2.1 Get_Report Request in USB HID v1.11 standard
+    rc = libusb_control_transfer(hid->usb,
+            LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE,
+            0x01, // bRequest: GET_REPORT request
+            0x100, // wValue: (REPORT_TYPE_INPUT << 8) | (REPORT_ID_0)
+            wIndex, // wIndex: Interface number
+            (unsigned char *)buf, wLength, timeout);
+    if (rc == LIBUSB_ERROR_TIMEOUT) return 0;
+    if (rc < 0) return -1;
+    return rc;
 }
 
 struct hid_match {
