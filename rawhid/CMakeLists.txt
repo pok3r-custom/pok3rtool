@@ -39,8 +39,6 @@ ENDIF()
 
 ### =================== BUILD =================== ###
 
-ADD_CUSTOM_TARGET(rawhid-dummy SOURCES ${FILES})
-
 ADD_LIBRARY(rawhid STATIC ${SOURCES})
 SET_PROPERTY(TARGET rawhid PROPERTY CXX_STANDARD 11)
 TARGET_LINK_LIBRARIES(rawhid PRIVATE chaos-static)
