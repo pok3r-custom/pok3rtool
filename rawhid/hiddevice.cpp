@@ -7,7 +7,7 @@
 
 #if LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_WINDOWS
     #include <windows.h>
-#elif LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_LINUX
+#else
     #include <libusb.h>
     #include <errno.h>
 #endif
@@ -57,14 +57,12 @@ bool HIDDevice::send(const ZBinary &data, bool tolerate_dc){
             return true;
         }
         ELOG("hid send win32 error: " << err);
-#elif LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_LINUX
+#else
         if(tolerate_dc && (ret == -EPIPE || ret == -ENXIO)){
             // ignore some errors when devices may disconnect
             return true;
         }
         ELOG("hid send error: " << ret << ": " << libusb_strerror(ret));
-#else
-        ELOG("hid send error: " << ret);
 #endif
         return false;
     }
@@ -91,10 +89,10 @@ bool HIDDevice::recv(ZBinary &data){
     //    return false;
     //} else
     if(ret < 0){
-#if LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_LINUX
-        ELOG("hid recv error: " << ret << ": " << libusb_strerror(ret));
-#else
+#if LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_WINDOWS
         ELOG("hid recv error: " << ret);
+#else
+        ELOG("hid recv error: " << ret << ": " << libusb_strerror(ret));
 #endif
         return false;
     }
@@ -104,16 +102,12 @@ bool HIDDevice::recv(ZBinary &data){
 
 ZArray<ZPointer<HIDDevice> > HIDDevice::openAll(zu16 vid, zu16 pid, zu16 usage_page, zu16 usage){
     ZArray<ZPointer<HIDDevice>> devs;
-#if LIBCHAOS_PLATFORM == LIBCHAOS_PLATFORM_MACOSX
-    ELOG("HID openAll not supported on OSX yet");
-#else
     hid_t *hid[128];
     int count = rawhid_openall(hid, 128, vid, pid, usage_page, usage);
 
     for(int i = 0; i < count; ++i){
         devs.push(new HIDDevice(hid[i]));
     }
-#endif
     return devs;
 }
 

@@ -22,19 +22,19 @@ typedef struct hid_struct hid_t;
 struct rawhid_detail {
     int step;
     // device
-    unsigned long bus;          // not on windows or macosx
-    unsigned long device;       // not on windows or macosx
+    unsigned long bus;          // not on windows
+    unsigned long device;       // not on windows
     unsigned short vid;
     unsigned short pid;
     // interface
-    unsigned char ifnum;        // not on windows or macosx
-    unsigned char ifclass;      // not on windows or macosx
-    unsigned char subclass;     // not on windows or macosx
-    unsigned char protocol;     // not on windows or macosx
-    unsigned char ep_in;        // not on windows or macosx
-    unsigned char epin_size;    // not on windows or macosx
-    unsigned char ep_out;       // not on windows or macosx
-    unsigned char epout_size;   // not on windows or macosx
+    unsigned char ifnum;        // not on windows
+    unsigned char ifclass;      // not on windows
+    unsigned char subclass;     // not on windows
+    unsigned char protocol;     // not on windows
+    unsigned char ep_in;        // not on windows
+    unsigned char epin_size;    // not on windows
+    unsigned char ep_out;       // not on windows
+    unsigned char epout_size;   // not on windows
     // report desc
     const unsigned char *report_desc;   // not on windows
     unsigned short rdesc_len;           // not on windows
