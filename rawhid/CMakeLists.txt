@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
 PROJECT(rawhid)
 
 ### =================== SOURCES =================== ###
@@ -9,25 +9,18 @@ SET(SOURCES
     hiddevice.cpp
 )
 
-SET(FILES
-    hid_LINUX.c
-    hid_MACOSX.c
-    hid_WINDOWS.c
-)
-
 IF(CMAKE_SYSTEM_NAME MATCHES "Windows")
     SET(SOURCES ${SOURCES}
         hid_WINDOWS.c
     )
-ELSEIF(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-    SET(SOURCES ${SOURCES}
-        hid_MACOSX.c
-    )
 ELSE()
     SET(SOURCES ${SOURCES}
-        hid_LINUX.c
+        hid_libusb.c
     )
+    SET(LIBUSB_1_FIND_REQUIRED TRUE)
+    INCLUDE(../FindLibUSB-1.0.cmake)
 ENDIF()
+
 
 ### =================== CONFIG =================== ###
 
@@ -39,11 +32,9 @@ ENDIF()
 
 ### =================== BUILD =================== ###
 
-ADD_CUSTOM_TARGET(rawhid-dummy SOURCES ${FILES})
-
 ADD_LIBRARY(rawhid STATIC ${SOURCES})
 SET_PROPERTY(TARGET rawhid PROPERTY CXX_STANDARD 11)
-TARGET_LINK_LIBRARIES(rawhid chaos-static)
+TARGET_LINK_LIBRARIES(rawhid PRIVATE chaos-static)
 TARGET_COMPILE_OPTIONS(rawhid PRIVATE
     $<$<COMPILE_LANGUAGE:C>:
         -std=gnu99
@@ -52,14 +43,16 @@ TARGET_COMPILE_OPTIONS(rawhid PRIVATE
 
 IF(CMAKE_SYSTEM_NAME MATCHES "Windows")
     # Windows
-    TARGET_LINK_LIBRARIES(rawhid hid setupapi)
-ELSEIF(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-    # Mac OS
-    TARGET_LINK_LIBRARIES(rawhid ${IOKIT_LIBRARY} ${COREFOUNDATION_LIBRARY})
+    TARGET_LINK_LIBRARIES(rawhid PRIVATE hid setupapi)
 ELSE()
-    # Linux/BSD
-    TARGET_LINK_LIBRARIES(rawhid usb)
+    # macOS/Linux/BSD
+    TARGET_INCLUDE_DIRECTORIES(rawhid PRIVATE ${LIBUSB_1_INCLUDE_DIRS})
+    TARGET_LINK_LIBRARIES(rawhid PRIVATE ${LIBUSB_1_LIBRARIES})
+    IF(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin")
+        TARGET_LINK_LIBRARIES(rawhid PRIVATE udev)
+    ENDIF()
 ENDIF()
+
 
 # install
 install(TARGETS rawhid DESTINATION lib)

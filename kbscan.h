@@ -27,6 +27,8 @@ enum DeviceType {
     DEV_MISTEL_MD600,   //!< Mistel Barocco MD600
     DEV_MISTEL_MD200,   //!< Mistel Freeboard MD200
 
+    DEV_HOLTEK_ISP,
+
     DEV_QMK_POK3R,
     DEV_QMK_POK3R_RGB,
     DEV_QMK_VORTEX_CORE,
