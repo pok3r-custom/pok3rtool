@@ -1,6 +1,7 @@
 #include "kbscan.h"
 #include "proto_pok3r.h"
 #include "proto_cykb.h"
+#include "proto_holtek.h"
 
 #include <functional>
 
@@ -13,6 +14,8 @@
 #define INTERFACE_PROTOCOL_NONE 0
 
 #define HOLTEK_VID              0x04d9
+
+#define HOLTEK_ISP_PID          0x8010
 
 #define BOOT_PID                0x1000
 
@@ -34,6 +37,7 @@
 #define MISTEL_MD600_PID        0x0143
 #define MISTEL_MD200_PID        0x0200
 
+#define FW_ADDR_0000            0x0000
 #define FW_ADDR_2C00            0x2c00
 #define FW_ADDR_3200            0x3200
 #define FW_ADDR_3400            0x3400
@@ -59,6 +63,7 @@ static const ZMap<DeviceType, DeviceInfo> known_devices = {
     { DEV_TEX_YODA_II,      { "tex/yoda",           "Tex Yoda II",              HOLTEK_VID, TEX_YODA_II_PID,    BOOT_PID | TEX_YODA_II_PID,     PROTO_CYKB,     FW_ADDR_3400 } },
     { DEV_MISTEL_MD600,     { "mistel/md600",       "Mistel Barocco MD600",     HOLTEK_VID, MISTEL_MD600_PID,   BOOT_PID | MISTEL_MD600_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
     { DEV_MISTEL_MD200,     { "mistel/md200",       "Mistel Freeboard MD200",   HOLTEK_VID, MISTEL_MD200_PID,   BOOT_PID | MISTEL_MD200_PID,    PROTO_CYKB,     FW_ADDR_3400 } },
+    { DEV_HOLTEK_ISP,       { "holtek/isp",         "Holtek ISP USB",           HOLTEK_VID, 0,                  HOLTEK_ISP_PID,                 PROTO_HOLTEK,   FW_ADDR_0000 } },
 };
 
 static ZMap<zu32, DeviceType> known_ids;
@@ -233,6 +238,8 @@ ZList<KBDevice> KBScan::open(){
                 iface = new ProtoPOK3R(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid);
             } else if(ldev.dev.type == PROTO_CYKB){
                 iface = new ProtoCYKB(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid, ldev.dev.fw_addr);
+            } else if(ldev.dev.type == PROTO_HOLTEK){
+                iface = new ProtoHoltek(ldev.dev.vid, ldev.dev.pid, ldev.dev.boot_pid, ldev.boot, ldev.hid);
             } else {
                 ELOG("Unknown protocol");
                 continue;
