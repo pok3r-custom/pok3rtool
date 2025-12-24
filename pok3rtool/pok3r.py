@@ -1,12 +1,14 @@
 
 import logging
+import struct
+import binascii
 
-import hid
+from .device import Device, find_devices
 
 log = logging.getLogger(__name__)
 
 UPDATE_USAGE_PAGE = 0xff00
-UPDATE_USAGE = 0x01
+UPDATE_USAGE = 0x02
 
 UPDATE_REPORT_SIZE = 64
 
@@ -124,26 +126,21 @@ def decode_firmware(encoded: bytes) -> bytes:
     return bytes(data)
 
 
-class POK3R_Device:
-    def __init__(self, dev: hid.Device, name: str | None = None):
-        self.dev = dev
-        self.name = name
-
-    def __str__(self):
-        return f"{self.name}: {self.version}"
-
-    @property
+class POK3R_Device(Device):
     def version(self):
         ver = self.read_version()
+        if ver[:4] == b"\xff\xff\xff\xff":
+            return "CLEARED"
         vlen = min(int.from_bytes(ver[:4], byteorder="little"), 60)
         return ver[4:4+vlen].decode("UTF8").split("\x00")[0]
 
     def read(self, addr, size):
-        pkt = bytes([CMD_FLASH, CMD_FLASH_READ] + [0] * 2) + addr.to_bytes(4, byteorder="little") + (addr + 64).to_bytes(4, byteorder="little")
-        crc = crc16(pkt)
+        pkt = struct.pack("<BBHII", CMD_FLASH, CMD_FLASH_READ, 0, addr, addr+64)
+        pkt = pkt.ljust(64, b"\x00")
+        crc = binascii.crc_hqx(pkt, 0)
         pkt = pkt[:2] + crc.to_bytes(2, byteorder="little", signed=False) + pkt[4:]
-        self.dev.write(pkt)
-        data = self.dev.read(64)
+        self.send(pkt)
+        data = self.recv(64)
         return data
 
     def read_version(self):
@@ -152,16 +149,9 @@ class POK3R_Device:
         return ver
 
 
-def get_devices(vid: int | None = None, pid: int | None = None):
-    # clown-ass hidapi wrapper
-    for dev_params in hid.enumerate(0, 0):
-        if ((vid is not None and vid == dev_params["vendor_id"]) or
-                dev_params["vendor_id"] == VID_HOLTEK):
-            if ((pid is not None and pid == dev_params["product_id"]) or
-                    dev_params["product_id"] in known_devices.keys() or
-                    dev_params["product_id"] in [ p | PID_BOOT_BIT for p in known_devices.keys() ]):
-                if dev_params["usage_page"] == UPDATE_USAGE_PAGE and dev_params["usage"] == UPDATE_USAGE:
-                    log.debug(dev_params)
-                    dev = hid.Device(path=dev_params["path"])
-                    name=known_devices[dev_params["product_id"]]
-                    yield POK3R_Device(dev, name)
+def get_devices():
+    bl_known_devices = {}
+    bl_known_devices |= known_devices
+    bl_known_devices |= {pid | PID_BOOT_BIT: f"{name} (bootloader)" for pid, name in known_devices.items()}
+
+    yield from find_devices(POK3R_Device, vid=VID_HOLTEK, known_devices=bl_known_devices, usage_page=UPDATE_USAGE_PAGE, usage=UPDATE_USAGE)

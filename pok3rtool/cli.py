@@ -22,7 +22,7 @@ def app_callback(verbose: bool = False):
         level=logging.DEBUG if verbose else logging.INFO,
         stream=sys.stdout,
         datefmt="%H:%M:%S.%f",
-        format="%(name)-20s %(levelname)7s %(message)s" if verbose else "%(message)s",
+        format="%(levelname)7s %(message)s" if verbose else "%(message)s",
     )
     if not verbose:
         app.pretty_exceptions_enable = True
@@ -31,12 +31,14 @@ def app_callback(verbose: bool = False):
 @app.command()
 def list():
     """List all known devices"""
-    for device in pok3r.get_devices():
-        log.info(device)
+    for name, device in pok3r.get_devices():
+        with device:
+            log.info(f"{name}: {device.version()}")
 
-    for device in cykb.get_devices():
-        log.info(device)
-        device.read_info()
+    for name, device in cykb.get_devices():
+        with device:
+            log.info(f"{name}: {device.version()}")
+            device.read_info()
 
 
 @app.command()

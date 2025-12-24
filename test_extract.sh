@@ -35,3 +35,5 @@ $CLI extract maav102 $FWDIR/vendor/vortex/RACE_V124.exe output
 $CLI extract maav102 $FWDIR/vendor/vortex/RACE_V125.exe output
 
 $CLI extract maav102 $FWDIR/vendor/vortex/VIBE_V113.exe output
+
+$CLI extract maav102 $FWDIR/vendor/vortex/CYPHER_V136.exe output

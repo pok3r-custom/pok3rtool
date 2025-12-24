@@ -1,12 +1,12 @@
 
 import logging
 
-import hid
+from .device import Device, find_devices
 
 log = logging.getLogger(__name__)
 
 UPDATE_USAGE_PAGE = 0xff00
-UPDATE_USAGE = 0x01
+UPDATE_USAGE = 0x02
 
 UPDATE_REPORT_SIZE = 64
 
@@ -105,15 +105,7 @@ def dump_info_section(data: bytes):
     log.info(f"h: {h:#x}")
 
 
-class CYKB_Device:
-    def __init__(self, dev: hid.Device, name: str | None = None):
-        self.dev = dev
-        self.name = name
-
-    def __str__(self):
-        return f"{self.name}: {self.version}"
-
-    @property
+class CYKB_Device(Device):
     def version(self):
         v1, v2 = self.read_version()
         vlen = min(int.from_bytes(v1[4:8], byteorder="little"), 52)
@@ -121,41 +113,34 @@ class CYKB_Device:
 
     def read_version(self):
         pkt = bytes([CMD_READ, CMD_READ_VER1] + [0] * 62)
-        self.dev.write(pkt)
-        ver1 = self.dev.read(64)
+        self.send(pkt)
+        ver1 = self.recv(64)
         log.debug(f"ver1: {ver1.hex()}")
 
         pkt = bytes([CMD_READ, CMD_READ_VER2] + [0] * 62)
-        self.dev.write(pkt)
-        ver2 = self.dev.read(64)
+        self.send(pkt)
+        ver2 = self.recv(64)
         log.debug(f"ver2: {ver2.hex()}")
 
         return ver1, ver2
 
     def read_info(self):
         pkt = bytes([CMD_READ, CMD_READ_400] + [0] * 62)
-        self.dev.write(pkt)
-        info1 = self.dev.read(64)
+        self.send(pkt)
+        info1 = self.recv(64)
         log.debug(f"info1: {info1.hex()}")
 
         pkt = bytes([CMD_READ, CMD_READ_3c00] + [0] * 62)
-        self.dev.write(pkt)
-        info2 = self.dev.read(64)
+        self.send(pkt)
+        info2 = self.recv(64)
         log.debug(f"info2: {info2.hex()}")
 
         return info1, info2
 
 
-def get_devices(vid: int | None = None, pid: int | None = None):
-    # clown-ass hidapi wrapper
-    for dev_params in hid.enumerate(0, 0):
-        if ((vid is not None and vid == dev_params["vendor_id"]) or
-                dev_params["vendor_id"] == VID_HOLTEK):
-            if ((pid is not None and pid == dev_params["product_id"]) or
-                    dev_params["product_id"] in known_devices.keys() or
-                    dev_params["product_id"] in [ p | PID_BOOT_BIT for p in known_devices.keys() ]):
-                if dev_params["usage_page"] == UPDATE_USAGE_PAGE and dev_params["usage"] == UPDATE_USAGE:
-                    log.debug(dev_params)
-                    dev = hid.Device(path=dev_params["path"])
-                    name=known_devices[dev_params["product_id"]]
-                    yield CYKB_Device(dev, name)
+def get_devices():
+    bl_known_devices = {}
+    bl_known_devices |= known_devices
+    bl_known_devices |= {pid | PID_BOOT_BIT: f"{name} (bootloader)" for pid, name in known_devices.items()}
+
+    yield from find_devices(CYKB_Device, vid=VID_HOLTEK, known_devices=bl_known_devices, usage_page=UPDATE_USAGE_PAGE, usage=UPDATE_USAGE)
