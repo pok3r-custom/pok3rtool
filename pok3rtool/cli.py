@@ -1,10 +1,12 @@
 
 import sys
 import logging
+from pathlib import Path
+from typing import Annotated
 
 import typer
 
-from . import cykb, pok3r
+from . import cykb, pok3r, package
 
 log = logging.getLogger(__name__)
 
@@ -28,15 +30,27 @@ def app_callback(verbose: bool = False):
 
 @app.command()
 def list():
-    """
-    List all known devices
-    """
+    """List all known devices"""
     for device in pok3r.get_devices():
         log.info(device)
 
     for device in cykb.get_devices():
         log.info(device)
         device.read_info()
+
+
+@app.command()
+def extract(format: str, file: Path, output: Annotated[Path, typer.Argument()] = None):
+    """Extract firmware from update EXE"""
+    match format.lower():
+        case "maajonsn":
+            package.extract_maajonsn(file, output)
+        case "maav102":
+            package.extract_maav102(file, output)
+        case "maav105":
+            package.extract_maav105(file, output)
+        case _:
+            raise typer.BadParameter(f"Unknown format {format}")
 
 
 if __name__ == "__main__":

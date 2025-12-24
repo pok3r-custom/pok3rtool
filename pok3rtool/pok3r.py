@@ -51,6 +51,78 @@ def crc16(data: bytes, poly=0x8408):
 
     return crc & 0xFFFF
 
+# POK3R firmware XOR encryption/decryption key
+# Found at 0x2188 in Pok3r flash
+xor_key = [
+    0x55aa55aa,
+    0xaa55aa55,
+    0x000000ff,
+    0x0000ff00,
+    0x00ff0000,
+    0xff000000,
+    0x00000000,
+    0xffffffff,
+    0x0f0f0f0f,
+    0xf0f0f0f0,
+    0xaaaaaaaa,
+    0x55555555,
+    0x00000000,
+]
+
+# This array was painstakingly translated from a switch with a lot of shifts in the firmware.
+# I noticed after the fact that it was identical to the array that Sprite used in his hack,
+# but the groups of offsets were in a rotated order. Oh well.
+swap_key = [
+    0,1,2,3,
+    1,2,3,0,
+    2,1,3,0,
+    3,2,1,0,
+    3,1,0,2,
+    1,2,0,3,
+    2,3,1,0,
+    0,2,1,3,
+]
+
+
+def decode_firmware_packet(encoded: bytes, num: int) -> bytes:
+    assert len(encoded) == 4 * 13
+
+    data = bytearray(len(encoded))
+    for i in range(13):
+        p = i * 4
+        eword = encoded[p] | (encoded[p+1] << 8) | (encoded[p+2] << 16) | (encoded[p+3] << 24)
+        dword = eword ^ xor_key[i]
+        data[p] = dword & 0xFF
+        data[p+1] = (dword >> 8) & 0xFF
+        data[p+2] = (dword >> 16) & 0xFF
+        data[p+3] = (dword >> 24) & 0xFF
+
+    f = (num & 7) << 2
+    for i in range(0, len(data), 4):
+        a = data[i + swap_key[f + 0]]
+        b = data[i + swap_key[f + 1]]
+        c = data[i + swap_key[f + 2]]
+        d = data[i + swap_key[f + 3]]
+
+        data[i + 0] = a
+        data[i + 1] = b
+        data[i + 2] = c
+        data[i + 3] = d
+
+    return bytes(data)
+
+
+def decode_firmware(encoded: bytes) -> bytes:
+    data = bytearray(len(encoded))
+    for i in range(len(encoded) // 52):
+        p = i * 52
+        pkt = encoded[p:p + 52]
+        if 10 <= i <= 100:
+            pkt = decode_firmware_packet(pkt, i)
+        data[p:p + 52] = pkt
+
+    return bytes(data)
+
 
 class POK3R_Device:
     def __init__(self, dev: hid.Device, name: str | None = None):
