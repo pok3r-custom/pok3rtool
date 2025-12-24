@@ -1,7 +1,11 @@
-*.user
-*.user.*
 
+.idea/
+.vscode/
 *.swp
+
+__pycache__/
+*.pyc
+.python-version
 
 gen_keymaps.h
 

@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pok3rtool"
+version = "2.0"
+description = "Vortex keyboard firmware update tool"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "BSD" }
+authors = [
+    { name = "Charlie Waters", email = "cawiii@me.com" }
+]
+
+dependencies = [
+    "typer>=0.20.1",
+    "hid>=1.0.8"
+]
+
+[project.scripts]
+example-cli = "pok3rtool.cli:app"
+
+[tool.setuptools]
+packages = ["pok3rtool"]
