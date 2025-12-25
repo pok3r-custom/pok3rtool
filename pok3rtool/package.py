@@ -71,6 +71,10 @@ def extract_maajonsn(file: Path, output: Path | None):
 
         dec_sec = pok3r.decode_firmware(sec)
 
+        # built-in test for the encoding function
+        check = pok3r.encode_firmware(dec_sec)
+        assert check == sec, "re-encode failed"
+
         if output:
             output.mkdir(exist_ok=True)
             name = f"{product}-{layout}-{version}.bin"
@@ -132,7 +136,12 @@ def extract_maav102(file: Path, output: Path | None):
 
         for layout, fwl, strl in sections:
             fsec = decode_package_data(f.read(fwl))
+
             dec_sec = cykb.decode_firmware(fsec)
+
+            # built-in test for the encoding function
+            check = cykb.encode_firmware(dec_sec)
+            assert check == fsec, "re-encode failed"
 
             isec = decode_package_data(f.read(strl))
             log.debug(isec)
@@ -214,7 +223,12 @@ def extract_maav105(file: Path, output: Path | None):
 
         for sdesc, sversion, slayout, fwl, strl in sections:
             fsec = decode_package_data(f.read(fwl))
+
             dec_sec = cykb.decode_firmware(fsec)
+
+            # built-in test for the encoding function
+            check = cykb.encode_firmware(dec_sec)
+            assert check == fsec, "re-encode failed"
 
             isec = decode_package_data(f.read(strl))
             log.debug(isec)

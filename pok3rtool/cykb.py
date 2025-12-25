@@ -1,7 +1,7 @@
 
 import logging
 
-from .device import Device, find_devices
+from .device import Device, find_hid_devices
 
 log = logging.getLogger(__name__)
 
@@ -143,4 +143,10 @@ def get_devices():
     bl_known_devices |= known_devices
     bl_known_devices |= {pid | PID_BOOT_BIT: f"{name} (bootloader)" for pid, name in known_devices.items()}
 
-    yield from find_devices(CYKB_Device, vid=VID_HOLTEK, known_devices=bl_known_devices, usage_page=UPDATE_USAGE_PAGE, usage=UPDATE_USAGE)
+    yield from find_hid_devices(
+        CYKB_Device,
+        vid=VID_HOLTEK,
+        known_devices=bl_known_devices,
+        usage_page=UPDATE_USAGE_PAGE,
+        usage=UPDATE_USAGE
+    )

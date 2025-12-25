@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from rich.console import Console
+from rich.logging import RichHandler
 
 from . import cykb, pok3r, package
 
@@ -12,37 +14,124 @@ log = logging.getLogger(__name__)
 
 app = typer.Typer(
     help="Vortex keyboard firmware update tool",
-    pretty_exceptions_enable=False
+    # the pretty exceptions are ugly in non-terminal output
+    pretty_exceptions_enable=False,
 )
 
 
 @app.callback()
-def app_callback(verbose: bool = False):
-    logging.basicConfig(
-        level=logging.DEBUG if verbose else logging.INFO,
-        stream=sys.stdout,
-        datefmt="%H:%M:%S.%f",
-        format="%(levelname)7s %(message)s" if verbose else "%(message)s",
-    )
-    if not verbose:
+def app_callback(
+        verbose: int = typer.Option(0, "--verbose", "-v", count=True, help="Verbosity level"),
+        rich: bool = True,
+):
+    if verbose > 1:
+        level = logging.NOTSET
+    elif verbose > 0:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+
+    if not Console().is_terminal:
+        # RichHandler has a very poor fallback to a wrapped 80-column mode for non-terminals
+        # so just don't use RichHandler if the output is not a terminal
+        rich = False
+
+    if rich:
+        # turn pretty exceptions back on in a terminal
         app.pretty_exceptions_enable = True
+        if verbose > 1:
+            handler = RichHandler()
+        elif verbose > 0:
+            handler = RichHandler(show_time=False, show_path=False)
+        else:
+            handler = RichHandler(show_time=False, show_level=False, show_path=False)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+    else:
+        if verbose > 1:
+            handler = logging.StreamHandler(stream=sys.stdout)
+            handler.setFormatter(logging.Formatter("%(asctime)s.%(msecs)03d %(levelname)-7s %(message)s", datefmt="%H:%M:%S"))
+        elif verbose > 0:
+            handler = logging.StreamHandler(stream=sys.stdout)
+            handler.setFormatter(logging.Formatter("%(levelname)-7s %(message)s"))
+        else:
+            handler = logging.StreamHandler(stream=sys.stdout)
+            handler.setFormatter(logging.Formatter("%(message)s"))
+
+    logging.basicConfig(level=level, handlers=[handler])
 
 
-@app.command()
-def list():
-    """List all known devices"""
+def find_devices():
     for name, device in pok3r.get_devices():
-        with device:
-            log.info(f"{name}: {device.version()}")
-
+        yield name, device
     for name, device in cykb.get_devices():
+        yield name, device
+
+
+def find_device():
+    devs = list(find_devices())
+    if not len(devs):
+        log.error("No devices found")
+        raise typer.Exit(2)
+    elif len(devs) > 1:
+        log.error("Too many devices")
+        raise typer.Exit(2)
+
+    name, device = devs[0]
+    log.info(f"Device: {name}")
+    return device
+
+
+@app.command("list")
+def cmd_list():
+    """List all known devices"""
+    for name, device in find_devices():
         with device:
             log.info(f"{name}: {device.version()}")
-            device.read_info()
+            if isinstance(device, cykb.CYKB_Device):
+                device.get_info()
 
 
-@app.command()
-def extract(format: str, file: Path, output: Annotated[Path, typer.Argument()] = None):
+@app.command("version")
+def cmd_flash(version: Annotated[str, typer.Argument()] = None):
+    device = find_device()
+    with device:
+        if version:
+            device.write_version(version)
+        else:
+            vdata, vstr = device.read_version()
+            log.info(f"Version: {vstr}")
+
+
+@app.command("reboot")
+def cmd_reboot(bootloader: bool = False):
+    device = find_device()
+    with device:
+        if bootloader:
+            device.reboot(pok3r.CMD_RESET_BOOT)
+        else:
+            device.reboot(pok3r.CMD_RESET_SWITCH)
+
+
+@app.command("flash")
+def cmd_flash(version: str, file: Path):
+    with open(file, "rb") as f:
+        fw_data = f.read()
+    device = find_device()
+    with device:
+        device.flash(version, fw_data, progress=True)
+
+
+@app.command("leak")
+def cmd_leak(output: Path):
+    device = find_device()
+    with device:
+        data = device.leak_flash()
+    with open(output, "wb") as f:
+        f.write(data)
+
+
+@app.command("extract")
+def cmd_extract(format: str, file: Path, output: Annotated[Path, typer.Argument()] = None):
     """Extract firmware from update EXE"""
     match format.lower():
         case "maajonsn":
