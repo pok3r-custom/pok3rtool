@@ -57,89 +57,89 @@ def hid_get_report(dev: usb.core.Device, intf_num: int, length: int = 4096) -> b
     return bytes(data)
 
 
-def find_hid_devices(cls,
-                     vid: int | None = None,
-                     pid: int | None = None,
-                     known_devices: dict | None = None,
-                     usage_page: int | None = None,
-                     usage: int | None = None
-                     ):
-    known_devices = known_devices or {}
+def find_hid_devices(
+        cls,
+        *,
+        known_devices: dict | None = None,
+        subclass: int = 0,
+        protocol: int = 0,
+        usage_page: int | None = None,
+        usage: int | None = None
+):
     for dev in usb.core.find(find_all=True):
         log.log(USBTRACE, f"device {repr(dev)}")
-        if vid is None or vid == dev.idVendor:
-            if (pid is not None and pid == dev.idProduct) or dev.idProduct in known_devices:
-                cfg = dev[0]
+        if known_devices is None or (dev.idVendor, dev.idProduct) in known_devices:
+            cfg = dev[0]
 
-                # query each HID interface to find the update interface
-                for intf in usb.util.find_descriptor(
-                        cfg,
-                        bInterfaceClass=INTERFACE_CLASS_HID,
-                        bInterfaceSubClass=0,
-                        bInterfaceProtocol=0,
-                        find_all=True,
-                ):
-                    log.log(USBTRACE, f"interface {repr(intf)}")
+            # query each HID interface to find the update interface
+            for intf in usb.util.find_descriptor(
+                    cfg,
+                    bInterfaceClass=INTERFACE_CLASS_HID,
+                    bInterfaceSubClass=subclass,
+                    bInterfaceProtocol=protocol,
+                    find_all=True,
+            ):
+                log.log(USBTRACE, f"interface {repr(intf)}")
 
-                    # Ensure configuration is set
-                    if dev.get_active_configuration() is None:
-                        dev.set_configuration()
+                # Ensure configuration is set
+                if dev.get_active_configuration() is None:
+                    dev.set_configuration()
 
+                try:
+                    if dev.is_kernel_driver_active(intf.bInterfaceNumber):
+                        dev.detach_kernel_driver(intf.bInterfaceNumber)
+                except Exception as e:
+                    log.error(f"failed to detach kernel driver: {e}")
+                    continue
+
+                for i in range(3):
                     try:
-                        if dev.is_kernel_driver_active(intf.bInterfaceNumber):
-                            dev.detach_kernel_driver(intf.bInterfaceNumber)
-                    except Exception as e:
-                        log.error(f"failed to detach kernel driver: {e}")
-                        continue
-
-                    for i in range(3):
-                        try:
-                            usb.util.claim_interface(dev, intf.bInterfaceNumber)
-                        except OSError as e:
-                            if e.errno == errno.EBUSY:
-                                log.warning(f"failed to claim interface: {e}")
-                                time.sleep(1)
-                                continue
-                            else:
-                                log.error(f"failed to claim interface: {e}")
-                        except Exception as e:
-                            log.error(f"failed to claim interface: {e}")
-                        break
-                    else:
-                        continue
-
-                    matched_interface = None
-                    try:
-                        try:
-                            hid_desc = hid_get_descriptor(dev, intf.bInterfaceNumber)
-                        except:
-                            log.exception(f"failed to read descriptor")
+                        usb.util.claim_interface(dev, intf.bInterfaceNumber)
+                    except OSError as e:
+                        if e.errno == errno.EBUSY:
+                            log.warning(f"failed to claim interface: {e}")
+                            time.sleep(1)
+                            continue
                         else:
-                            log.log(USBTRACE, f"descriptor {hid_desc.hex()}")
-                            with warnings.catch_warnings():
-                                # suppress warnings from python-hid-parser
-                                warnings.simplefilter("ignore")
-                                rdesc = hid_parser.ReportDescriptor(hid_desc)
-                                try:
-                                    for item in rdesc.get_input_items():
-                                        if isinstance(item, hid_parser.VariableItem):
-                                            log.log(USBTRACE, f"item {item}")
-                                            if usage_page is None or item.usage.page == usage_page:
-                                                if usage is None or item.usage.usage == usage:
-                                                    matched_interface = intf
-                                                    break
-                                except:
-                                    log.warning(f"failed to parse report descriptor")
-                    finally:
-                        usb.util.release_interface(dev, intf.bInterfaceNumber)
+                            log.error(f"failed to claim interface: {e}")
+                    except Exception as e:
+                        log.error(f"failed to claim interface: {e}")
+                    break
+                else:
+                    continue
 
-                    if matched_interface is not None:
-                        name = None
-                        if dev.idProduct in known_devices:
-                            name = known_devices[dev.idProduct]
-                        log.debug(f"matched {repr(dev)} {repr(matched_interface)} -> {name}")
-                        yield name, cls(dev, matched_interface)
-                        break
+                matched_interface = None
+                try:
+                    try:
+                        hid_desc = hid_get_descriptor(dev, intf.bInterfaceNumber)
+                    except:
+                        log.exception(f"failed to read descriptor")
+                    else:
+                        log.log(USBTRACE, f"descriptor {hid_desc.hex()}")
+                        with warnings.catch_warnings():
+                            # suppress warnings from python-hid-parser
+                            warnings.simplefilter("ignore")
+                            rdesc = hid_parser.ReportDescriptor(hid_desc)
+                            try:
+                                for item in rdesc.get_input_items():
+                                    if isinstance(item, hid_parser.VariableItem):
+                                        log.log(USBTRACE, f"item {item}")
+                                        if usage_page is None or item.usage.page == usage_page:
+                                            if usage is None or item.usage.usage == usage:
+                                                matched_interface = intf
+                                                break
+                            except:
+                                log.warning(f"failed to parse report descriptor")
+                finally:
+                    usb.util.release_interface(dev, intf.bInterfaceNumber)
+
+                if matched_interface is not None:
+                    name = None
+                    if known_devices and (dev.idVendor, dev.idProduct) in known_devices:
+                        name = known_devices[(dev.idVendor, dev.idProduct)]
+                    log.debug(f"matched {repr(dev)} {repr(matched_interface)} -> {name}")
+                    yield name, cls(dev, matched_interface)
+                    break
 
 
 class Device:

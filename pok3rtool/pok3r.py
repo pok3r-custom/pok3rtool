@@ -11,13 +11,12 @@ from .device import Device, find_hid_devices
 
 log = logging.getLogger(__name__)
 
-VID_HOLTEK = 0x4d9
 PID_BOOT_BIT = 0x1000
 
 known_devices = {
-    0x0141: "Vortex POK3R",
-    0x0112: "KBP V60",
-    0x0129: "KBP V80",
+    (0x04d9, 0x0141): "Vortex POK3R",
+    (0x04d9, 0x0112): "KBP V60",
+    (0x04d9, 0x0129): "KBP V80",
 }
 
 UPDATE_USAGE_PAGE = 0xff00
@@ -198,15 +197,15 @@ class POK3R_Device(Device):
         mode = CMD_RESET_BOOT if bootloader else CMD_RESET_SWITCH
 
         if bootloader:
-            new_pid = self.dev.idProduct
+            new_pid = self.dev.idProduct | PID_BOOT_BIT
         elif self.is_bootloader():
             new_pid = self.dev.idProduct & ~PID_BOOT_BIT
         else:
             new_pid = self.dev.idProduct | PID_BOOT_BIT
 
+        match_ids = {(self.dev.idVendor, self.dev.idProduct): None}
         vid = self.dev.idVendor
-        match_pids = {self.dev.idProduct: None}
-        match_pids[new_pid] = None
+        match_ids[(vid, new_pid)] = None
 
         log.info("Reboot...")
         self.send_cmd(CMD_RESET, mode)
@@ -218,8 +217,7 @@ class POK3R_Device(Device):
 
             new_devs = list(find_hid_devices(
                 self.__class__,
-                vid=vid,
-                known_devices=match_pids,
+                known_devices=match_ids,
                 usage_page=UPDATE_USAGE_PAGE,
                 usage=UPDATE_USAGE
             ))
@@ -237,7 +235,7 @@ class POK3R_Device(Device):
         name, new_dev = new_devs[0]
         self.replace(new_dev)
 
-        if self.dev.idProduct != new_pid:
+        if (self.dev.idVendor, self.dev.idProduct) != (vid, new_pid):
             raise RuntimeError("Reboot failed")
 
     def read_flash(self, addr: int, size: int):
@@ -388,13 +386,13 @@ class POK3R_Device(Device):
 
 
 def get_devices():
-    bl_known_devices = {}
-    bl_known_devices |= known_devices
-    bl_known_devices |= {pid | PID_BOOT_BIT: f"{name} (bootloader)" for pid, name in known_devices.items()}
+    bl_known_devices = {
+        **known_devices,
+        **{(vid, pid | PID_BOOT_BIT): f"{name} (bootloader)" for (vid, pid), name in known_devices.items()}
+    }
 
     yield from find_hid_devices(
         POK3R_Device,
-        vid=VID_HOLTEK,
         known_devices=bl_known_devices,
         usage_page=UPDATE_USAGE_PAGE,
         usage=UPDATE_USAGE

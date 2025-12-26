@@ -11,22 +11,21 @@ from .device import Device, find_hid_devices
 
 log = logging.getLogger(__name__)
 
-VID_HOLTEK = 0x4d9
 PID_BOOT_BIT = 0x1000
 
 known_devices = {
-    0x0167: "Vortex POK3R RGB",
-    0x0207: "Vortex POK3R RGB2",
-    0x0175: "Vortex Core",
-    0x0192: "Vortex Race 3",
-    0x0216: "Vortex ViBE",
-    0x0282: "Vortex Cypher",
-    0x0304: "Vortex Tab 60",
-    0x0344: "Vortex Tab 75",
-    0x0346: "Vortex Tab 90",
-    0x0163: "Tex Yoda II",
-    0x0143: "Mistel Barocco MD600",
-    0x0200: "Mistel Freeboard MD200",  # same as Vortex 22-key Tester
+    (0x04d9, 0x0167): "Vortex POK3R RGB",
+    (0x04d9, 0x0207): "Vortex POK3R RGB2",
+    (0x04d9, 0x0175): "Vortex Core",
+    (0x04d9, 0x0192): "Vortex Race 3",
+    (0x04d9, 0x0216): "Vortex ViBE",
+    (0x04d9, 0x0282): "Vortex Cypher",
+    (0x04d9, 0x0304): "Vortex Tab 60",
+    (0x04d9, 0x0344): "Vortex Tab 75",
+    (0x04d9, 0x0346): "Vortex Tab 90",
+    (0x04d9, 0x0163): "Tex Yoda II",
+    (0x04d9, 0x0143): "Mistel Barocco MD600",
+    (0x04d9, 0x0200): "Mistel Freeboard MD200",  # same as Vortex 22-key Tester
 }
 
 UPDATE_USAGE_PAGE = 0xff00
@@ -163,15 +162,15 @@ class CYKB_Device(Device):
         log.debug(f"REBOOT {bootloader}")
         mode = CMD_RESET_BL if bootloader else CMD_RESET_FW
 
-        _, bvid, bpid = self.read_info()
+        _, vid, bpid = self.read_info()
 
         if bootloader:
             new_pid = bpid
         else:
             new_pid = bpid & ~PID_BOOT_BIT
 
-        match_pids = {self.dev.idProduct: None}
-        match_pids[new_pid] = None
+        match_ids = {(self.dev.idVendor, self.dev.idProduct): None}
+        match_ids[(vid, new_pid)] = None
 
         log.info("Reboot...")
         self.send_cmd(CMD_RESET, mode)
@@ -183,8 +182,7 @@ class CYKB_Device(Device):
 
             new_devs = list(find_hid_devices(
                 self.__class__,
-                vid=bvid,
-                known_devices=match_pids,
+                known_devices=match_ids,
                 usage_page=UPDATE_USAGE_PAGE,
                 usage=UPDATE_USAGE
             ))
@@ -202,7 +200,7 @@ class CYKB_Device(Device):
         name, new_dev = new_devs[0]
         self.replace(new_dev)
 
-        if self.dev.idProduct != new_pid:
+        if (self.dev.idVendor, self.dev.idProduct) != (vid, new_pid):
             raise RuntimeError("Reboot failed")
 
     def erase_flash(self, start: int, size: int):
@@ -298,12 +296,11 @@ class CYKB_Device(Device):
         return fw_offset, vid, pid
 
     def read_version(self):
-        self.read_info()
+        fw_offset, _, _ = self.read_info()
 
         # read the version page
-        # we can read 0x3fc because (0x3c * 18) > 0x400
         vdata = bytes()
-        for i in range(17):
+        for i in range(fw_offset // 60):
             self.send_cmd(CMD_READ, CMD_READ_VER + i)
             vdata += self.recv_resp(CMD_READ, CMD_READ_VER + i)
         log.debug(f"ver: {vdata.hex()}")
@@ -395,12 +392,11 @@ class CYKB_Device(Device):
 def get_devices():
     bl_known_devices = {
         **known_devices,
-        **{pid | PID_BOOT_BIT: f"{name} (bootloader)" for pid, name in known_devices.items()}
+        **{(vid, pid | PID_BOOT_BIT): f"{name} (bootloader)" for (vid, pid), name in known_devices.items()}
     }
 
     yield from find_hid_devices(
         CYKB_Device,
-        vid=VID_HOLTEK,
         known_devices=bl_known_devices,
         usage_page=UPDATE_USAGE_PAGE,
         usage=UPDATE_USAGE
