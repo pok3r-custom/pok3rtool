@@ -1,39 +1,62 @@
 #!/usr/bin/env bash
 
-FWDIR=../pok3r_re_firmware
-CLI="python -m pok3rtool.cli"
+set -e
 
-$CLI -v extract maajonsn $FWDIR/vendor/vortex/POK3R_V113.exe output
-$CLI -v extract maajonsn $FWDIR/vendor/vortex/POK3R_V114.exe output
-$CLI -v extract maajonsn $FWDIR/vendor/vortex/POK3R_V115.exe output
-$CLI -v extract maajonsn $FWDIR/vendor/vortex/POK3R_V116.exe output
-$CLI -v extract maajonsn $FWDIR/vendor/vortex/POK3R_V117.exe output
+function extract() {
+    format=$1
+    file="$2"
+    (
+        set -x
+        python -m pok3rtool.cli -v extract $format "$FWDIR/$file" output
+    )
+}
 
-$CLI -v extract maav102 $FWDIR/vendor/vortex/POK3R2_V110.exe output
+FWDIR="$1"
+if [ -z "$FWDIR" ]; then
+    echo "usage: $0 <directory with updater EXEs>"
+    exit 1
+fi
 
-$CLI -v extract maav102 $FWDIR/vendor/vortex/POK3R_RGB_V124.exe output
-$CLI -v extract maav102 $FWDIR/vendor/vortex/POK3R_RGB_V130.exe output
-$CLI -v extract maav102 $FWDIR/vendor/vortex/POK3R_RGB_V140.exe output
+extract maajonsn vortex/POK3R_V113.exe
+extract maajonsn vortex/POK3R_V114.exe
+extract maajonsn vortex/POK3R_V115.exe
+extract maajonsn vortex/POK3R_V116.exe
+extract maajonsn vortex/POK3R_V117.exe
 
-$CLI -v extract maav102 $FWDIR/vendor/vortex/POK3R_RGB2_V105.exe output
+extract maav102 vortex/POK3R2_V110.exe
 
-$CLI -v extract maav102 $FWDIR/vendor/vortex/CORE_V141.exe output
-$CLI -v extract maav102 $FWDIR/vendor/vortex/CORE_V143.exe output
-$CLI -v extract maav102 $FWDIR/vendor/vortex/CORE_V145.exe output
-$CLI -v extract maav105 $FWDIR/vendor/vortex/CORE_MPC.exe output
+extract maav102 vortex/POK3R_RGB_V124.exe
+extract maav102 vortex/POK3R_RGB_V130.exe
+extract maav102 vortex/POK3R_RGB_V140.exe
 
-$CLI -v extract maav102 $FWDIR/vendor/vortex/CORE_RGB_V146.exe output
+extract maav102 vortex/POK3R_RGB2_V105.exe
 
-$CLI -v extract maav102 $FWDIR/vendor/vortex/TAB_60_V1113.exe output
+extract maav102 vortex/CORE_V141.exe
+extract maav102 vortex/CORE_V143.exe
+extract maav102 vortex/CORE_V145.exe
 
-$CLI -v extract maav105 $FWDIR/vendor/vortex/TAB_75_V100.exe output
+extract maav102 vortex/CORE_RGB_V146.exe
 
-$CLI -v extract maav105 $FWDIR/vendor/vortex/TAB_90_V100.exe output
+extract maav102 vortex/TAB_60_V1113.exe
 
-$CLI -v extract maav102 $FWDIR/vendor/vortex/RACE_V121.exe output
-$CLI -v extract maav102 $FWDIR/vendor/vortex/RACE_V124.exe output
-$CLI -v extract maav102 $FWDIR/vendor/vortex/RACE_V125.exe output
+extract maav102 vortex/RACE_V121.exe
+extract maav102 vortex/RACE_V124.exe
+extract maav102 vortex/RACE_V125.exe
 
-$CLI -v extract maav102 $FWDIR/vendor/vortex/VIBE_V113.exe output
+extract maav102 vortex/VIBE_V113.exe
 
-$CLI -v extract maav102 $FWDIR/vendor/vortex/CYPHER_V136.exe output
+extract maav102 vortex/CYPHER_V136.exe
+
+extract maav102 coolermaster/masterkeys-pro-l-white-v1.08.exe
+extract maav102 coolermaster/masterkeys-pro-m-white-v1.06.exe
+
+extract maav105 vortex/CORE_MPC.exe
+
+extract maav105 vortex/TAB_75_V100.exe
+
+extract maav105 vortex/TAB_90_V100.exe
+
+extract kbp_cykb kbp/cykb112_v106.exe
+extract kbp_cykb kbp/cykb112_v107.exe
+
+extract kbp_cykb kbp/cykb129_v106.exe

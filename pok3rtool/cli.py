@@ -73,8 +73,8 @@ def find_device():
         log.error("No devices found")
         raise typer.Exit(2)
     elif len(devs) > 1:
-        log.error("Too many devices")
-        raise typer.Exit(2)
+        log.error("Too many devices! Disconnect other devices")
+        raise typer.Exit(3)
 
     name, device = devs[0]
     log.info(f"Device: {name}")
@@ -83,7 +83,7 @@ def find_device():
 
 @app.command("list")
 def cmd_list():
-    """List all known devices"""
+    """List connected devices"""
     for name, device in find_devices():
         with device:
             log.info(f"{name}: {device.version()}")
@@ -91,6 +91,7 @@ def cmd_list():
 
 @app.command("version")
 def cmd_version(version: Annotated[str, typer.Argument()] = None):
+    """Read or write device version"""
     device = find_device()
     with device:
         if version:
@@ -102,6 +103,7 @@ def cmd_version(version: Annotated[str, typer.Argument()] = None):
 
 @app.command("reboot")
 def cmd_reboot(bootloader: bool = False):
+    """Reboot device"""
     device = find_device()
     with device:
         device.reboot(bootloader)
@@ -109,6 +111,7 @@ def cmd_reboot(bootloader: bool = False):
 
 @app.command("flash")
 def cmd_flash(version: str, file: Path):
+    """Flash device firmware"""
     with open(file, "rb") as f:
         fw_data = f.read()
     device = find_device()
@@ -135,6 +138,8 @@ def cmd_extract(format: str, file: Path, output: Annotated[Path, typer.Argument(
             package.extract_maav102(file, output)
         case "maav105":
             package.extract_maav105(file, output)
+        case "kbp_cykb":
+            package.extract_kbp_cykb(file, output)
         case _:
             raise typer.BadParameter(f"Unknown format {format}")
 

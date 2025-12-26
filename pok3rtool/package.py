@@ -167,8 +167,8 @@ def extract_maav105(file: Path, output: Path | None):
         strs = decode_package_data(f.read(strings_len))
         log.debug(strs)
 
-        signature = strs[-13:]
-        assert signature == b".maaV105\0\0\0\0\0"
+        signature = strs[-13:-5]
+        assert signature == b".maaV105"
 
         desc = strs[0x232a:][:0x200].decode("utf-16le").rstrip("\0")
         company = strs[0x2532:][:0x200].decode("utf-16le").rstrip("\0")
@@ -237,3 +237,61 @@ def extract_maav105(file: Path, output: Path | None):
                 with open(output / name, "wb") as fo:
                     log.info(f"Save {fo.name}")
                     fo.write(dec_sec)
+
+
+def kbp_decrypt(enc: bytes, key: int, strs: bool):
+    xor_key = key.to_bytes(4, "big")
+
+    data = bytearray(enc)
+    for i in range(len(data)):
+        data[i] = data[i] ^ xor_key[i % 4]
+        if strs:
+            # strings are encrypted with a different schedule
+            data[i] = data[i] ^ (i & 0x0F)
+            if i >= 0x10:
+                data[i] = data[i] ^ ((i - 0x10) & 0xF0)
+        else:
+            data[i] = data[i] ^ (i & 0xFF)
+    return bytes(data)
+
+
+def extract_kbp_cykb(file: Path, output: Path | None):
+    with open(file, "rb") as f:
+        f.seek(0, io.SEEK_END)
+        exelen = f.tell()
+
+        strings_len = 588
+        f.seek(exelen - strings_len, io.SEEK_SET)
+        enc_strs = f.read(strings_len)
+
+        key = int.from_bytes(enc_strs[:4], "big") ^ 0x10203
+        log.info(f"Key: {key:08X}")
+
+        strs = kbp_decrypt(enc_strs, key, True)
+        log.debug(strs)
+
+        signature = strs[-4:]
+        assert signature == b"lins"
+
+        name = strs[0xb8:][:32].decode("ascii").rstrip("\0")
+
+        log.info(f"Name: {name}")
+
+        fw_len = int.from_bytes(strs[4:4+4], "little")
+
+        f.seek(0x54000, io.SEEK_SET)
+        fw = kbp_decrypt(f.read(fw_len), key, False)
+
+        dec_fw = pok3r.decode_firmware(fw)
+
+        # built-in test for the encoding function
+        check = pok3r.encode_firmware(dec_fw)
+        assert check == fw, "re-encode failed"
+
+        if output:
+            output.mkdir(exist_ok=True)
+            name = f"{name}.bin"
+            name = name.replace(" ", "_")
+            with open(output / name, "wb") as fo:
+                log.info(f"Save {fo.name}")
+                fo.write(dec_fw)
