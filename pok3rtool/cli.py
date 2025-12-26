@@ -3,6 +3,7 @@ import sys
 import logging
 from pathlib import Path
 from typing import Annotated
+from enum import Enum
 
 import typer
 from rich.console import Console
@@ -122,23 +123,33 @@ def cmd_flash(version: str, file: Path):
 @app.command("leak")
 def cmd_leak(output: Path):
     device = find_device()
-    with device:
-        data = device.leak_flash()
-    with open(output, "wb") as f:
-        f.write(data)
+    if isinstance(device, pok3r.POK3R_Device):
+        with device:
+            data = device.leak_flash()
+        with open(output, "wb") as f:
+            f.write(data)
+    else:
+        log.info("Not supported for this devie")
+
+
+class UpdateFormat(str, Enum):
+    MAAJONSN = "maajonsn"
+    MAAV102 = "maav102"
+    MAAV105 = "maav105"
+    KBP_CYKB = "kbp_cykb"
 
 
 @app.command("extract")
-def cmd_extract(format: str, file: Path, output: Annotated[Path, typer.Argument()] = None):
+def cmd_extract(format: Annotated[UpdateFormat, typer.Argument(case_sensitive=False)], file: Path, output: Annotated[Path, typer.Argument()] = None):
     """Extract firmware from update EXE"""
     match format.lower():
-        case "maajonsn":
+        case UpdateFormat.MAAJONSN:
             package.extract_maajonsn(file, output)
-        case "maav102":
+        case UpdateFormat.MAAV102:
             package.extract_maav102(file, output)
-        case "maav105":
+        case UpdateFormat.MAAV105:
             package.extract_maav105(file, output)
-        case "kbp_cykb":
+        case UpdateFormat.KBP_CYKB:
             package.extract_kbp_cykb(file, output)
         case _:
             raise typer.BadParameter(f"Unknown format {format}")

@@ -118,17 +118,6 @@ def decode_firmware_packet(encoded: bytes, num: int) -> bytes:
     return bytes(data)
 
 
-def decode_firmware(encoded: bytes) -> bytes:
-    data = bytearray(encoded)
-    for i in range(len(data) // 52):
-        if 10 <= i <= 100:
-            p = i * 52
-            pkt = data[p:p + 52]
-            pkt = decode_firmware_packet(pkt, i)
-            data[p:p + 52] = pkt
-    return bytes(data)
-
-
 def encode_firmware_packet(decoded: bytes, num: int) -> bytes:
     assert len(decoded) == 4 * 13, "data must be 52 bytes"
     data = bytearray(decoded)
@@ -156,17 +145,6 @@ def encode_firmware_packet(decoded: bytes, num: int) -> bytes:
         data[p+2] = (dword >> 16) & 0xFF
         data[p+3] = (dword >> 24) & 0xFF
 
-    return bytes(data)
-
-
-def encode_firmware(decoded: bytes) -> bytes:
-    data = bytearray(decoded)
-    for i in range(len(data) // 52):
-        if 10 <= i <= 100:
-            p = i * 52
-            pkt = data[p:p + 52]
-            pkt = encode_firmware_packet(pkt, i)
-            data[p:p + 52] = pkt
     return bytes(data)
 
 
@@ -344,12 +322,34 @@ class POK3R_Device(Device):
 
         self.write_flash(ver_addr, vdata)
 
+    @staticmethod
+    def decode_firmware(encoded: bytes) -> bytes:
+        data = bytearray(encoded)
+        for i in range(len(data) // 52):
+            if 10 <= i <= 100:
+                p = i * 52
+                pkt = data[p:p + 52]
+                pkt = decode_firmware_packet(pkt, i)
+                data[p:p + 52] = pkt
+        return bytes(data)
+
+    @staticmethod
+    def encode_firmware(decoded: bytes) -> bytes:
+        data = bytearray(decoded)
+        for i in range(len(data) // 52):
+            if 10 <= i <= 100:
+                p = i * 52
+                pkt = data[p:p + 52]
+                pkt = encode_firmware_packet(pkt, i)
+                data[p:p + 52] = pkt
+        return bytes(data)
+
     def flash(self, version: str, fw_data: bytes, *, progress=False):
         if not self.is_bootloader():
             self.reboot(True)
 
         crc0 = binascii.crc_hqx(fw_data, 0)
-        enc_fw_data = encode_firmware(fw_data)
+        enc_fw_data = self.encode_firmware(fw_data)
 
         ver_addr, fw_addr = self.read_info()
 

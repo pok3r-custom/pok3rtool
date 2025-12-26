@@ -1,7 +1,9 @@
+
 import errno
 import logging
 import time
 import warnings
+from pathlib import Path
 
 import usb
 import hid_parser
@@ -148,6 +150,23 @@ class Device:
         self.intf: usb.Interface = intf
         self.ep_in: usb.Endpoint | None = None
         self.ep_out: usb.Endpoint | None = None
+
+    def version(self) -> str:
+        raise NotImplementedError
+
+    def reboot(self, bootloader: bool = False):
+        raise NotImplementedError
+
+    @staticmethod
+    def decode_firmware(encoded: bytes) -> bytes:
+        raise NotImplementedError
+
+    @staticmethod
+    def encode_firmware(decoded: bytes) -> bytes:
+        raise NotImplementedError
+
+    def flash(self, version: str, fw_data: bytes, *, progress=False):
+        raise NotImplementedError
 
     def open(self):
         self.ep_in = usb.util.find_descriptor(

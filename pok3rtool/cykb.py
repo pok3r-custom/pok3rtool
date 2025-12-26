@@ -100,50 +100,7 @@ def xor_encode_decode(encoded: bytes):
     return bytes(data)
 
 
-def decode_firmware(encoded: bytes) -> bytes:
-    return xor_encode_decode(encoded)
-
-
-def encode_firmware(decoded: bytes) -> bytes:
-    return xor_encode_decode(decoded)
-
-
-def dump_info_section(data: bytes):
-    if data[:4] == b"\xff\xff\xff\xff":
-        ver = "CLEARED"
-    else:
-        vlen = min(int.from_bytes(data[:4], "little"), 60)
-        ver = data[4:vlen].decode("utf-16le").rstrip("\0")
-    log.info(f"Version: {ver}")
-
-    a = int.from_bytes(data[0x78:][:4], "little")
-    b = int.from_bytes(data[0x7c:][:4], "little")
-    c = int.from_bytes(data[0x80:][:4], "little")
-    d = int.from_bytes(data[0x84:][:4], "little")
-    e = int.from_bytes(data[0x88:][:4], "little")
-    f = int.from_bytes(data[0x8c:][:4], "little")
-    ivid = int.from_bytes(data[0x90:][:2], "little")
-    ipid = int.from_bytes(data[0x92:][:2], "little")
-    h = int.from_bytes(data[0xb0:][:4], "little")
-
-    log.info(f"a: {a:#x}")
-    log.info(f"b: {b:#x}")
-    log.info(f"c: {c:#x}")
-    log.info(f"d: {d:#x}")
-    log.info(f"e: {e:#x}")
-    log.info(f"f: {f:#x}")
-    log.info(f"VID/PID: {ivid:#x}/{ipid:#x}")
-    log.info(f"h: {h:#x}")
-
-
 class CYKB_Device(Device):
-    def is_bootloader(self):
-        return self.dev.idProduct & PID_BOOT_BIT == PID_BOOT_BIT
-
-    def version(self):
-        _, vstr = self.read_version()
-        return vstr or "CLEARED"
-
     def send_cmd(self, cmd: int, subcmd: int = 0, data: bytes = b""):
         pkt = struct.pack("<BBH", cmd, subcmd, 0) + data
         pkt = pkt.ljust(64, b"\0")
@@ -157,6 +114,11 @@ class CYKB_Device(Device):
         if rcrc != 0:
             raise RuntimeError(f"Expected CRC 0")
         return resp[4:]
+
+    def is_bootloader(self):
+        self.send_cmd(CMD_READ, CMD_READ_MODE)
+        resp = self.recv_resp(CMD_READ, CMD_READ_MODE)
+        return resp[0] == 0
 
     def reboot(self, bootloader: bool = False):
         log.debug(f"REBOOT {bootloader}")
@@ -328,6 +290,10 @@ class CYKB_Device(Device):
         vstr = vdata[4:][:vlen].rstrip(b"\xff").decode("utf-8").rstrip("\0")
         return vlen, vstr
 
+    def version(self):
+        _, vstr = self.read_version()
+        return vstr or "CLEARED"
+
     def write_version(self, version: str):
         vstr = version.encode("utf-8")
         vlen = len(vstr)
@@ -364,11 +330,19 @@ class CYKB_Device(Device):
 
         self.write_flash(0, vdata)
 
+    @staticmethod
+    def decode_firmware(encoded: bytes) -> bytes:
+        return xor_encode_decode(encoded)
+
+    @staticmethod
+    def encode_firmware(decoded: bytes) -> bytes:
+        return xor_encode_decode(decoded)
+
     def flash(self, version: str, fw_data: bytes, *, progress=False):
         if not self.is_bootloader():
             self.reboot(True)
 
-        enc_fw_data = encode_firmware(fw_data)
+        enc_fw_data = self.encode_firmware(fw_data)
         # the CRC command returns the CRC of the encrypted data
         crc1 = zlib.crc32(enc_fw_data, 0)
 

@@ -3,16 +3,17 @@ import io
 import logging
 from pathlib import Path
 
-from . import pok3r, cykb
+from .pok3r import POK3R_Device
+from .cykb import CYKB_Device
 
 log = logging.getLogger(__name__)
+
 
 #  Decode the encryption scheme used by the updater program.
 # Produced from IDA disassembly in sub_401000 of v117 updater.
 # First, swap the 1st and 4th bytes, every 5 bytes
 # Second, reverse each pair of bytes
 # Third, shift the bits in each byte, sub 7 from MSBs
-#
 def decode_package_data(data: bytes):
     bin = bytearray(data)
     # Swap bytes 4 apart, skip 5
@@ -34,6 +35,34 @@ def decode_package_data(data: bytes):
         bin[i] = (((bin[i] - 7) << 4) + (bin[i] >> 4)) & 0xFF
 
     return bytes(bin)
+
+
+def dump_info_section(data: bytes):
+    if data[:4] == b"\xff\xff\xff\xff":
+        ver = "CLEARED"
+    else:
+        vlen = min(int.from_bytes(data[:4], "little"), 60)
+        ver = data[4:vlen].decode("utf-16le").rstrip("\0")
+    log.info(f"Version: {ver}")
+
+    a = int.from_bytes(data[0x78:][:4], "little")
+    b = int.from_bytes(data[0x7c:][:4], "little")
+    c = int.from_bytes(data[0x80:][:4], "little")
+    d = int.from_bytes(data[0x84:][:4], "little")
+    e = int.from_bytes(data[0x88:][:4], "little")
+    f = int.from_bytes(data[0x8c:][:4], "little")
+    ivid = int.from_bytes(data[0x90:][:2], "little")
+    ipid = int.from_bytes(data[0x92:][:2], "little")
+    h = int.from_bytes(data[0xb0:][:4], "little")
+
+    log.info(f"a: {a:#x}")
+    log.info(f"b: {b:#x}")
+    log.info(f"c: {c:#x}")
+    log.info(f"d: {d:#x}")
+    log.info(f"e: {e:#x}")
+    log.info(f"f: {f:#x}")
+    log.info(f"VID/PID: {ivid:#x}/{ipid:#x}")
+    log.info(f"h: {h:#x}")
 
 
 def extract_maajonsn(file: Path, output: Path | None):
@@ -69,10 +98,10 @@ def extract_maajonsn(file: Path, output: Path | None):
         f.seek(sec_start, io.SEEK_SET)
         sec = decode_package_data(f.read(sec_len))
 
-        dec_sec = pok3r.decode_firmware(sec)
+        dec_sec = POK3R_Device.decode_firmware(sec)
 
         # built-in test for the encoding function
-        check = pok3r.encode_firmware(dec_sec)
+        check = POK3R_Device.encode_firmware(dec_sec)
         assert check == sec, "re-encode failed"
 
         if output:
@@ -137,15 +166,15 @@ def extract_maav102(file: Path, output: Path | None):
         for layout, fwl, strl in sections:
             fsec = decode_package_data(f.read(fwl))
 
-            dec_sec = cykb.decode_firmware(fsec)
+            dec_sec = CYKB_Device.decode_firmware(fsec)
 
             # built-in test for the encoding function
-            check = cykb.encode_firmware(dec_sec)
+            check = CYKB_Device.encode_firmware(dec_sec)
             assert check == fsec, "re-encode failed"
 
             isec = decode_package_data(f.read(strl))
             log.debug(isec)
-            cykb.dump_info_section(isec)
+            dump_info_section(isec)
 
             if output:
                 output.mkdir(exist_ok=True)
@@ -220,15 +249,15 @@ def extract_maav105(file: Path, output: Path | None):
         for sdesc, sversion, slayout, fwl, strl in sections:
             fsec = decode_package_data(f.read(fwl))
 
-            dec_sec = cykb.decode_firmware(fsec)
+            dec_sec = CYKB_Device.decode_firmware(fsec)
 
             # built-in test for the encoding function
-            check = cykb.encode_firmware(dec_sec)
+            check = CYKB_Device.encode_firmware(dec_sec)
             assert check == fsec, "re-encode failed"
 
             isec = decode_package_data(f.read(strl))
             log.debug(isec)
-            cykb.dump_info_section(isec)
+            dump_info_section(isec)
 
             if output:
                 output.mkdir(exist_ok=True)
@@ -282,10 +311,10 @@ def extract_kbp_cykb(file: Path, output: Path | None):
         f.seek(0x54000, io.SEEK_SET)
         fw = kbp_decrypt(f.read(fw_len), key, False)
 
-        dec_fw = pok3r.decode_firmware(fw)
+        dec_fw = POK3R_Device.decode_firmware(fw)
 
         # built-in test for the encoding function
-        check = pok3r.encode_firmware(dec_fw)
+        check = POK3R_Device.encode_firmware(dec_fw)
         assert check == fw, "re-encode failed"
 
         if output:
