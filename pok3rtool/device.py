@@ -3,7 +3,6 @@ import errno
 import logging
 import time
 import warnings
-from pathlib import Path
 
 import usb
 import hid_parser

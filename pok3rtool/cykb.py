@@ -65,8 +65,6 @@ CMD_ADDR_SET = 1
 CMD_WRITE = 0x1f
 RESP_WRITE_ADDR = 2
 
-APP_MAX_SIZE = 0xcc00
-
 # POK3R RGB XOR encryption/decryption key
 # See fw_xor_decode.c for the way this key was obtained.
 xor_key = [
@@ -124,7 +122,7 @@ class CYKB_Device(Device):
         log.debug(f"REBOOT {bootloader}")
         mode = CMD_RESET_BL if bootloader else CMD_RESET_FW
 
-        _, vid, bpid = self.read_info()
+        _, _, vid, bpid = self.read_info()
 
         if bootloader:
             new_pid = bpid
@@ -241,7 +239,7 @@ class CYKB_Device(Device):
         info1 = info1[:0x34]
         log.debug(f"bootloader info: {info1.hex()}")
 
-        a, b, vid, pid, c, d, e, f, g, h, fw_offset, j, page_size, model, m = struct.unpack("<IIHHHHIIIIHHH10sI", info1)
+        a, b, vid, pid, c, d, e, f, g, h, fw_offset, fw_pages, page_size, model, m = struct.unpack("<IIHHHHIIIIHHH10sI", info1)
         model = model.rstrip(b"\0").decode("ascii")
 
         log.debug(f"a: {a:#x}")
@@ -254,13 +252,17 @@ class CYKB_Device(Device):
         log.debug(f"g: {g:#x}")
         log.debug(f"h: {h:#x}")
         log.debug(f"firmware offset?: {fw_offset:#x}")
-        log.debug(f"j: {j:#x}")
+        log.debug(f"firmware pages: {fw_pages:#x}")
         log.debug(f"page size?: {page_size:#x}")
         log.debug(f"Model: {model}")
         log.debug(f"m: {m:#x}")
 
         # i'm not sure which is which, so make sure they're the same
         assert fw_offset == page_size
+
+        fw_size = fw_pages * page_size
+
+        log.debug(f"Firmware Size: {fw_size:#x}")
 
         self.send_cmd(CMD_READ, CMD_READ_3c00)
         info2 = self.recv_resp(CMD_READ, CMD_READ_3c00)
@@ -272,10 +274,10 @@ class CYKB_Device(Device):
         log.debug(f"n: {n:#x}")
         log.debug(f"o: {o:#x}")
 
-        return fw_offset, vid, pid
+        return fw_offset, fw_size, vid, pid
 
     def read_version(self):
-        fw_offset, _, _ = self.read_info()
+        fw_offset, _, _, _ = self.read_info()
 
         # read the version page
         vdata = bytes()
@@ -318,7 +320,7 @@ class CYKB_Device(Device):
         vdata = vlen.to_bytes(4, "little") + vstr.ljust(4 * ((len(vstr) + 3) // 4), b"\0")
         assert len(vdata) <= 0x78, "version too long"
 
-        _, bvid, bpid = self.read_info()
+        _, _, bvid, bpid = self.read_info()
 
         ver = (1,0,0)
 
@@ -356,17 +358,19 @@ class CYKB_Device(Device):
         return xor_encode_decode(decoded)
 
     def flash(self, version: str, fw_data: bytes, *, progress=False):
-        if not self.is_bootloader():
-            self.reboot(True)
-
         enc_fw_data = self.encode_firmware(fw_data)
         # the CRC command returns the CRC of the encrypted data
         crc1 = zlib.crc32(enc_fw_data, 0)
 
-        fw_offset, _, _ = self.read_info()
+        if not self.is_bootloader():
+            self.reboot(True)
+
+        fw_offset, max_fw_size, _, _ = self.read_info()
+
+        assert len(fw_data) <= max_fw_size, "firmware too large"
 
         log.info("Erase...")
-        self.erase_flash(0, APP_MAX_SIZE)
+        self.erase_flash(0, max_fw_size)
 
         log.info("Write...")
         self.write_flash(fw_offset, enc_fw_data, progress=progress)
@@ -388,14 +392,17 @@ class CYKB_Device(Device):
         # https://github.com/pok3r-custom/pok3r_re_firmware/blob/master/disassemble/pok3r_rgb/v130/patch_v130.txt
         # https://github.com/pok3r-custom/pok3r_re_firmware/blob/master/disassemble/pok3r_rgb/v130/firmware_v130.txt#L4710
 
+        # HT32F1654 is 64K
         flash_size = 0x10000
+        # HT32F52352 is 128K
+        # flash_size = 0x20000
 
         # read up until the last 60-byte chunk that would overflow the flash and fault the firmware
         read_size = 60 * (flash_size // 60)
         data = self.read_flash(0, read_size, progress=True)
         # read the last chunk
         read_addr = flash_size - 60
-        data = data[:read_addr] + self.read_flash(read_addr, 60, progress=True)
+        data = data[:read_addr] + self.read_flash(read_addr, 60)
 
         return data
 

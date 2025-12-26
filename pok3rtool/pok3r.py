@@ -54,6 +54,8 @@ CMD_DISCONNECT = 5
 RESP_SUCCESS = 0x4f
 
 VERSION_SIZE = 0x400
+# HT32F1655 is 128K
+FLASH_SIZE = 0x20000
 
 # POK3R firmware XOR encryption/decryption key
 # Found at 0x2188 in Pok3r flash
@@ -348,13 +350,15 @@ class POK3R_Device(Device):
         return bytes(data)
 
     def flash(self, version: str, fw_data: bytes, *, progress=False):
-        if not self.is_bootloader():
-            self.reboot(True)
-
         crc0 = binascii.crc_hqx(fw_data, 0)
         enc_fw_data = self.encode_firmware(fw_data)
 
+        if not self.is_bootloader():
+            self.reboot(True)
+
         ver_addr, fw_addr = self.read_info()
+
+        assert len(fw_data) <= (FLASH_SIZE - fw_addr), "firmware too large"
 
         log.info("Erase...")
         self.erase_flash(ver_addr, fw_addr + len(enc_fw_data))
@@ -387,9 +391,7 @@ class POK3R_Device(Device):
             assert crc not in crc_map
             crc_map[crc] = i
 
-        flash_size = 0x20000
-
-        data = bytearray(flash_size)
+        data = bytearray(FLASH_SIZE)
         for addr in tqdm(range(0, len(data))):
             crc = self.crc_flash(addr, 1)
             assert crc in crc_map

@@ -69,18 +69,35 @@ def find_devices() -> Generator[tuple[str, Device], None, None]:
         yield name, device
 
 
-def find_device() -> Device:
+def find_device(devnum: int = None, selectable: bool = True) -> Device:
     devs = list(find_devices())
     if not len(devs):
         log.error("No devices found")
         raise typer.Exit(2)
-    elif len(devs) > 1:
-        log.error("Too many devices! Disconnect other devices")
-        raise typer.Exit(3)
 
-    name, device = devs[0]
-    log.info(f"Device: {name}")
-    return device
+    if devnum is None:
+        if len(devs) > 1:
+            if selectable:
+                log.error("Multiple devices found. Specify device or disconnect other devices.")
+            else:
+                log.error("Multiple devices found. Disconnect other devices.")
+        else:
+            devnum = 0
+
+    if devnum is not None:
+        if devnum < len(devs):
+            name, device = devs[devnum]
+            log.info(f"Device: {name}")
+            return device
+        else:
+            log.error("Invalid device number!")
+
+    if selectable:
+        log.info(f"Devices:")
+        for i, (name, device) in enumerate(devs):
+            log.info(f"{i}: {name}")
+
+    raise typer.Exit(2)
 
 
 @app.command("list")
@@ -92,9 +109,9 @@ def cmd_list():
 
 
 @app.command("version")
-def cmd_version(version: Annotated[str, typer.Argument()] = None):
+def cmd_version(version: Annotated[str, typer.Argument()] = None, devnum: int = typer.Option(None, "--devnum", "-n")):
     """Read or write device version"""
-    device = find_device()
+    device = find_device(devnum)
     with device:
         if version:
             device.write_version(version)
@@ -104,9 +121,9 @@ def cmd_version(version: Annotated[str, typer.Argument()] = None):
 
 
 @app.command("reboot")
-def cmd_reboot(bootloader: bool = False):
+def cmd_reboot(bootloader: bool = False, devnum: int = typer.Option(None, "--devnum", "-n")):
     """Reboot device"""
-    device = find_device()
+    device = find_device(devnum)
     with device:
         device.reboot(bootloader)
 
@@ -116,15 +133,17 @@ def cmd_flash(version: str, file: Path):
     """Flash device firmware"""
     with open(file, "rb") as f:
         fw_data = f.read()
-    device = find_device()
+    # i don't want to deal with the edge cases around selecting a device and
+    # re-finding that device when rebooting it
+    device = find_device(selectable=False)
     with device:
         device.flash(version, fw_data, progress=True)
 
 
 @app.command("dump")
-def cmd_dump(output: Path):
+def cmd_dump(output: Path, devnum: int = typer.Option(None, "--devnum", "-n")):
     """Dump device flash"""
-    device = find_device()
+    device = find_device(devnum)
     with device:
         data = device.dump()
     with open(output, "wb") as f:
