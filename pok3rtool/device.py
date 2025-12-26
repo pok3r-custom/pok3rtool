@@ -72,7 +72,13 @@ def find_hid_devices(cls,
                 cfg = dev[0]
 
                 # query each HID interface to find the update interface
-                for intf in usb.util.find_descriptor(cfg, find_all=True, bInterfaceClass=INTERFACE_CLASS_HID):
+                for intf in usb.util.find_descriptor(
+                        cfg,
+                        bInterfaceClass=INTERFACE_CLASS_HID,
+                        bInterfaceSubClass=0,
+                        bInterfaceProtocol=0,
+                        find_all=True,
+                ):
                     log.log(USBTRACE, f"interface {repr(intf)}")
 
                     # Ensure configuration is set

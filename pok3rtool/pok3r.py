@@ -11,10 +11,17 @@ from .device import Device, find_hid_devices
 
 log = logging.getLogger(__name__)
 
+VID_HOLTEK = 0x4d9
+PID_BOOT_BIT = 0x1000
+
+known_devices = {
+    0x0141: "Vortex POK3R",
+    0x0112: "KBP V60",
+    0x0129: "KBP V80",
+}
+
 UPDATE_USAGE_PAGE = 0xff00
 UPDATE_USAGE = 0x02
-
-UPDATE_REPORT_SIZE = 64
 
 # Erase flash pages
 CMD_ERASE = 0
@@ -47,17 +54,9 @@ CMD_DISCONNECT = 5
 
 RESP_SUCCESS = 0x4f
 
-ADDR_VERSION = 0x2800
-ADDR_APP = 0x2c00
-
-VID_HOLTEK = 0x4d9
-PID_BOOT_BIT = 0x1000
-
-known_devices = {
-    0x0141: "Vortex POK3R",
-    0x0112: "KBP V60",
-    0x0129: "KBP V80",
-}
+VERSION_ADDR = 0x2800
+VERSION_SIZE = 0x400
+APP_ADDR = 0x2c00
 
 # POK3R firmware XOR encryption/decryption key
 # Found at 0x2188 in Pok3r flash
@@ -93,7 +92,7 @@ swap_key = [
 
 
 def decode_firmware_packet(encoded: bytes, num: int) -> bytes:
-    assert len(encoded) == 4 * 13
+    assert len(encoded) == 4 * 13, "data must be 52 bytes"
     data = bytearray(encoded)
 
     # XOR encryption
@@ -133,9 +132,9 @@ def decode_firmware(encoded: bytes) -> bytes:
     return bytes(data)
 
 
-def encode_firmware_packet(encoded: bytes, num: int) -> bytes:
-    assert len(encoded) == 4 * 13
-    data = bytearray(encoded)
+def encode_firmware_packet(decoded: bytes, num: int) -> bytes:
+    assert len(decoded) == 4 * 13, "data must be 52 bytes"
+    data = bytearray(decoded)
 
     # Swap encryption
     f = (num & 7) << 2
@@ -182,12 +181,19 @@ class POK3R_Device(Device):
         _, vstr = self.read_version()
         return vstr or "CLEARED"
 
-    def cmd(self, cmd: int, subcmd: int = 0, data: bytes = b""):
+    def send_cmd(self, cmd: int, subcmd: int = 0, data: bytes = b""):
         pkt = struct.pack("<BBH", cmd, subcmd, 0) + data
-        pkt = pkt.ljust(64, b"\x00")
+        pkt = pkt.ljust(64, b"\0")
         crc = binascii.crc_hqx(pkt, 0)
-        pkt = pkt[:2] + crc.to_bytes(2, byteorder="little", signed=False) + pkt[4:]
+        pkt = pkt[:2] + crc.to_bytes(2, byteorder="little") + pkt[4:]
         self.send(pkt)
+
+    def recv_resp(self, size: int = 0) -> bytes:
+        resp = self.alt_recv(64)
+        data = resp[:size]
+        if resp[0] != RESP_SUCCESS:
+            raise RuntimeError(f"Error response {resp[0]:02x}")
+        return data
 
     def reboot(self, mode: int):
         log.debug(f"REBOOT {mode}")
@@ -204,7 +210,7 @@ class POK3R_Device(Device):
         }
 
         log.info("Reboot...")
-        self.cmd(CMD_RESET, mode)
+        self.send_cmd(CMD_RESET, mode)
 
         self.close()
 
@@ -218,7 +224,6 @@ class POK3R_Device(Device):
                 usage_page=UPDATE_USAGE_PAGE,
                 usage=UPDATE_USAGE
             ))
-
 
             if len(new_devs) > 1:
                 raise RuntimeError("Too many matching devices")
@@ -236,73 +241,70 @@ class POK3R_Device(Device):
         if self.dev.idProduct != new_pid:
             raise RuntimeError("Reboot failed")
 
-
     def read_flash(self, addr: int, size: int):
         log.debug(f"READ {addr:#x} {size} bytes")
+        block_size = 64
         data = bytes()
-        for a in range(addr, addr+size, 64):
-            self.cmd(CMD_FLASH, CMD_FLASH_READ, struct.pack("<II", a, a + 64))
-            data += self.recv(64)
-            resp = self.alt_recv(64)
-            assert resp[0] == RESP_SUCCESS
+        for a in range(addr, addr+size, block_size):
+            self.send_cmd(CMD_FLASH, CMD_FLASH_READ, struct.pack("<II", a, a + block_size))
+            data += self.recv(64)[:block_size]
+            self.recv_resp()
         return data[:size]
-
-    def write_flash(self, addr: int, data: bytes, *, progress=False):
-        log.debug(f"WRITE {addr:#x} {len(data)} bytes")
-        gen = range(0, len(data), 52)
-        if progress:
-            gen = tqdm(gen)
-        for p in gen:
-            a = addr + p
-            wdata = data[p:p+52]
-            self.cmd(CMD_FLASH, CMD_FLASH_WRITE, struct.pack("<II", a, a + len(wdata) - 1) + wdata)
-            resp = self.alt_recv(64)
-            assert resp[0] == RESP_SUCCESS
-
-    def verify_flash(self, addr: int, data: bytes, *, progress=False):
-        log.debug(f"VERIFY {addr:#x} {len(data)} bytes")
-        gen = range(0, len(data), 52)
-        if progress:
-            gen = tqdm(gen)
-        for p in gen:
-            a = addr + p
-            wdata = data[p:p+52]
-            self.cmd(CMD_FLASH, CMD_FLASH_VERIFY, struct.pack("<II", a, a + len(wdata) - 1) + wdata)
-            resp = self.alt_recv(64)
-            assert resp[0] == RESP_SUCCESS
 
     def erase_flash(self, start: int, end: int):
         log.debug(f"ERASE {start:#x} to {end:#x}")
-        self.cmd(CMD_ERASE, 0, struct.pack("<II", start, end))
+        self.send_cmd(CMD_ERASE, 0, struct.pack("<II", start, end))
+
         while True:
             try:
-                resp = self.alt_recv(64)
+                self.recv_resp()
                 break
             except usb.core.USBTimeoutError:
-                log.warning("Waiting for Erase...")
+                log.warning("Waiting for erase...")
                 continue
-        assert resp[0] == RESP_SUCCESS
 
-        self.cmd(CMD_FLASH, CMD_FLASH_ERASE_CHECK, struct.pack("<II", start, end))
-        resp = self.alt_recv(64)
-        assert resp[0] == RESP_SUCCESS
+        self.send_cmd(CMD_FLASH, CMD_FLASH_ERASE_CHECK, struct.pack("<II", start, end))
+        self.recv_resp()
+
+    def write_flash(self, addr: int, data: bytes, *, progress=False):
+        log.debug(f"WRITE {addr:#x} {len(data)} bytes")
+        block_size = 52
+        gen = range(0, len(data), block_size)
+        if progress:
+            gen = tqdm(gen)
+        for p in gen:
+            a = addr + p
+            wdata = data[p:p+block_size]
+            self.send_cmd(CMD_FLASH, CMD_FLASH_WRITE, struct.pack("<II", a, a + len(wdata) - 1) + wdata)
+            self.recv_resp()
+
+    def verify_flash(self, addr: int, data: bytes, *, progress=False):
+        log.debug(f"VERIFY {addr:#x} {len(data)} bytes")
+        block_size = 52
+        gen = range(0, len(data), block_size)
+        if progress:
+            gen = tqdm(gen)
+        for p in gen:
+            a = addr + p
+            wdata = data[p:p+block_size]
+            self.send_cmd(CMD_FLASH, CMD_FLASH_VERIFY, struct.pack("<II", a, a + len(wdata) - 1) + wdata)
+            self.recv_resp()
 
     def crc_flash(self, addr: int, size: int):
         log.debug(f"CRC {addr:#x} {size} bytes")
-        self.cmd(CMD_CRC, 0, struct.pack("<II", addr, size))
-        resp = self.alt_recv(64)
-        assert resp[2] == RESP_SUCCESS
-        return int.from_bytes(resp[:2], byteorder="little")
+        self.send_cmd(CMD_CRC, 0, struct.pack("<II", addr, size))
+        resp = self.recv_resp(2)
+        return int.from_bytes(resp, byteorder="little")
 
     def read_info(self):
         log.debug(f"GET INFO")
-        self.cmd(CMD_GET_INFO)
+        self.send_cmd(CMD_GET_INFO)
         data = self.recv(64)
-        resp = self.alt_recv(64)
-        assert resp[0] == RESP_SUCCESS
+        self.recv_resp()
 
         log.debug(f"info: {data.hex()}")
         a, b, fw_addr, page_size, e, f, ver_addr = struct.unpack_from("<HHHHHHI", data)
+
         # FMC + 0x1a4
         log.debug(f"a: {a:#x}")
         # 0x11000000
@@ -315,20 +317,19 @@ class POK3R_Device(Device):
         # (FMC + 0x1a8) - 10
         log.debug(f"f: {f:#x}")
         log.debug(f"version address: {ver_addr:#x}")
+
         return ver_addr, fw_addr
 
     def read_version(self):
         ver_addr, _ = self.read_info()
-        # read the version string length
-        vdata = self.read_flash(ver_addr, 4)
+        # read the version page
+        vdata = self.read_flash(ver_addr, VERSION_SIZE)
 
         vlen = int.from_bytes(vdata[:4], byteorder="little")
         if vlen == 0xffff_ffff:
             return vlen, None
 
-        # read the whole version string
-        vdata = self.read_flash(ver_addr + 4, vlen)
-        vstr = vdata.rstrip(b"\xff").decode("utf-8").rstrip("\0")
+        vstr = vdata[:4][:vlen].rstrip(b"\xff").decode("utf-8").rstrip("\0")
         return vlen, vstr
 
     def write_version(self, version: str):
@@ -337,7 +338,7 @@ class POK3R_Device(Device):
         vstr = version.encode("utf-8")
         vlen = len(vstr)
         vstr += b"\0"
-        vdata = vlen.to_bytes(4, "little") + vstr.ljust((len(vstr) * 3) // 4, b"\0")
+        vdata = vlen.to_bytes(4, "little") + vstr.ljust(4 * ((len(vstr) + 3) // 4), b"\0")
 
         self.erase_flash(ver_addr, ver_addr + len(vdata))
 

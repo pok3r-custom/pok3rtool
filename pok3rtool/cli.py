@@ -87,19 +87,20 @@ def cmd_list():
     for name, device in find_devices():
         with device:
             log.info(f"{name}: {device.version()}")
-            if isinstance(device, cykb.CYKB_Device):
-                device.get_info()
 
 
 @app.command("version")
-def cmd_flash(version: Annotated[str, typer.Argument()] = None):
+def cmd_version(version: Annotated[str, typer.Argument()] = None):
     device = find_device()
     with device:
         if version:
             device.write_version(version)
         else:
-            vdata, vstr = device.read_version()
+            vstr = device.version()
             log.info(f"Version: {vstr}")
+
+            if isinstance(device, cykb.CYKB_Device):
+                info1, info2 = device.read_info()
 
 
 @app.command("reboot")

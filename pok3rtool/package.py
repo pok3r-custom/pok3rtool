@@ -170,9 +170,6 @@ def extract_maav105(file: Path, output: Path | None):
         signature = strs[-13:]
         assert signature == b".maaV105\0\0\0\0\0"
 
-        with open(output / "manifest.bin", "wb") as fo:
-            fo.write(strs)
-
         desc = strs[0x232a:][:0x200].decode("utf-16le").rstrip("\0")
         company = strs[0x2532:][:0x200].decode("utf-16le").rstrip("\0")
         product = strs[0x273a:][:0x200].decode("utf-16le").rstrip("\0")
@@ -183,7 +180,6 @@ def extract_maav105(file: Path, output: Path | None):
         log.info(f"Product: {product}")
         log.info(f"Version: {version}")
 
-        total = strings_len
         sections = []
 
         start = 0xc8
