@@ -54,9 +54,7 @@ CMD_DISCONNECT = 5
 
 RESP_SUCCESS = 0x4f
 
-VERSION_ADDR = 0x2800
 VERSION_SIZE = 0x400
-APP_ADDR = 0x2c00
 
 # POK3R firmware XOR encryption/decryption key
 # Found at 0x2188 in Pok3r flash
@@ -191,23 +189,24 @@ class POK3R_Device(Device):
     def recv_resp(self, size: int = 0) -> bytes:
         resp = self.alt_recv(64)
         data = resp[:size]
-        if resp[0] != RESP_SUCCESS:
+        if resp[size] != RESP_SUCCESS:
             raise RuntimeError(f"Error response {resp[0]:02x}")
         return data
 
-    def reboot(self, mode: int):
-        log.debug(f"REBOOT {mode}")
+    def reboot(self, bootloader: bool = False):
+        log.debug(f"REBOOT {bootloader}")
+        mode = CMD_RESET_BOOT if bootloader else CMD_RESET_SWITCH
 
-        if self.is_bootloader():
+        if bootloader:
+            new_pid = self.dev.idProduct
+        elif self.is_bootloader():
             new_pid = self.dev.idProduct & ~PID_BOOT_BIT
         else:
             new_pid = self.dev.idProduct | PID_BOOT_BIT
 
         vid = self.dev.idVendor
-        match_pids = {
-            self.dev.idProduct: None,
-            new_pid: None
-        }
+        match_pids = {self.dev.idProduct: None}
+        match_pids[new_pid] = None
 
         log.info("Reboot...")
         self.send_cmd(CMD_RESET, mode)
@@ -306,12 +305,13 @@ class POK3R_Device(Device):
         a, b, fw_addr, page_size, e, f, ver_addr = struct.unpack_from("<HHHHHHI", data)
 
         # FMC + 0x1a4
+        # appears to be the chip model, 0x1655 -> HT32F1655
         log.debug(f"a: {a:#x}")
-        # 0x11000000
+        # 0x1100
         log.debug(f"b: {b:#x}")
         log.debug(f"firmware address: {fw_addr:#x}")
         # FMC + 0x1ac
-        log.debug(f"page size: {page_size:#x}")
+        log.debug(f"page size?: {page_size:#x}")
         # (FMC + 0x1a8) - 10
         log.debug(f"e: {e:#x}")
         # (FMC + 0x1a8) - 10
@@ -323,22 +323,24 @@ class POK3R_Device(Device):
     def read_version(self):
         ver_addr, _ = self.read_info()
         # read the version page
-        vdata = self.read_flash(ver_addr, VERSION_SIZE)
+        vdata = self.read_flash(ver_addr, 0x400)
+        log.debug(f"ver: {vdata.hex()}")
 
         vlen = int.from_bytes(vdata[:4], byteorder="little")
         if vlen == 0xffff_ffff:
             return vlen, None
 
-        vstr = vdata[:4][:vlen].rstrip(b"\xff").decode("utf-8").rstrip("\0")
+        vstr = vdata[4:][:vlen].rstrip(b"\xff").decode("utf-8").rstrip("\0")
         return vlen, vstr
 
     def write_version(self, version: str):
-        ver_addr, _ = self.read_info()
+        ver_addr, app_addr = self.read_info()
 
         vstr = version.encode("utf-8")
         vlen = len(vstr)
         vstr += b"\0"
         vdata = vlen.to_bytes(4, "little") + vstr.ljust(4 * ((len(vstr) + 3) // 4), b"\0")
+        assert len(vdata) < (app_addr - ver_addr), "version too long"
 
         self.erase_flash(ver_addr, ver_addr + len(vdata))
 
@@ -346,19 +348,15 @@ class POK3R_Device(Device):
 
     def flash(self, version: str, fw_data: bytes, *, progress=False):
         if not self.is_bootloader():
-            self.reboot(CMD_RESET_BOOT)
+            self.reboot(True)
+
+        crc0 = binascii.crc_hqx(fw_data, 0)
+        enc_fw_data = encode_firmware(fw_data)
 
         ver_addr, fw_addr = self.read_info()
 
-        # erase version info
-        self.erase_flash(ver_addr, ver_addr + 128)
-
-        crc0 = binascii.crc_hqx(fw_data, 0)
-        crc02 = binascii.crc_hqx(fw_data, 0xffff)
-        enc_fw_data = encode_firmware(fw_data)
-
         log.info("Erase...")
-        self.erase_flash(fw_addr, fw_addr + len(enc_fw_data))
+        self.erase_flash(ver_addr, fw_addr + len(enc_fw_data))
 
         log.info("Write...")
         self.write_flash(fw_addr, enc_fw_data, progress=progress)
@@ -366,13 +364,13 @@ class POK3R_Device(Device):
         log.info("Verify...")
         self.verify_flash(fw_addr, enc_fw_data, progress=progress)
 
-        crc1 = self.crc_flash(fw_addr, len(fw_data))
-        if crc1 != crc0:
-            raise RuntimeError(f"CRC check failed: {crc1:04x} ({crc02:04x}) != {crc0:04x}")
+        crc = self.crc_flash(fw_addr, len(fw_data))
+        if crc != crc0:
+            raise RuntimeError(f"CRC check failed: {crc:04x} != {crc0:04x}")
 
         self.write_version(version)
 
-        self.reboot(CMD_RESET_SWITCH)
+        self.reboot()
 
     def leak_flash(self):
         crc_map = {}

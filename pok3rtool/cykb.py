@@ -66,14 +66,7 @@ CMD_ADDR_SET = 1
 CMD_WRITE = 0x1f
 RESP_WRITE_ADDR = 2
 
-ADDR_VERSION = 0x3000
-
-version_magic = [
-    0x00800004, 0x00010300, 0x00000041, 0xefffffff,
-    0x00000001, 0x00000000, 0x016704d9, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0x001c5aa5,
-]
+APP_MAX_SIZE = 0xcc00
 
 # POK3R RGB XOR encryption/decryption key
 # See fw_xor_decode.c for the way this key was obtained.
@@ -166,19 +159,19 @@ class CYKB_Device(Device):
             raise RuntimeError(f"Expected CRC 0")
         return resp[4:]
 
-    def reboot(self, mode: int):
-        log.debug(f"REBOOT {mode}")
+    def reboot(self, bootloader: bool = False):
+        log.debug(f"REBOOT {bootloader}")
+        mode = CMD_RESET_BL if bootloader else CMD_RESET_FW
 
-        if self.is_bootloader():
-            new_pid = self.dev.idProduct & ~PID_BOOT_BIT
+        _, bvid, bpid = self.read_info()
+
+        if bootloader:
+            new_pid = bpid
         else:
-            new_pid = self.dev.idProduct | PID_BOOT_BIT
+            new_pid = bpid & ~PID_BOOT_BIT
 
-        vid = self.dev.idVendor
-        match_pids = {
-            self.dev.idProduct: None,
-            new_pid: None
-        }
+        match_pids = {self.dev.idProduct: None}
+        match_pids[new_pid] = None
 
         log.info("Reboot...")
         self.send_cmd(CMD_RESET, mode)
@@ -190,7 +183,7 @@ class CYKB_Device(Device):
 
             new_devs = list(find_hid_devices(
                 self.__class__,
-                vid=vid,
+                vid=bvid,
                 known_devices=match_pids,
                 usage_page=UPDATE_USAGE_PAGE,
                 usage=UPDATE_USAGE
@@ -217,6 +210,7 @@ class CYKB_Device(Device):
         self.send_cmd(CMD_FW, CMD_FW_ERASE, struct.pack("<II", start, size))
 
         while True:
+            time.sleep(0.5)
             try:
                 self.recv_resp(CMD_FW, CMD_FW_ERASE)
                 break
@@ -228,6 +222,13 @@ class CYKB_Device(Device):
         log.debug(f"WRITE {addr:#x} {len(data)} bytes")
         self.send_cmd(CMD_ADDR, CMD_ADDR_SET, struct.pack("<I", addr))
         self.recv_resp(CMD_ADDR, CMD_ADDR_SET)
+
+        self.send_cmd(CMD_ADDR, CMD_ADDR_GET, struct.pack("<I", 0xffff_ffff))
+        resp = self.recv_resp(CMD_ADDR, CMD_ADDR_GET)
+        raddr, = struct.unpack_from("<I", resp)
+        if raddr != addr:
+            raise RuntimeError(f"Set addresss response unexpected: {raddr} != {addr}")
+
         block_size = 52
         gen = range(0, len(data), block_size)
         if progress:
@@ -240,36 +241,94 @@ class CYKB_Device(Device):
             resp = self.recv_resp(CMD_ADDR, RESP_WRITE_ADDR)
             waddr, = struct.unpack_from("<I", resp)
             if waddr != a + len(wdata):
-                raise RuntimeError(f"Write response unexpected: {waddr} !+ {a + len(wdata)}")
+                raise RuntimeError(f"Write response unexpected: {waddr} != {a + len(wdata)}")
 
     def crc_flash(self, addr: int, size: int):
         log.debug(f"CRC {addr:#x} {size} bytes")
 
         self.send_cmd(CMD_FW, CMD_FW_SUM, struct.pack("<II", addr, size))
+        time.sleep(0.1)
         resp = self.recv_resp(CMD_FW, CMD_FW_SUM)
         csum, = struct.unpack_from("<I", resp)
 
         self.send_cmd(CMD_FW, CMD_FW_CRC, struct.pack("<II", addr, size))
+        time.sleep(0.1)
         resp = self.recv_resp(CMD_FW, CMD_FW_CRC)
         crc, = struct.unpack_from("<I", resp)
 
         return csum, crc
 
+    def read_info(self):
+        self.send_cmd(CMD_READ, CMD_READ_400)
+        info1 = self.recv_resp(CMD_READ, CMD_READ_400)
+        info1 = info1[:0x34]
+        log.debug(f"bootloader info: {info1.hex()}")
+
+        a, b, vid, pid, c, d, e, f, g, h, fw_offset, j, page_size, model, m = struct.unpack("<IIHHHHIIIIHHH10sI", info1)
+        model = model.rstrip(b"\0").decode("ascii")
+
+        log.debug(f"a: {a:#x}")
+        log.debug(f"b: {b:#x}")
+        log.debug(f"BOOT VID/PID: {vid:#x}/{pid:#x}")
+        log.debug(f"c: {c:#x}")
+        log.debug(f"d: {d:#x}")
+        log.debug(f"e: {e:#x}")
+        log.debug(f"f: {f:#x}")
+        log.debug(f"g: {g:#x}")
+        log.debug(f"h: {h:#x}")
+        log.debug(f"firmware offset?: {fw_offset:#x}")
+        log.debug(f"j: {j:#x}")
+        log.debug(f"page size?: {page_size:#x}")
+        log.debug(f"Model: {model}")
+        log.debug(f"m: {m:#x}")
+
+        # i'm not sure which is which, so make sure they're the same
+        assert fw_offset == page_size
+
+        self.send_cmd(CMD_READ, CMD_READ_3c00)
+        info2 = self.recv_resp(CMD_READ, CMD_READ_3c00)
+        info2 = info2[:4]
+        log.debug(f"app info: {info2.hex()}")
+
+        n, o = struct.unpack("<HH", info2)
+
+        log.debug(f"n: {n:#x}")
+        log.debug(f"o: {o:#x}")
+
+        return fw_offset, vid, pid
+
     def read_version(self):
+        self.read_info()
+
         # read the version page
         # we can read 0x3fc because (0x3c * 18) > 0x400
-        ver = bytes()
+        vdata = bytes()
         for i in range(17):
             self.send_cmd(CMD_READ, CMD_READ_VER + i)
-            ver += self.recv_resp(CMD_READ, CMD_READ_VER + i)
+            vdata += self.recv_resp(CMD_READ, CMD_READ_VER + i)
+        log.debug(f"ver: {vdata.hex()}")
 
-        log.debug(f"ver: {ver.hex()}")
+        vmagic, = struct.unpack_from("<I", vdata[0xB0:])
+        magic = vmagic & 0x3ffff
+        num_vals = magic >> 18
 
-        vlen, = struct.unpack_from("<I", ver)
+        log.debug(f"magic: {magic:#x}")
+
+        a, v3, v2, v1, v0, c, d, e, f, vid, pid = struct.unpack_from("<IBBBBIIIIHH", vdata[0x78:])
+
+        log.debug(f"a: {a:#x}")
+        log.debug(f"version: {v0}.{v1}.{v2}.{v3}")
+        log.debug(f"c: {c:#x}")
+        log.debug(f"d: {d:#x}")
+        log.debug(f"e: {e:#x}")
+        log.debug(f"f: {f:#x}")
+        log.debug(f"VID/PID: {vid:#x}/{pid:#x}")
+
+        vlen, = struct.unpack_from("<I", vdata)
         if vlen == 0xffff_ffff:
             return vlen, None
 
-        vstr = ver[4:][:vlen].rstrip(b"\xff").decode("utf-8").rstrip("\0")
+        vstr = vdata[4:][:vlen].rstrip(b"\xff").decode("utf-8").rstrip("\0")
         return vlen, vstr
 
     def write_version(self, version: str):
@@ -277,98 +336,60 @@ class CYKB_Device(Device):
         vlen = len(vstr)
         vstr += b"\0"
         vdata = vlen.to_bytes(4, "little") + vstr.ljust(4 * ((len(vstr) + 3) // 4), b"\0")
-        assert len(vdata) <= 0x3c * 2, "version too long"
+        assert len(vdata) <= 0x78, "version too long"
 
-        # this magic version data needs to be present or the bootloader will jump to the app
-        vdata = vdata.ljust(0x3c * 2, b"\xff")
-        for v in version_magic:
+        _, bvid, bpid = self.read_info()
+
+        ver = (1,0,0)
+
+        # the bootloader checks that this list of words is non-FF
+        # i don't know what else, if anything, uses these values
+        vvalues = [
+            0x800004,
+            (ver[0] << 16) | (ver[1] << 8) | ver[2],
+            0x41,
+            0xefffffff,
+            0x1,
+            0x0,
+            bvid | ((bpid & ~PID_BOOT_BIT) << 16)
+        ]
+
+        vdata = vdata.ljust(0x78, b"\xff")
+        for v in vvalues:
             vdata += v.to_bytes(4, "little")
+
+        # this magic value needs to be present
+        magic = 0x5aa5 | (len(vvalues) << 18)
+        vdata = vdata.ljust(0xB0, b"\xff")
+        vdata += magic.to_bytes(4, "little")
 
         self.erase_flash(0, len(vdata))
 
         self.write_flash(0, vdata)
 
-    def read_info(self):
-        self.send_cmd(CMD_READ, CMD_READ_400)
-        info1 = self.recv_resp(CMD_READ, CMD_READ_400)
-        info1 = info1[:0x34]
-        log.debug(f"info 400: {info1.hex()}")
-
-        a, b, vid, pid, c, d, e, f, g, h, i, j, k, model, m = struct.unpack("<IIHHHHIIIIHHH10sI", info1)
-        model = model.rstrip(b"\0").decode("ascii")
-
-        log.debug(f"a: {a:#x}")
-        log.debug(f"b: {b:#x}")
-        log.debug(f"VID/PID: {vid:#x}/{pid:#x}")
-        log.debug(f"c: {c:#x}")
-        log.debug(f"d: {d:#x}")
-        log.debug(f"e: {e:#x}")
-        log.debug(f"f: {f:#x}")
-        log.debug(f"g: {g:#x}")
-        log.debug(f"h: {h:#x}")
-        log.debug(f"i: {i:#x}")
-        log.debug(f"j: {j:#x}")
-        log.debug(f"k: {k:#x}")
-        log.debug(f"Model: {model}")
-        log.debug(f"m: {m:#x}")
-
-        self.send_cmd(CMD_READ, CMD_READ_3c00)
-        info2 = self.recv_resp(CMD_READ, CMD_READ_3c00)
-        info2 = info2[:4]
-        log.debug(f"info 3c00: {info2.hex()}")
-
-        n, = struct.unpack("<I", info2)
-
-        log.debug(f"n: {n:#x}")
-
-        return info1, info2
-
     def flash(self, version: str, fw_data: bytes, *, progress=False):
         if not self.is_bootloader():
-            self.reboot(CMD_RESET_BL)
+            self.reboot(True)
 
-        fw_offset = 0x400
-
-        # erase version info
-        self.erase_flash(0, 128)
-
-        # pad to multiple of 4
-        # fw_data = fw_data.ljust(4 * ((len(fw_data) + 3) // 4), b"\xff")
-
-        crc0 = zlib.crc32(fw_data, 0)
         enc_fw_data = encode_firmware(fw_data)
+        # the CRC command returns the CRC of the encrypted data
         crc1 = zlib.crc32(enc_fw_data, 0)
 
+        fw_offset, _, _ = self.read_info()
+
         log.info("Erase...")
-        self.erase_flash(fw_offset, len(enc_fw_data))
+        self.erase_flash(0, APP_MAX_SIZE)
 
         log.info("Write...")
         self.write_flash(fw_offset, enc_fw_data, progress=progress)
 
-        log.info("Verify...")
-        csum, crc = self.crc_flash(fw_offset, len(fw_data))
+        _, crc = self.crc_flash(fw_offset, len(fw_data))
         if crc != crc1:
-            raise RuntimeError(f"CRC check failed: {crc:08x} / {csum:08x} != {crc0:08x} / {crc1:08x}")
+            raise RuntimeError(f"CRC check failed: {crc:08x} != {crc1:08x}")
 
         self.write_version(version)
 
-        self.reboot(CMD_RESET_FW)
-
-    def leak_flash(self):
-        crc_map = {}
-        # for i in range(0, 256):
-        #     crc = binascii.crc_hqx(bytes([i]), 0)
-        #     assert crc not in crc_map
-        #     crc_map[crc] = i
-
-        crc = self.crc_flash(0x400, 0x1000)
-
-        data = bytearray(0x3000)
-        # for addr in tqdm(range(0x400, 0x400 + len(data))):
-        #     crc = self.crc_flash(addr, 4)
-        #     assert crc in crc_map
-        #     data[addr] = crc_map[crc]
-        return data
+        self.reboot()
 
 
 def get_devices():

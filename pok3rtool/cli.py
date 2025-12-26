@@ -99,18 +99,12 @@ def cmd_version(version: Annotated[str, typer.Argument()] = None):
             vstr = device.version()
             log.info(f"Version: {vstr}")
 
-            if isinstance(device, cykb.CYKB_Device):
-                info1, info2 = device.read_info()
-
 
 @app.command("reboot")
 def cmd_reboot(bootloader: bool = False):
     device = find_device()
     with device:
-        if bootloader:
-            device.reboot(pok3r.CMD_RESET_BOOT)
-        else:
-            device.reboot(pok3r.CMD_RESET_SWITCH)
+        device.reboot(bootloader)
 
 
 @app.command("flash")
