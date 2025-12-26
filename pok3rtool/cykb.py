@@ -178,6 +178,23 @@ class CYKB_Device(Device):
                 log.warning("Waiting for erase...")
                 continue
 
+    def read_flash(self, addr: int, size: int, *, progress=False):
+        """
+        Arbitrary address read is only available via patched firmware
+        """
+        log.debug(f"READ {addr:#x} {size} bytes")
+        data = bytes()
+        block_size = 60
+        gen = range(0, size, block_size)
+        if progress:
+            gen = tqdm(gen)
+        for p in gen:
+            a = addr + p
+            self.send_cmd(CMD_READ, 0xff, struct.pack("<I", a))
+            resp = self.recv_resp(CMD_READ, 0xff)
+            data += resp[:60]
+        return data
+
     def write_flash(self, addr: int, data: bytes, *, progress=False):
         log.debug(f"WRITE {addr:#x} {len(data)} bytes")
         self.send_cmd(CMD_ADDR, CMD_ADDR_SET, struct.pack("<I", addr))
@@ -361,6 +378,26 @@ class CYKB_Device(Device):
         self.write_version(version)
 
         self.reboot()
+
+    def dump(self):
+        log.info("Dumping flash with patched command...")
+
+        # A fairly simple patch to the firmware introduces a new subcommand to the READ command
+        # that will let us read arbitrary memory addresses
+        # See:
+        # https://github.com/pok3r-custom/pok3r_re_firmware/blob/master/disassemble/pok3r_rgb/v130/patch_v130.txt
+        # https://github.com/pok3r-custom/pok3r_re_firmware/blob/master/disassemble/pok3r_rgb/v130/firmware_v130.txt#L4710
+
+        flash_size = 0x10000
+
+        # read up until the last 60-byte chunk that would overflow the flash and fault the firmware
+        read_size = 60 * (flash_size // 60)
+        data = self.read_flash(0, read_size, progress=True)
+        # read the last chunk
+        read_addr = flash_size - 60
+        data = data[:read_addr] + self.read_flash(read_addr, 60, progress=True)
+
+        return data
 
 
 def get_devices():

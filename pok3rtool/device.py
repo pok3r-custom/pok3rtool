@@ -154,6 +154,9 @@ class Device:
     def version(self) -> str:
         raise NotImplementedError
 
+    def write_version(self, version: str):
+        raise NotImplementedError
+
     def reboot(self, bootloader: bool = False):
         raise NotImplementedError
 
@@ -166,6 +169,9 @@ class Device:
         raise NotImplementedError
 
     def flash(self, version: str, fw_data: bytes, *, progress=False):
+        raise NotImplementedError
+
+    def dump(self) -> bytes:
         raise NotImplementedError
 
     def open(self):

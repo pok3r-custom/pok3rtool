@@ -78,8 +78,8 @@ def extract_maajonsn(file: Path, output: Path | None):
         strs = decode_package_data(f.read(strings_len))
         log.debug(strs)
 
-        signature = strs[0x4AE:]
-        assert signature == b".maajonsn\0"
+        signature = strs[0x4AE:-1]
+        assert signature == b".maajonsn"
 
         company = strs[0x10:][:0x200].decode("utf-16le").rstrip("\0")
         product = strs[0x218:][:0x200].decode("utf-16le").rstrip("\0")
@@ -128,8 +128,8 @@ def extract_maav102(file: Path, output: Path | None):
         strs = decode_package_data(f.read(strings_len))
         log.debug(strs)
 
-        signature = strs[0xb19:]
-        assert signature == b".maaV102\0\0\0"
+        signature = strs[0xb19:-3]
+        assert signature == b".maaV102"
 
         desc = strs[0x26:][:0x200].decode("utf-16le").rstrip("\0")
         company = strs[0x22e:][:0x200].decode("utf-16le").rstrip("\0")

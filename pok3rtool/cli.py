@@ -2,7 +2,7 @@
 import sys
 import logging
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Generator
 from enum import Enum
 
 import typer
@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from . import cykb, pok3r, package
+from .device import Device
 
 log = logging.getLogger(__name__)
 
@@ -61,14 +62,14 @@ def app_callback(
     logging.basicConfig(level=level, handlers=[handler])
 
 
-def find_devices():
+def find_devices() -> Generator[tuple[str, Device], None, None]:
     for name, device in pok3r.get_devices():
         yield name, device
     for name, device in cykb.get_devices():
         yield name, device
 
 
-def find_device():
+def find_device() -> Device:
     devs = list(find_devices())
     if not len(devs):
         log.error("No devices found")
@@ -120,16 +121,14 @@ def cmd_flash(version: str, file: Path):
         device.flash(version, fw_data, progress=True)
 
 
-@app.command("leak")
-def cmd_leak(output: Path):
+@app.command("dump")
+def cmd_dump(output: Path):
+    """Dump device flash"""
     device = find_device()
-    if isinstance(device, pok3r.POK3R_Device):
-        with device:
-            data = device.leak_flash()
-        with open(output, "wb") as f:
-            f.write(data)
-    else:
-        log.info("Not supported for this devie")
+    with device:
+        data = device.dump()
+    with open(output, "wb") as f:
+        f.write(data)
 
 
 class UpdateFormat(str, Enum):

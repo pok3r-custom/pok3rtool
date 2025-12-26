@@ -149,13 +149,6 @@ def encode_firmware_packet(decoded: bytes, num: int) -> bytes:
 
 
 class POK3R_Device(Device):
-    def is_bootloader(self):
-        return self.dev.idProduct & PID_BOOT_BIT == PID_BOOT_BIT
-
-    def version(self):
-        _, vstr = self.read_version()
-        return vstr or "CLEARED"
-
     def send_cmd(self, cmd: int, subcmd: int = 0, data: bytes = b""):
         pkt = struct.pack("<BBH", cmd, subcmd, 0) + data
         pkt = pkt.ljust(64, b"\0")
@@ -169,6 +162,9 @@ class POK3R_Device(Device):
         if resp[size] != RESP_SUCCESS:
             raise RuntimeError(f"Error response {resp[0]:02x}")
         return data
+
+    def is_bootloader(self):
+        return self.dev.idProduct & PID_BOOT_BIT == PID_BOOT_BIT
 
     def reboot(self, bootloader: bool = False):
         log.debug(f"REBOOT {bootloader}")
@@ -216,11 +212,14 @@ class POK3R_Device(Device):
         if (self.dev.idVendor, self.dev.idProduct) != (vid, new_pid):
             raise RuntimeError("Reboot failed")
 
-    def read_flash(self, addr: int, size: int):
+    def read_flash(self, addr: int, size: int, *, progress=False):
         log.debug(f"READ {addr:#x} {size} bytes")
-        block_size = 64
         data = bytes()
-        for a in range(addr, addr+size, block_size):
+        block_size = 64
+        gen = range(addr, addr+size, block_size)
+        if progress:
+            gen = tqdm(gen)
+        for a in gen:
             self.send_cmd(CMD_FLASH, CMD_FLASH_READ, struct.pack("<II", a, a + block_size))
             data += self.recv(64)[:block_size]
             self.recv_resp()
@@ -309,6 +308,10 @@ class POK3R_Device(Device):
         vstr = vdata[4:][:vlen].rstrip(b"\xff").decode("utf-8").rstrip("\0")
         return vlen, vstr
 
+    def version(self):
+        _, vstr = self.read_version()
+        return vstr or "CLEARED"
+
     def write_version(self, version: str):
         ver_addr, app_addr = self.read_info()
 
@@ -370,14 +373,23 @@ class POK3R_Device(Device):
 
         self.reboot()
 
-    def leak_flash(self):
+    def dump(self):
+        log.info("Dumping flash with CRC leak...")
+
+        # the CRC command produces a CRC-16 for ANY memory or flash address and size
+        # we can use this to leak the value of any one byte per CRC command by
+        # pre-computing a lookup of CRC values to byte values
+        # this lets us dump the full flash at like ~380 Bps
+
         crc_map = {}
         for i in range(0, 256):
             crc = binascii.crc_hqx(bytes([i]), 0)
             assert crc not in crc_map
             crc_map[crc] = i
 
-        data = bytearray(0x2800)
+        flash_size = 0x20000
+
+        data = bytearray(flash_size)
         for addr in tqdm(range(0, len(data))):
             crc = self.crc_flash(addr, 1)
             assert crc in crc_map
