@@ -50,6 +50,12 @@ extract maav102 vortex/CYPHER_V136.exe
 extract maav102 coolermaster/masterkeys-pro-l-white-v1.08.exe
 extract maav102 coolermaster/masterkeys-pro-m-white-v1.06.exe
 
+extract maav102 tex/AP_0163_1.01.01r.exe
+
+extract maav102 mistel/BOROCO_MD200.exe
+
+extract maav102 mistel/BOROCO_MD600.exe
+
 extract maav105 vortex/CORE_MPC.exe
 
 extract maav105 vortex/TAB_75_V100.exe
