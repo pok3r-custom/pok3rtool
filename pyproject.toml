@@ -8,7 +8,7 @@ version = "2.0"
 description = "Vortex keyboard firmware update tool"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "BSD" }
+license = "GPL-3.0-or-later"
 authors = [
     { name = "Charlie Waters", email = "cawiii@me.com" }
 ]
