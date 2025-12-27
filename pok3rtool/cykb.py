@@ -98,6 +98,13 @@ def xor_encode_decode(encoded: bytes):
     return bytes(data)
 
 
+def checksum(data: bytes, value: int = 0) -> int:
+    assert len(data) % 4 == 0, "data size must be a multiple of 4"
+    for i in range(len(data)):
+        value += data[i] << ((i & 3) * 8)
+    return value & 0xffff_ffff
+
+
 class CYKB_Device(Device):
     def send_cmd(self, cmd: int, subcmd: int = 0, data: bytes = b""):
         pkt = struct.pack("<BBH", cmd, subcmd, 0) + data
@@ -359,8 +366,9 @@ class CYKB_Device(Device):
 
     def flash(self, version: str, fw_data: bytes, *, progress=False):
         enc_fw_data = self.encode_firmware(fw_data)
-        # the CRC command returns the CRC of the encrypted data
-        crc1 = zlib.crc32(enc_fw_data, 0)
+        # the sum/CRC command returns the sum/CRC of the encrypted data
+        sum0 = checksum(enc_fw_data, 0)
+        crc0 = zlib.crc32(enc_fw_data, 0)
 
         if not self.is_bootloader():
             self.reboot(True)
@@ -375,9 +383,11 @@ class CYKB_Device(Device):
         log.info("Write...")
         self.write_flash(fw_offset, enc_fw_data, progress=progress)
 
-        _, crc = self.crc_flash(fw_offset, len(fw_data))
-        if crc != crc1:
-            raise RuntimeError(f"CRC check failed: {crc:08x} != {crc1:08x}")
+        fsum, crc = self.crc_flash(fw_offset, len(fw_data))
+        if fsum != sum0:
+            raise RuntimeError(f"Checksum check failed: {fsum:08x} != {sum0:08x}")
+        if crc != crc0:
+            raise RuntimeError(f"CRC check failed: {crc:08x} != {crc0:08x}")
 
         self.write_version(version)
 

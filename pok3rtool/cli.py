@@ -69,7 +69,7 @@ def find_devices() -> Generator[tuple[str, Device], None, None]:
         yield name, device
 
 
-def find_device(devnum: int = None, selectable: bool = True) -> Device:
+def find_device(devnum: int | None = None, selectable: bool = True) -> Device:
     devs = list(find_devices())
     if not len(devs):
         log.error("No devices found")
@@ -103,13 +103,16 @@ def find_device(devnum: int = None, selectable: bool = True) -> Device:
 @app.command("list")
 def cmd_list():
     """List connected devices"""
-    for name, device in find_devices():
+    for i, (name, device) in enumerate(find_devices()):
         with device:
-            log.info(f"{name}: {device.version()}")
+            log.info(f"{i}: {name} - {device.version()}")
 
 
 @app.command("version")
-def cmd_version(version: Annotated[str, typer.Argument()] = None, devnum: int = typer.Option(None, "--devnum", "-n")):
+def cmd_version(
+        version: Annotated[str, typer.Argument(help="Version to write")] = None,
+        devnum: int = typer.Option(None, "--devnum", "-n", help="Device number")
+):
     """Read or write device version"""
     device = find_device(devnum)
     with device:
@@ -121,7 +124,10 @@ def cmd_version(version: Annotated[str, typer.Argument()] = None, devnum: int = 
 
 
 @app.command("reboot")
-def cmd_reboot(bootloader: bool = False, devnum: int = typer.Option(None, "--devnum", "-n")):
+def cmd_reboot(
+        bootloader: bool = False,
+        devnum: int | None = typer.Option(None, "--devnum", "-n", help="Device number")
+):
     """Reboot device"""
     device = find_device(devnum)
     with device:
@@ -129,7 +135,11 @@ def cmd_reboot(bootloader: bool = False, devnum: int = typer.Option(None, "--dev
 
 
 @app.command("flash")
-def cmd_flash(version: str, file: Path):
+def cmd_flash(
+        version: Annotated[str, typer.Argument(help="Version to write")],
+        file: Annotated[Path, typer.Argument(help="Firmware file to flash")],
+        reboot: bool = True
+):
     """Flash device firmware"""
     with open(file, "rb") as f:
         fw_data = f.read()
@@ -141,7 +151,10 @@ def cmd_flash(version: str, file: Path):
 
 
 @app.command("dump")
-def cmd_dump(output: Path, devnum: int = typer.Option(None, "--devnum", "-n")):
+def cmd_dump(
+        output: Path,
+        devnum: int = typer.Option(None, "--devnum", "-n", help="Device number")
+):
     """Dump device flash"""
     device = find_device(devnum)
     with device:
