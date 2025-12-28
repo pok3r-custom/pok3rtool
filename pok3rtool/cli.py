@@ -8,6 +8,8 @@ from enum import Enum
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.highlighter import ReprHighlighter
+from rich.text import Text
 
 from . import cykb, pok3r, package
 from .device import Device
@@ -21,10 +23,18 @@ app = typer.Typer(
 )
 
 
+class TextAwareRichHandler(RichHandler):
+    def render_message(self, record: logging.LogRecord, message: str) -> Text:
+        # If the original msg was a Text (and not %-formatted), use it as-is.
+        if isinstance(record.msg, Text) and not record.args:
+            return record.msg
+        return super().render_message(record, message)
+
+
 @app.callback()
 def app_callback(
         verbose: int = typer.Option(0, "--verbose", "-v", count=True, help="Verbosity level"),
-        rich: bool = True,
+        rich: bool = typer.Option(True, help="Use rich text output"),
 ):
     if verbose > 1:
         level = logging.NOTSET
@@ -33,7 +43,8 @@ def app_callback(
     else:
         level = logging.INFO
 
-    if not Console().is_terminal:
+    console = Console()
+    if not console.is_terminal:
         # RichHandler has a very poor fallback to a wrapped 80-column mode for non-terminals
         # so just don't use RichHandler if the output is not a terminal
         rich = False
@@ -42,19 +53,19 @@ def app_callback(
         # turn pretty exceptions back on in a terminal
         app.pretty_exceptions_enable = True
         if verbose > 1:
-            handler = RichHandler()
+            handler = TextAwareRichHandler(console=console, log_time_format="[%x %X.%f]")
         elif verbose > 0:
-            handler = RichHandler(show_time=False, show_path=False)
+            handler = TextAwareRichHandler(console=console, show_time=False, show_path=False)
         else:
-            handler = RichHandler(show_time=False, show_level=False, show_path=False)
+            handler = TextAwareRichHandler(console=console, show_time=False, show_level=False, show_path=False)
         handler.setFormatter(logging.Formatter("%(message)s"))
     else:
         if verbose > 1:
             handler = logging.StreamHandler(stream=sys.stdout)
-            handler.setFormatter(logging.Formatter("%(asctime)s.%(msecs)03d %(levelname)-7s %(message)s", datefmt="%H:%M:%S"))
+            handler.setFormatter(logging.Formatter("%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s", datefmt="%x %X"))
         elif verbose > 0:
             handler = logging.StreamHandler(stream=sys.stdout)
-            handler.setFormatter(logging.Formatter("%(levelname)-7s %(message)s"))
+            handler.setFormatter(logging.Formatter("%(levelname)-8s %(message)s"))
         else:
             handler = logging.StreamHandler(stream=sys.stdout)
             handler.setFormatter(logging.Formatter("%(message)s"))
@@ -105,7 +116,7 @@ def cmd_list():
     """List connected devices"""
     for i, (name, device) in enumerate(find_devices()):
         with device:
-            log.info(f"{i}: {name} - {device.version()}")
+            log.info(Text.from_markup(f"[bold cyan]{i}[/]: {name} - [bold white]{device.version()}[/]"))
 
 
 @app.command("version")
@@ -138,7 +149,7 @@ def cmd_reboot(
 def cmd_flash(
         version: Annotated[str, typer.Argument(help="Version to write")],
         file: Annotated[Path, typer.Argument(help="Firmware file to flash")],
-        reboot: bool = True
+        boot: Annotated[bool, typer.Option(help="Boot flashed firmware")] = True
 ):
     """Flash device firmware"""
     with open(file, "rb") as f:
@@ -147,7 +158,7 @@ def cmd_flash(
     # re-finding that device when rebooting it
     device = find_device(selectable=False)
     with device:
-        device.flash(version, fw_data, progress=True)
+        device.flash(version, fw_data, boot=boot, progress=True)
 
 
 @app.command("dump")

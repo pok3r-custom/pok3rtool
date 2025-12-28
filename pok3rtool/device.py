@@ -167,7 +167,7 @@ class Device:
     def encode_firmware(decoded: bytes) -> bytes:
         raise NotImplementedError
 
-    def flash(self, version: str, fw_data: bytes, *, progress=False):
+    def flash(self, version: str, fw_data: bytes, boot: bool = True, *, progress=False):
         raise NotImplementedError
 
     def dump(self) -> bytes:

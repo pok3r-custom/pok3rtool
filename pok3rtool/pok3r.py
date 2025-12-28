@@ -349,7 +349,7 @@ class POK3R_Device(Device):
                 data[p:p + 52] = pkt
         return bytes(data)
 
-    def flash(self, version: str, fw_data: bytes, *, progress=False):
+    def flash(self, version: str, fw_data: bytes, boot: bool = True, *, progress=False):
         crc0 = binascii.crc_hqx(fw_data, 0)
         enc_fw_data = self.encode_firmware(fw_data)
 
@@ -375,7 +375,8 @@ class POK3R_Device(Device):
 
         self.write_version(version)
 
-        self.reboot()
+        if boot:
+            self.reboot()
 
     def dump(self):
         log.info("Dumping flash with CRC leak...")
