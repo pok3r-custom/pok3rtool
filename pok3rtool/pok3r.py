@@ -11,8 +11,6 @@ from .device import Device, find_hid_devices
 
 log = logging.getLogger(__name__)
 
-PID_BOOT_BIT = 0x1000
-
 known_devices = {
     (0x04d9, 0x0141): "Vortex POK3R",
     (0x04d9, 0x0112): "KBP V60",
@@ -151,6 +149,8 @@ def encode_firmware_packet(decoded: bytes, num: int) -> bytes:
 
 
 class POK3R_Device(Device):
+    PID_BOOT_BIT = 0x1000
+
     def send_cmd(self, cmd: int, subcmd: int = 0, data: bytes = b""):
         pkt = struct.pack("<BBH", cmd, subcmd, 0) + data
         pkt = pkt.ljust(64, b"\0")
@@ -166,18 +166,18 @@ class POK3R_Device(Device):
         return data
 
     def is_bootloader(self):
-        return self.dev.idProduct & PID_BOOT_BIT == PID_BOOT_BIT
+        return self.dev.idProduct & self.PID_BOOT_BIT == self.PID_BOOT_BIT
 
     def reboot(self, bootloader: bool = False):
         log.debug(f"REBOOT {bootloader}")
         mode = CMD_RESET_BOOT if bootloader else CMD_RESET_SWITCH
 
         if bootloader:
-            new_pid = self.dev.idProduct | PID_BOOT_BIT
+            new_pid = self.dev.idProduct | self.PID_BOOT_BIT
         elif self.is_bootloader():
-            new_pid = self.dev.idProduct & ~PID_BOOT_BIT
+            new_pid = self.dev.idProduct & ~self.PID_BOOT_BIT
         else:
-            new_pid = self.dev.idProduct | PID_BOOT_BIT
+            new_pid = self.dev.idProduct | self.PID_BOOT_BIT
 
         match_ids = {(self.dev.idVendor, self.dev.idProduct): None}
         vid = self.dev.idVendor
@@ -403,7 +403,7 @@ class POK3R_Device(Device):
 def get_devices():
     bl_known_devices = {
         **known_devices,
-        **{(vid, pid | PID_BOOT_BIT): f"{name} (bootloader)" for (vid, pid), name in known_devices.items()}
+        **{(vid, pid | POK3R_Device.PID_BOOT_BIT): f"{name} (bootloader)" for (vid, pid), name in known_devices.items()}
     }
 
     yield from find_hid_devices(

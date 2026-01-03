@@ -11,8 +11,6 @@ from .device import Device, find_hid_devices
 
 log = logging.getLogger(__name__)
 
-PID_BOOT_BIT = 0x1000
-
 known_devices = {
     (0x04d9, 0x0167): "Vortex POK3R RGB",
     (0x04d9, 0x0207): "Vortex POK3R RGB2",
@@ -31,6 +29,9 @@ known_devices = {
 UPDATE_USAGE_PAGE = 0xff00
 UPDATE_USAGE = 0x02
 
+CMD_PING = 0x10
+CMD_PING_ZERO = 2
+
 CMD_RESET = 0x11
 # Reset to bootloaer
 CMD_RESET_BL = 0
@@ -40,10 +41,10 @@ CMD_RESET_FW = 1
 CMD_RESET_DIS = 2
 
 CMD_READ = 0x12
-# ?
-CMD_READ_400 = 0
-# ?
-CMD_READ_3c00 = 1
+# Some info at 0x400 in flash
+CMD_READ_BL_INFO = 0
+# Some info at 0x3c00 in flash
+CMD_READ_FW_INFO = 1
 # Get firmware mode
 CMD_READ_MODE = 2
 # Read version string
@@ -106,6 +107,8 @@ def checksum(data: bytes, value: int = 0) -> int:
 
 
 class CYKB_Device(Device):
+    PID_BOOT_BIT = 0x1000
+
     def send_cmd(self, cmd: int, subcmd: int = 0, data: bytes = b""):
         pkt = struct.pack("<BBH", cmd, subcmd, 0) + data
         pkt = pkt.ljust(64, b"\0")
@@ -119,6 +122,12 @@ class CYKB_Device(Device):
         if rcrc != 0:
             raise RuntimeError(f"Expected CRC 0")
         return resp[4:]
+
+    def ping(self):
+        self.send_cmd(CMD_PING, CMD_PING_ZERO, 0xffff_ffff.to_bytes(4, "little"))
+        resp = self.recv_resp(CMD_PING, CMD_PING_ZERO)
+        if int.from_bytes(resp[:4]) != 0:
+            raise RuntimeError("Ping did not return zero!")
 
     def is_bootloader(self):
         self.send_cmd(CMD_READ, CMD_READ_MODE)
@@ -134,7 +143,7 @@ class CYKB_Device(Device):
         if bootloader:
             new_pid = bpid
         else:
-            new_pid = bpid & ~PID_BOOT_BIT
+            new_pid = bpid & ~self.PID_BOOT_BIT
 
         match_ids = {(self.dev.idVendor, self.dev.idProduct): None}
         match_ids[(vid, new_pid)] = None
@@ -241,8 +250,8 @@ class CYKB_Device(Device):
         return csum, crc
 
     def read_info(self):
-        self.send_cmd(CMD_READ, CMD_READ_400)
-        info1 = self.recv_resp(CMD_READ, CMD_READ_400)
+        self.send_cmd(CMD_READ, CMD_READ_BL_INFO)
+        info1 = self.recv_resp(CMD_READ, CMD_READ_BL_INFO)
         info1 = info1[:0x34]
         log.debug(f"bootloader info: {info1.hex()}")
 
@@ -271,8 +280,8 @@ class CYKB_Device(Device):
 
         log.debug(f"Firmware Size: {fw_size:#x}")
 
-        self.send_cmd(CMD_READ, CMD_READ_3c00)
-        info2 = self.recv_resp(CMD_READ, CMD_READ_3c00)
+        self.send_cmd(CMD_READ, CMD_READ_FW_INFO)
+        info2 = self.recv_resp(CMD_READ, CMD_READ_FW_INFO)
         info2 = info2[:4]
         log.debug(f"app info: {info2.hex()}")
 
@@ -340,7 +349,7 @@ class CYKB_Device(Device):
             0xefffffff,
             0x1,
             0x0,
-            bvid | ((bpid & ~PID_BOOT_BIT) << 16)
+            bvid | ((bpid & ~self.PID_BOOT_BIT) << 16)
         ]
 
         vdata = vdata.ljust(0x78, b"\xff")
@@ -421,7 +430,7 @@ class CYKB_Device(Device):
 def get_devices():
     bl_known_devices = {
         **known_devices,
-        **{(vid, pid | PID_BOOT_BIT): f"{name} (bootloader)" for (vid, pid), name in known_devices.items()}
+        **{(vid, pid | CYKB_Device.PID_BOOT_BIT): f"{name} (bootloader)" for (vid, pid), name in known_devices.items()}
     }
 
     yield from find_hid_devices(
