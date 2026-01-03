@@ -11,7 +11,7 @@ from rich.logging import RichHandler
 from rich.highlighter import ReprHighlighter
 from rich.text import Text
 
-from . import cykb, pok3r, package
+from . import pok3r, cykb, package
 from .device import Device
 
 log = logging.getLogger(__name__)
@@ -176,6 +176,7 @@ def cmd_dump(
 
 class UpdateFormat(str, Enum):
     MAAJONSN = "maajonsn"
+    MAAV101 = "maav101"
     MAAV102 = "maav102"
     MAAV105 = "maav105"
     KBP_CYKB = "kbp_cykb"
@@ -187,6 +188,8 @@ def cmd_extract(format: Annotated[UpdateFormat, typer.Argument(case_sensitive=Fa
     match format.lower():
         case UpdateFormat.MAAJONSN:
             package.extract_maajonsn(file, output)
+        case UpdateFormat.MAAV101:
+            package.extract_maav101(file, output)
         case UpdateFormat.MAAV102:
             package.extract_maav102(file, output)
         case UpdateFormat.MAAV105:

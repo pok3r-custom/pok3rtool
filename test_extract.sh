@@ -23,6 +23,14 @@ extract maajonsn vortex/POK3R_V115.exe
 extract maajonsn vortex/POK3R_V116.exe
 extract maajonsn vortex/POK3R_V117.exe
 
+extract maav101 coolermaster/masterkeys_pro_s_v1.01.zip
+extract maav101 coolermaster/masterkeys_pro_s_v1.02.zip
+extract maav101 coolermaster/masterkeys.zip
+
+extract maav101 coolermaster/masterkeys_pro_l_v1.03.zip
+extract maav101 "coolermaster/masterkeys pro l v1.06.zip"
+extract maav101 "coolermaster/masterkeys pro l v1.07.zip"
+
 extract maav102 vortex/POK3R2_V110.exe
 
 extract maav102 vortex/POK3R_RGB_V124.exe
@@ -47,8 +55,12 @@ extract maav102 vortex/VIBE_V113.exe
 
 extract maav102 vortex/CYPHER_V136.exe
 
-extract maav102 coolermaster/masterkeys-pro-l-white-v1.08.exe
-extract maav102 coolermaster/masterkeys-pro-m-white-v1.06.exe
+extract maav102 coolermaster/masterkeys-pro-l-white-v1.08.zip
+
+extract maav102 coolermaster/masterkeys-pro-m-white-v1.06.zip
+
+extract maav102 coolermaster/masterkeys_pro_m_v1.03.zip
+extract maav102 coolermaster/masterkeys_pro_m_v1.06.zip
 
 extract maav102 tex/AP_0163_1.01.01r.exe
 
