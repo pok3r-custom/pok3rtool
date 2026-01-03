@@ -11,7 +11,7 @@ from rich.logging import RichHandler
 from rich.highlighter import ReprHighlighter
 from rich.text import Text
 
-from . import pok3r, cykb, package
+from . import pok3r, cykb, cmmk, package
 from .device import Device
 
 log = logging.getLogger(__name__)
@@ -77,6 +77,8 @@ def find_devices() -> Generator[tuple[str, Device], None, None]:
     for name, device in pok3r.get_devices():
         yield name, device
     for name, device in cykb.get_devices():
+        yield name, device
+    for name, device in cmmk.get_devices():
         yield name, device
 
 
