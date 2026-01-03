@@ -5,10 +5,36 @@ set -e
 function extract() {
     format=$1
     file="$2"
+    ihash="$3"
+    slice=("${@:4}")
+    ohash="${slice[*]}"
+
+    ifhash="$(sha256sum "$FWDIR/$file" | cut -d' ' -f1)"
+    if [ -n "$ihash" ] && [[ "$ihash" != "$ifhash" ]]; then
+        echo "Incorrect input $file hash"
+        echo "Expected: $ihash"
+        echo "Actual: $ifhash"
+        exit 5
+    fi
+
+    tdir="$(mktemp -d)"
     (
         set -x
-        python -m pok3rtool.cli -v extract $format "$FWDIR/$file" output
+#        python -m pok3rtool.cli extract $format "$FWDIR/$file" "$tdir" > /dev/null
+        python -m pok3rtool.cli extract $format "$FWDIR/$file" "$tdir"
+#        python -m pok3rtool.cli -v extract $format "$FWDIR/$file" "$tdir"
     )
+
+    ofhash="$(sha256sum "$tdir"/* | cut -d' ' -f1 | xargs)"
+    if [ -n "$ohash" ] && [[ "$ohash" != "$ofhash" ]]; then
+        echo "Incorrect output files hash"
+        echo "Expected: $ohash"
+        echo "Actual: $ofhash"
+        exit 6
+    fi
+
+    mv "$tdir"/* output/
+    rm -rf "$tdir"
 }
 
 FWDIR="$1"
@@ -17,64 +43,64 @@ if [ -z "$FWDIR" ]; then
     exit 1
 fi
 
-extract maajonsn vortex/POK3R_V113.exe
-extract maajonsn vortex/POK3R_V114.exe
-extract maajonsn vortex/POK3R_V115.exe
-extract maajonsn vortex/POK3R_V116.exe
-extract maajonsn vortex/POK3R_V117.exe
+extract maajonsn vortex/POK3R_V113.exe 5fab5803fa8b46759082745ebb91f18f0956e653606795748978533835defa9d f476d2986639a7f03cb9e8f3cb29f202c28ff19dbd9cf24e9bed3ff53237e957
+extract maajonsn vortex/POK3R_V114.exe 2af7864cfad8e36c2b0db323a4852d43b0e04f031dd0e11d7c35931d3630a9b6 5cfa6a6bcf1c0e9927bdd704148f09fe2fe232ff825b794d17984530b54fb960
+extract maajonsn vortex/POK3R_V115.exe 70379fa84235df25e49f70eceace0b8ba008ddfeada08d82a17f0d6986a13d61 fc4e31af1b2f6819d1b7ffa27b498bd76926af7068c6e7207d14c0e7c0765a53
+extract maajonsn vortex/POK3R_V116.exe 5b55688b095210c156e9ed289bfc4005d4ff38d8323f49fe4e5b27e16df21855 c2dc94179cc72cf03c1977d3545077be2586fe66638dec4fc7533b4e07eac777
+extract maajonsn vortex/POK3R_V117.exe f7ed3c4b8f7551f9c75e18ef9b0996f004a379cf335c5dc9a2235d8b49e75a81 4a33ff2f5a7be0cb0fab754936d44ca314e5a74310da8f5962d9827b6998ee8b
 
-extract maav101 coolermaster/masterkeys_pro_s_v1.01.zip
-extract maav101 coolermaster/masterkeys_pro_s_v1.02.zip
-extract maav101 coolermaster/masterkeys.zip
+extract maav101 coolermaster/masterkeys_pro_s_v1.01.zip c369849c07f31eab83e55dddf9eb4f6e803c1ed4faa32d5a01c62ffbb92fcc70 a65cf751b52f71201e0719f8882088dca4cb6f5423eb409db1cfed1c83447797
+extract maav101 coolermaster/masterkeys_pro_s_v1.02.zip 6e56c44e291a725a017ba16799dcc646ac5ddc7462cc3c8f361a694868976d92 a65cf751b52f71201e0719f8882088dca4cb6f5423eb409db1cfed1c83447797
+extract maav101 coolermaster/masterkeys.zip 3f8d9623ff4a0fe2aa2d407b6d2449c93e68fce481cb9dc84c279cecd39126b5 4d621e3e2f52c6aa4cf03228621c7c2c5d22ad2cc4e6c8e87be49087b5329368
 
-extract maav101 coolermaster/masterkeys_pro_l_v1.03.zip
-extract maav101 "coolermaster/masterkeys pro l v1.06.zip"
-extract maav101 "coolermaster/masterkeys pro l v1.07.zip"
+extract maav101 coolermaster/masterkeys_pro_l_v1.03.zip 282d2b409c5a007e9d6f71f53f08f1807594a5a83f34eb8bef2134cb41bec85f d0753360f71128c4d2c9769368e693095cc159f53c3d6e676149a31337d9692f
+extract maav101 "coolermaster/masterkeys pro l v1.06.zip" c69fddab7b71d311a82ea124bde27a6d2389ae60e036dfd71d9a597b28e63cac 7e2abfc9b4d07193df69f9dae859d92d4be7f87fda11f49b1d29c5e6acfbbe2b
+extract maav101 "coolermaster/masterkeys pro l v1.07.zip" ce226d2fce2d0e269762cc8f8a96f66bcb3760f5ad440302347558976be46d4a 7e2abfc9b4d07193df69f9dae859d92d4be7f87fda11f49b1d29c5e6acfbbe2b
 
-extract maav102 vortex/POK3R2_V110.exe
+extract maav102 vortex/POK3R2_V110.exe cbe8963d10d21df24de865d5bab0fe6003136f5bf0a5e28b45704179bc1fca47 46d3e118a00077720bd091719694654d09795370ff727d6a84a007295087a927
 
-extract maav102 vortex/POK3R_RGB_V124.exe
-extract maav102 vortex/POK3R_RGB_V130.exe
-extract maav102 vortex/POK3R_RGB_V140.exe
+extract maav102 vortex/POK3R_RGB_V124.exe c32ca730bcc5435713b10a5342b2cfcd7f7713ba4cd98c59a722bc0bbaac193a 562949fbaa425f58e7b59d4fa964b54fbab86523a7e6c5b67bd02507aa417c4f
+extract maav102 vortex/POK3R_RGB_V130.exe 12301abc0d57e3ec68ef896a81d20264664e0e5c778e7faec82eb3be3cebd170 21b4aa777ec211160695d4489918392ecc1252cdaa244459be3316af4c83d144 a23dd745e7ae8ca90f447cc433b9f209a513bdbc77509678aed1654d1e1b7a0c
+extract maav102 vortex/POK3R_RGB_V140.exe b4b60c13d2c165d98a43cfb5fc386cc3246ce22376c45c378efc53bde6e9f58a eca03f96831a84e6d131d2d7700ee1c9547915ef9f40dcc89d505d9845144573 ae030d482952b52d520343b7fa1871e91f35e13e1eaebfca8971fa0ed4f5c6cb
 
-extract maav102 vortex/POK3R_RGB2_V105.exe
+extract maav102 vortex/POK3R_RGB2_V105.exe 7459045c885c2aaaa68c52fbab07cf4511d9fc9d96b014e385f357ed118b3a82 972290a70b4488290621725a829d1aba019b4563ea765656417d65f6e4331506
 
-extract maav102 vortex/CORE_V141.exe
-extract maav102 vortex/CORE_V143.exe
-extract maav102 vortex/CORE_V145.exe
+extract maav102 vortex/CORE_V141.exe e40b6e9a7c74de01d8f6d18ea2a5470db8bcbbe13315fd8319aed243272698b1 4776bf74d62ce72cbddf3ee475794c7390fde8f21723f9b6e4a4b589b16239ed
+extract maav102 vortex/CORE_V143.exe 41570cc67d60296bcf5166c1edbcb75cde5c1afd7b2a288a57a9321c5d57524a 71c3b4f254bfc7e5e7b29d7ed2e5afad4d7813d80b5f12f88a561446e7c44d0f
+extract maav102 vortex/CORE_V145.exe 057f07c14c4ad4df09989291e67f26a96d21d9b32b18ada7096e9d8b7850a472 1dc93f1b8fd7cb82a2306367521f3a57861ab4801fcc8508a1d2d76eab5d273b
 
-extract maav102 vortex/CORE_RGB_V146.exe
+extract maav102 vortex/CORE_RGB_V146.exe f0715ae6c7e23303aa72a3defe9b66218400bb14ac6cc89ee9a346caaf741bad f531575cc064e904a1b8868fc9324dcb8926c96de23c191fda522abf58567fda
 
-extract maav102 vortex/TAB_60_V1113.exe
+extract maav102 vortex/TAB_60_V1113.exe fc7ee18829eaccb2c3d56d76af0e24f739d7bbf8640221790fb9d39d716849dd b77f3fe9d3dfe86e9326633d5edf6f4c1c092c9efa0550d60832a8f4d93d5f3d
 
-extract maav102 vortex/RACE_V121.exe
-extract maav102 vortex/RACE_V124.exe
-extract maav102 vortex/RACE_V125.exe
+extract maav102 vortex/RACE_V121.exe d620e4cd59c719cbee273d342d62dfeef08372f17fbd090d7aa9b48572cc2721 6d08fbc14eccef9cb2f90fa54135790b6d2578e9f39211fb861d8f26b3650df0 0c13ac397f2766a394edc86a2f1a5f8fd8b82fe57696200cc54d189dac02d8b4
+extract maav102 vortex/RACE_V124.exe c386bde5a456f428360b0105f1b986921d6e74965f3a1a97e976aede04d0d13e d458a21f8a35a5209d876b33d2f531c0c2ca58a237898b677c572f29e74d0a55 17066477c6b965dc27635a45d9fc65b405a2943275f2f201dc09344d85d43e2e
+extract maav102 vortex/RACE_V125.exe f8e4278ce5018523182009e1227fb2f8e672c01deabb89cfdbd5ce8666b4a4a7 3ebf52e219aeb76d3d40ec63cacf01127f0f91786224179ca7500b5583bf5829 32a92fabb549bc14accc59816868dc4c310441940fca2868e37d2c1cf6d79251
 
-extract maav102 vortex/VIBE_V113.exe
+extract maav102 vortex/VIBE_V113.exe 4535150904d37add1065d4fa514884875bc31e271aa30c00cb1a0059de55e64a 0407c6b7e500f4db683081ecd87053d39bd0fe2e89bbd87644d64286f2d4ed89 2027f279bee8c3e9db4919dae67577d37c2a36b14f5c6204a884ff4172c9dc35
 
-extract maav102 vortex/CYPHER_V136.exe
+extract maav102 vortex/CYPHER_V136.exe 35ace5699d120215abb9a78afa1547e85742d5493d3d5a917d04a291d0327d40 77258f277edd139b86ff0d3064dffb6d94202ba6ba6facabd025d15bfc467c45
 
-extract maav102 coolermaster/masterkeys-pro-l-white-v1.08.zip
+extract maav102 coolermaster/masterkeys-pro-l-white-v1.08.zip be45f248025b5fd4337d38d98714ba39976ffe109b00681fb56325fe6ea68fb6 c3b56daf72eecf2792ca2d9f192fd2826eb21d9beb97de1de375264f56c79b6c 2df8d191dd20b4b088dec85ca06edd3c3387842cc1a1a391f4a3d285c4272b6b 2f0b37235f06b1e92e9f377bb830097880816157d404e0ffd0c94b6d415fd2b5
 
-extract maav102 coolermaster/masterkeys-pro-m-white-v1.06.zip
+extract maav102 coolermaster/masterkeys-pro-m-white-v1.06.zip 71edf120116cc4c143bb046264836feff0f8af07682418cba10b788ff05fb3c8 03493bc3a7710b843384300b03b61cec5d885b7ab62744e7671d72f45e08c479 3835f5e9153b720fbf086e7e017517d2e9ba090de7139bb31dcf1a9d9737ce65
 
-extract maav102 coolermaster/masterkeys_pro_m_v1.03.zip
-extract maav102 coolermaster/masterkeys_pro_m_v1.06.zip
+extract maav102 coolermaster/masterkeys_pro_m_v1.03.zip 5092f7e857c39a5d0a6cb5aaeacdc9f9962ef83de27f04421264a1c6bb5148df b516f9cd7d53c0eb3fdc661c8d47d908132adc1a393fd65cf1a0d08ef0fb1b9f b584a0fa66efcf38470b08ce138a42312418e1153e93f2c0be4af1505a106ba1 90b6900652b626ea4a6f8e24652be13b81527df166264009a092dbec11180f3d
+extract maav102 coolermaster/masterkeys_pro_m_v1.06.zip b47b75b192570bfbe0007e54c290906de1d1fcd6069a7fedf18678858e6ba33c 9fd5be85897e2171571d2cf224f41a8de5d8af8ff5c40146247fba86174c6b9c 73aad8e3e204f2636a373cf7313ab539af366eaa2265f6bfd3e921d97eb8bdab 8c3369f7de56912e65b81f120830b843a53d75b639ee3c664e34d48af3f6c090
 
-extract maav102 tex/AP_0163_1.01.01r.exe
+extract maav102 tex/AP_0163_1.01.01r.exe 9182a32b148eba5d03801ed326f007132a2b703f768bdb2d1a5f64b7fbee8640 94cd9a0336954eaf4e4a139fc0da15b10397469a6844178923e3c1cea86b4c35
 
-extract maav102 mistel/BOROCO_MD200.exe
+extract maav102 mistel/BOROCO_MD200.exe b3a13b56140cc74f7ec5449ee7ce58b7ab16ac62bb63e4d50d5ebe800769b62b 377220e607b411b08bb8d16195aa34b4a6f1d0e2ffa6802187abce02081a483a
 
-extract maav102 mistel/BOROCO_MD600.exe
+extract maav102 mistel/BOROCO_MD600.exe 59f53b0b0e79baebe061d16068fd205677d2c6491f108c7840d1b6762b93fee7 592c6534d8b8ec20312cee456fe2b317ba12f5708274b331c07de2d9ecd5210b
 
-extract maav105 vortex/CORE_MPC.exe
+extract maav105 vortex/CORE_MPC.exe 474b4c16a1b3b940e6061df59ca06185417f4b399a2c677497d966424b0b77f4 a9259007f2321829b0af7ebe2972deb0bee5ca1113931a25feef0f387e203fb3 5b17c89c0870a9beb405a5659c91622060ad5427c900cb9384650abc07abc01d
 
-extract maav105 vortex/TAB_75_V100.exe
+extract maav105 vortex/TAB_75_V100.exe 79add7dd96090ca2c13db558cc19897ca2bd71f723b87dccfba73d34de0bd1b6 01a4abaa012db6cb205302010e02138971d8825e5c0b6d6bda890edac631086b
 
-extract maav105 vortex/TAB_90_V100.exe
+extract maav105 vortex/TAB_90_V100.exe 380730731f22120075fcaa388747d8e324bac0e26f439515626191c16337ebb3 e65329b1075a4eb4ac1355eba8d81c0111f05a72c42b34d550e74f1a2459acc7
 
-extract kbp_cykb kbp/cykb112_v106.exe
-extract kbp_cykb kbp/cykb112_v107.exe
+extract kbp_cykb kbp/cykb112_v106.exe 001561a55dec6af583cb9a43da0480e399d3ec1782883e3b68d019725573a91e b6dece078925f6ab879087abeb677dba3788f81c4c518568962bb1c7b0581a85
+extract kbp_cykb kbp/cykb112_v107.exe f7113a511c0dcd9ef5a7241e51ff18da7e7d9322def221ef4eddcda82574315e e1a039aff72f526c988037821266853792ea8a2cc8cbf2bca9fea32b3cd54f60
 
-extract kbp_cykb kbp/cykb129_v106.exe
+extract kbp_cykb kbp/cykb129_v106.exe 594ecac3d157d34c2ed6c169e3d4e8ee10095f15e263d2b186547eef5d45d5e0 0187b23d03edf1e7254ea30bdcedb51412945e6244b1a64b877af8ae853cfa60
