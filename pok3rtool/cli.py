@@ -8,7 +8,6 @@ from enum import Enum
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.highlighter import ReprHighlighter
 from rich.text import Text
 
 from . import pok3r, cykb, cmmk, package
@@ -181,6 +180,7 @@ class UpdateFormat(str, Enum):
     MAAV101 = "maav101"
     MAAV102 = "maav102"
     MAAV105 = "maav105"
+    MAAV106 = "maav106"
     KBP_CYKB = "kbp_cykb"
 
 
@@ -196,6 +196,8 @@ def cmd_extract(format: Annotated[UpdateFormat, typer.Argument(case_sensitive=Fa
             package.extract_maav102(file, output)
         case UpdateFormat.MAAV105:
             package.extract_maav105(file, output)
+        case UpdateFormat.MAAV106:
+            package.extract_maav106(file, output)
         case UpdateFormat.KBP_CYKB:
             package.extract_kbp_cykb(file, output)
         case _:

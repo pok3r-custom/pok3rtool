@@ -2,9 +2,12 @@
 import io
 import logging
 from pathlib import Path
-import pefile
 import zipfile
+
 import rarfile
+import pefile
+from dissect import cstruct
+
 
 from .pok3r import POK3R_Device
 from .cykb import CYKB_Device
@@ -68,52 +71,238 @@ def dump_info_section(data: bytes):
     log.info(f"h: {h:#x}")
 
 
+cparser = cstruct.cstruct("""
+    struct maajonsn_info {
+        uint32 app_vid;
+        uint32 app_pid;
+        uint32 boot_vid;
+        uint32 boot_pid;
+        
+        wchar_t company[0x104];
+        wchar_t product[0x104];
+        
+        uint32 firmware_size;
+        
+        wchar_t layout_name[30];
+        char version[12];
+        
+        char unknown_46c[66];
+        char sig[10];
+    };
+
+    struct maav101_layout {
+        uint32 firmware_size;
+        wchar_t name[30];
+        char version[6];
+        uint16 unknown_46;
+    };
+
+    struct maav101_info {
+        uint32 app_vid;
+        uint32 app_pid;
+        uint32 boot_vid;
+        uint32 boot_pid;
+        
+        wchar_t company[0x104];
+        wchar_t product[0x104];
+        
+        struct maav101_layout layouts[2];
+        
+        char sig[12];
+    };
+
+    struct maav102_device {
+        uint32 unknown_00;
+        uint16 vid;
+        uint16 pid;
+        uint16 page_size;
+        uint16 unknown_0a;
+        uint32 unknown_0c;
+        uint32 unknown_10;
+        uint32 boot_vid;
+        uint32 boot_pid;
+        uint32 app_vid;
+        uint32 app_pid;
+        uint16 unknown_24;
+    };
+
+    struct maav102_layout {
+        uint32 firmware_size;
+        uint32 version_size;
+        wchar_t name[30];
+        uint32 unknown_44;
+        uint32 unknown_48;
+        uint32 unknown_4c;
+    };
+
+    struct maav102_info {
+        struct maav102_device device;
+        
+        wchar_t desc[0x104];
+        wchar_t company[0x104];
+        wchar_t product[0x104];
+        wchar_t version[0x104];
+        
+        uint16 unknown_846;
+        
+        struct maav102_layout layouts[9];
+        
+        uint16 sig1;
+        char sig2[10];
+    };
+
+    struct maav105_device {
+        uint32 unknown_00;
+        uint16 vid;
+        uint16 pid;
+        uint16 page_size;
+        uint16 unknown_0a;
+        uint32 unknown_0c;
+        uint32 unknown_10;
+        uint32 boot_vid;
+        uint32 boot_pid;
+        uint32 app_vid;
+        uint32 app_pid;
+        uint32 unknown_24;
+    };
+
+    struct maav105_layout {
+        uint32 firmware_size;
+        uint32 version_size;
+        wchar_t name[30];
+        uint32 unknown_44;
+        uint32 unknown_48;
+        uint32 unknown_4c;
+    };
+
+    struct maav105_section {
+        wchar_t desc[0x104];
+        wchar_t version[0x104];
+
+        struct maav105_layout layouts[9];
+    };
+
+    struct maav105_info {
+        struct maav105_device devices[5];
+        struct maav105_section sections[5];
+
+        uint16 num;
+
+        wchar_t desc[0x104];
+        wchar_t company[0x104];
+        wchar_t product[0x104];
+        wchar_t version[0x104];
+
+        uint16 sig1;
+        char sig2[12];
+    };
+    
+    struct maav106_device {
+        uint32 unknown_00;
+        uint16 vid;
+        uint16 pid;
+        uint32 unknown_08;
+        uint32 unknown_0c;
+        uint32 unknown_10;
+        uint32 unknown_14;
+        uint32 unknown_18;
+        uint32 unknown_1c;
+        uint32 unknown_20;
+        uint32 unknown_24;
+        uint32 unknown_28;
+        uint32 unknown_2c;
+        uint32 unknown_30;
+        uint32 unknown_34;
+        uint32 unknown_38;
+        uint32 unknown_3c;
+        uint32 unknown_40;
+        uint32 unknown_44;
+        uint32 unknown_48;
+        uint32 unknown_4c;
+        uint32 unknown_50;
+        uint32 app_vid;
+        uint32 app_pid;
+        uint32 boot_vid;
+        uint32 boot_pid;
+        uint32 unknown_64;
+    };
+
+    struct maav106_layout {
+        uint32 firmware_size;
+        uint32 version_size;
+        wchar_t name[30];
+        uint32 unknown_44;
+        uint32 unknown_48;
+        uint32 unknown_4c;
+    };
+
+    struct maav106_section {
+        wchar_t desc[0x104];
+        wchar_t version[0x104];
+
+        struct maav106_layout layouts[9];
+    };
+
+    struct maav106_info {
+        struct maav106_device devices[5];
+        struct maav106_section sections[5];
+
+        uint16 num;
+
+        wchar_t desc[0x104];
+        wchar_t company[0x104];
+        wchar_t product[0x104];
+        wchar_t version[0x104];
+
+        uint16 sig1;
+        char sig2[12];
+    };
+""")
+
+
 def extract_maajonsn(file: Path, output: Path | None):
     """
     Decode the updater for the POK3R.
     """
     with open(file, "rb") as f:
-        f.seek(0, io.SEEK_END)
-        exelen = f.tell()
+        fdata = f.read()
 
-        strings_len = 0x4B8
-        f.seek(exelen - strings_len, io.SEEK_SET)
-        strs = decode_package_data(f.read(strings_len))
-        log.debug(strs)
+    strings_len = len(cparser.maajonsn_info)
+    strs = decode_package_data(fdata[-strings_len:])
 
-        signature = strs[0x4AE:-1]
-        assert signature == b".maajonsn"
+    signature = strs[-10:-1]
+    assert signature == b".maajonsn"
 
-        company, _, _ = strs[0x10:][:0x200].decode("utf-16le").partition("\0")
-        product, _, _ = strs[0x218:][:0x200].decode("utf-16le").partition("\0")
-        version, _, _ = strs[0x460:][:12].decode("ascii").partition("\0")
+    # log.debug(strs)
+    info = cparser.maajonsn_info(strs)
+    log.debug(info)
+    # cstruct.dumpstruct(info)
 
-        log.info(f"Company: {company}")
-        log.info(f"Product: {product}")
-        log.info(f"Version: {version}")
+    company, _, _ = info.company.partition("\0")
+    product, _, _ = info.product.partition("\0")
+    layout, _, _ = info.layout_name.partition("\0")
+    version, _, _ = info.version.decode().partition("\0")
 
-        sec_len = int.from_bytes(strs[0x420:][:4], "little")
+    log.info(f"Company: {company}")
+    log.info(f"Product: {product}")
+    log.info(f"Layout: {layout}")
+    log.info(f"Version: {version}")
 
-        layout, _, _ = strs[0x424:][:0x20].decode("utf-16le").partition("\0")
-        log.info(f"Layout: {layout}")
+    sec = decode_package_data(fdata[-strings_len-info.firmware_size:-strings_len])
 
-        sec_start = exelen - strings_len - sec_len
-        f.seek(sec_start, io.SEEK_SET)
-        sec = decode_package_data(f.read(sec_len))
+    dec_sec = POK3R_Device.decode_firmware(sec)
 
-        dec_sec = POK3R_Device.decode_firmware(sec)
+    # built-in test for the encoding function
+    check = POK3R_Device.encode_firmware(dec_sec)
+    assert check == sec, "re-encode failed"
 
-        # built-in test for the encoding function
-        check = POK3R_Device.encode_firmware(dec_sec)
-        assert check == sec, "re-encode failed"
-
-        if output:
-            output.mkdir(exist_ok=True)
-            name = f"{product}-{layout}-{version}.bin"
-            name = name.replace(" ", "_")
-            with open(output / name, "wb") as fo:
-                log.info(f"Save {fo.name}")
-                fo.write(dec_sec)
+    if output:
+        output.mkdir(exist_ok=True)
+        name = f"{product}-{layout}-{version}.bin"
+        name = name.replace(" ", "_")
+        with open(output / name, "wb") as fo:
+            log.info(f"Save {fo.name}")
+            fo.write(dec_sec)
 
 
 def extract_coolermater_installer(fdata: bytes):
@@ -127,7 +316,7 @@ def extract_coolermater_installer(fdata: bytes):
             rsrc_end = sec.PointerToRawData + sec.SizeOfRawData
             break
     else:
-        assert False, "no rsrs section"
+        assert False, "no rsrc section"
 
     log.debug(f"RAR addr: {rsrc_end:x}")
     rar_data = fdata[rsrc_end:]
@@ -159,7 +348,7 @@ def extract_maav101(file: Path, output: Path | None):
         with open(file, "rb") as f:
             fdata = f.read()
 
-    strings_len = 0x4BC
+    strings_len = len(cparser.maav101_info)
     strs = decode_package_data(fdata[-strings_len:])
 
     signature = strs[-13:-5]
@@ -172,36 +361,49 @@ def extract_maav101(file: Path, output: Path | None):
         else:
             assert False, "did not find updater exe"
 
-    log.debug(strs)
+    # log.debug(strs)
+    info = cparser.maav101_info(strs)
+    log.debug(info)
+    # cstruct.dumpstruct(info)
 
-    company, _, _ = strs[0x10:][:0x200].decode("utf-16le").partition("\0")
-    product, _, _ = strs[0x218:][:0x200].decode("utf-16le").partition("\0")
-    version, _, _ = strs[0x461:][:12].decode("ascii").partition("\0")
+    company, _, _ = info.company.partition("\0")
+    product, _, _ = info.product.partition("\0")
 
     log.info(f"Company: {company}")
     log.info(f"Product: {product}")
-    log.info(f"Version: {version}")
 
-    sec_len = int.from_bytes(strs[0x420:][:4], "little")
+    total = strings_len
+    sections = []
 
-    layout, _, _ = strs[0x424:][:0x20].decode("utf-16le").partition("\0")
-    log.info(f"Layout: {layout}")
+    for i, layout in enumerate(info.layouts):
+        if layout.firmware_size:
+            slayout, _, _ = layout.name.partition("\0")
+            sversion, _, _ = layout.version.decode().partition("\0")
 
-    sec = decode_package_data(fdata[-strings_len-sec_len:-strings_len])
+            log.info(f"  Layout {i}: firmware {layout.firmware_size} bytes")
+            log.info(f"    \"{slayout}\" \"{sversion}\"")
 
-    dec_sec = POK3R_Device.decode_firmware(sec)
+            total += layout.firmware_size
+            sections.append((slayout, sversion, layout.firmware_size))
 
-    # built-in test for the encoding function
-    check = POK3R_Device.encode_firmware(dec_sec)
-    assert check == sec, "re-encode failed"
+    pos = -total
+    for layout, version, fwl in sections:
+        fsec = decode_package_data(fdata[pos:pos+fwl])
+        pos += fwl
 
-    if output:
-        output.mkdir(exist_ok=True)
-        name = f"{product}-{layout}-{version}.bin"
-        name = name.replace(" ", "_")
-        with open(output / name, "wb") as fo:
-            log.info(f"Save {fo.name}")
-            fo.write(dec_sec)
+        dec_sec = POK3R_Device.decode_firmware(fsec)
+
+        # built-in test for the encoding function
+        check = POK3R_Device.encode_firmware(dec_sec)
+        assert check == fsec, "re-encode failed"
+
+        if output:
+            output.mkdir(exist_ok=True)
+            name = f"{product}-{layout}-{version}.bin"
+            name = name.replace(" ", "_")
+            with open(output / name, "wb") as fo:
+                log.info(f"Save {fo.name}")
+                fo.write(dec_sec)
 
 
 def extract_maav102(file: Path, output: Path | None):
@@ -220,9 +422,7 @@ def extract_maav102(file: Path, output: Path | None):
         with open(file, "rb") as f:
             fdata = f.read()
 
-    # from IDA disassembly in sub_403830 of v130 updater
-    # same size in v104
-    strings_len = 0xB24
+    strings_len = len(cparser.maav102_info)
     strs = decode_package_data(fdata[-strings_len:])
 
     signature = strs[-11:-3]
@@ -235,12 +435,15 @@ def extract_maav102(file: Path, output: Path | None):
         else:
             assert False, "did not find updater exe"
 
-    log.debug(strs)
+    # log.debug(strs)
+    info = cparser.maav102_info(strs)
+    log.debug(info)
+    # cstruct.dumpstruct(info)
 
-    desc, _, _ = strs[0x26:][:0x200].decode("utf-16le").partition("\0")
-    company, _, _ = strs[0x22e:][:0x200].decode("utf-16le").partition("\0")
-    product, _, _ = strs[0x436:][:0x200].decode("utf-16le").partition("\0")
-    version, _, _ = strs[0x63e:][:0x200].decode("utf-16le").partition("\0")
+    desc, _, _ = info.desc.partition("\0")
+    company, _, _ = info.company.partition("\0")
+    product, _, _ = info.product.partition("\0")
+    version, _, _ = info.version.partition("\0")
 
     log.info(f"Description: {desc}")
     log.info(f"Company: {company}")
@@ -250,21 +453,16 @@ def extract_maav102(file: Path, output: Path | None):
     total = strings_len
     sections = []
 
-    start = 0xac8 - (0x50 * 8)
-    for i in range(8):
-        # firmware length
-        fwl = int.from_bytes(strs[start:][:4], "little")
-        # info length
-        strl = int.from_bytes(strs[start+4:][:4], "little")
+    for i, layout in enumerate(info.layouts):
+        if layout.firmware_size:
+            slayout, _, _ = layout.name.partition("\0")
 
-        if fwl:
-            layout, _, _ = strs[start + 8:][:0x20].decode("utf-16le").partition("\0")
-            log.info(f"  Layout: {layout} ({fwl}+{strl} bytes)")
-            total += fwl
-            total += strl
-            sections.append((layout, fwl, strl))
+            log.info(f"  Layout {i}: firmware {layout.firmware_size} bytes, version {layout.version_size} bytes")
+            log.info(f"    \"{slayout}\"")
 
-        start += 0x50
+            total += layout.firmware_size
+            total += layout.version_size
+            sections.append((slayout, layout.firmware_size, layout.version_size))
 
     pos = -total
     for layout, fwl, strl in sections:
@@ -292,87 +490,99 @@ def extract_maav102(file: Path, output: Path | None):
                 fo.write(dec_sec)
 
 
-def extract_maav105(file: Path, output: Path | None):
-    with open(file, "rb") as f:
-        f.seek(0, io.SEEK_END)
-        exelen = f.tell()
-
-        # from decompiled FUN_4049d0 of TAB_75_V100
-        strings_len = 0x2b58
-        f.seek(exelen - strings_len, io.SEEK_SET)
-        strs = decode_package_data(f.read(strings_len))
-        log.debug(strs)
-
-        signature = strs[-13:-5]
-        assert signature == b".maaV105"
-
-        desc, _, _ = strs[0x232a:][:0x200].decode("utf-16le").partition("\0")
-        company, _, _ = strs[0x2532:][:0x200].decode("utf-16le").partition("\0")
-        product, _, _ = strs[0x273a:][:0x200].decode("utf-16le").partition("\0")
-        version, _, _ = strs[0x2942:][:0x200].decode("utf-16le").partition("\0")
-
-        log.info(f"Description: {desc}")
-        log.info(f"Company: {company}")
-        log.info(f"Product: {product}")
-        log.info(f"Version: {version}")
-
-        sections = []
-
-        start = 0xc8
-        for i in range(4):
-            sdesc, _, _ = strs[start:][:0x200].decode("utf-16le").partition("\0")
-            sversion, _, _ = strs[start+0x208:][:0x200].decode("utf-16le").partition("\0")
-            # firmware length
-            fwl = int.from_bytes(strs[start+0x208+0x208:][:4], "little")
-            # info length
-            strl = int.from_bytes(strs[start+0x208+0x208+4:][:4], "little")
-
-            if fwl:
-                log.info(f"  Description: {sdesc}")
-                log.info(f"  Version: {sversion}")
-
-                log.info(f"  {fwl}+{strl} bytes")
-
-                layout_start = start + 0x208 + 0x208 + 8
-                layouts = []
-                while True:
-                    layout, _, _ = strs[layout_start:][:60].decode("utf-16le").partition("\0")
-                    if not layout:
+def extract_maav105_maav106(file: Path, output: Path | None, sig: bytes, struct_type: type[cstruct.Structure]):
+    if file.suffix == ".zip":
+        with zipfile.ZipFile(file) as zf:
+            for info in zf.infolist():
+                if info.filename.endswith(".exe"):
+                    log.debug(f"{info.filename}: {info.file_size} bytes")
+                    with zf.open(info) as f:
+                        fdata = f.read()
                         break
-                    a = int.from_bytes(strs[layout_start+60:][:4], "little")
-                    b = int.from_bytes(strs[layout_start+64:][:4], "little")
-                    log.info(f"    Layout: {layout} {a:x} {b:x}")
-                    layouts.append(layout)
-                    layout_start += 80
+    else:
+        with open(file, "rb") as f:
+            fdata = f.read()
 
-                slayout = " ".join(layouts)
-                sections.append((sdesc, sversion, slayout, fwl, strl))
+    strings_len = len(struct_type)
+    strs = decode_package_data(fdata[-strings_len:])
 
-            start += 0x208 + 0x208 + 8 + 0x2c8
+    signature = strs[-len(sig):]
+    if signature != sig:
+        for fdata in extract_coolermater_installer(fdata):
+            strs = decode_package_data(fdata[-strings_len:])
+            signature = strs[-len(sig):]
+            if signature == sig:
+                break
+        else:
+            assert False, "did not find updater exe"
 
-        section_start = 0x1f1600
-        f.seek(section_start, io.SEEK_SET)
+    # log.debug(strs)
+    info = struct_type(strs)
+    log.debug(info)
+    # cstruct.dumpstruct(info)
 
-        for sdesc, sversion, slayout, fwl, strl in sections:
-            fsec = decode_package_data(f.read(fwl))
+    desc, _, _ = info.desc.partition("\0")
+    company, _, _ = info.company.partition("\0")
+    product, _, _ = info.product.partition("\0")
+    version, _, _ = info.version.partition("\0")
 
-            dec_sec = CYKB_Device.decode_firmware(fsec)
+    log.info(f"Description: {desc}")
+    log.info(f"Company: {company}")
+    log.info(f"Product: {product}")
+    log.info(f"Version: {version}")
 
-            # built-in test for the encoding function
-            check = CYKB_Device.encode_firmware(dec_sec)
-            assert check == fsec, "re-encode failed"
+    total = strings_len
+    sections = []
 
-            isec = decode_package_data(f.read(strl))
-            log.debug(isec)
-            dump_info_section(isec)
+    for i, section in enumerate(info.sections):
+        sdesc, _, _ = section.desc.partition("\0")
+        sversion, _, _ = section.version.partition("\0")
 
-            if output:
-                output.mkdir(exist_ok=True)
-                name = f"{product}-{version}-{sdesc}-{slayout}-{sversion}.bin"
-                name = name.replace(" ", "_")
-                with open(output / name, "wb") as fo:
-                    log.info(f"Save {fo.name}")
-                    fo.write(dec_sec)
+        log.info(f"Section {i}:")
+        log.info(f"  \"{sdesc}\" \"{sversion}\"")
+
+        for j, layout in enumerate(section.layouts):
+            if layout.firmware_size:
+                slayout, _, _ = layout.name.partition("\0")
+
+                log.info(f"  Layout {j}: firmware {layout.firmware_size} bytes, version {layout.version_size} bytes")
+                log.info(f"    \"{slayout}\"")
+
+                total += layout.firmware_size
+                total += layout.version_size
+                sections.append((sdesc, sversion, slayout, layout.firmware_size, layout.version_size))
+
+    pos = -total
+    for sdesc, sversion, slayout, fwl, strl in sections:
+        fsec = decode_package_data(fdata[pos:pos+fwl])
+        pos += fwl
+
+        dec_sec = CYKB_Device.decode_firmware(fsec)
+
+        # built-in test for the encoding function
+        check = CYKB_Device.encode_firmware(dec_sec)
+        assert check == fsec, "re-encode failed"
+
+        isec = decode_package_data(fdata[pos:pos+strl])
+        pos += strl
+        log.debug(isec)
+        dump_info_section(isec)
+
+        if output:
+            output.mkdir(exist_ok=True)
+            name = f"{product}-{version}-{sdesc}-{slayout}-{sversion}.bin"
+            name = name.replace(" ", "_")
+            with open(output / name, "wb") as fo:
+                log.info(f"Save {fo.name}")
+                fo.write(dec_sec)
+
+
+def extract_maav105(file: Path, output: Path | None):
+    extract_maav105_maav106(file, output, b".maaV105\0\0\0\0\0", cparser.maav105_info)
+
+
+def extract_maav106(file: Path, output: Path | None):
+    extract_maav105_maav106(file, output, b".maaV106\0\0\0\0\0", cparser.maav106_info)
 
 
 def kbp_decrypt(enc: bytes, key: int, strs: bool):
