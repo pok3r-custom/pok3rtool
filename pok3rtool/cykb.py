@@ -24,6 +24,8 @@ known_devices = {
     (0x04d9, 0x0163): "Tex Yoda II",
     (0x04d9, 0x0143): "Mistel Barocco MD600",
     (0x04d9, 0x0200): "Mistel Freeboard MD200",  # same as Vortex 22-key Tester
+    (0x04d9, 0x0419): "Mistel MD770 RGB BT right",
+    (0x04d9, 0x041a): "Mistel MD770 RGB BT left",
 }
 
 UPDATE_USAGE_PAGE = 0xff00

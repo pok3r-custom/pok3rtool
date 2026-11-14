@@ -18,6 +18,9 @@ dependencies = [
     "hid-parser>=0.1.0",
     "typer>=0.20.1",
     "tqdm>=4.67.1",
+    "rarfile",
+    "pefile",
+    "dissect.cstruct",
 ]
 
 [project.scripts]
